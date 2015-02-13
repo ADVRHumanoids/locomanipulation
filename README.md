@@ -1,10 +1,6 @@
-%Temp
-<<<<<<< HEAD
-
-Bonilla!!!
-
-=======
-%prova
-%prova
-% prova
->>>>>>> e5fe2d649b7a534553904d538cd7a38b61659d0f
+% 
+% Hi! 
+% This is a first attempt of implementation of 
+% the Whole-Body Locomanipulation Analysis and Control Tools
+% Stay tuned for updates!
+%
