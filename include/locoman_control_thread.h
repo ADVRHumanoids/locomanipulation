@@ -1,5 +1,5 @@
-#ifndef TUTORIAL_CONTROL_THREAD_H_
-#define TUTORIAL_CONTROL_THREAD_H_
+#ifndef LOCOMAN_CONTROL_THREAD_H_
+#define LOCOMAN_CONTROL_THREAD_H_
 
 #include <yarp/os/RateThread.h>
 #include <yarp/sig/Vector.h>
@@ -9,9 +9,9 @@
 #include <GYM/generic_thread.hpp>
 
 /**
- * @brief The tutorial_control_thread class inherit from a generic_thread
+ * @brief The locoman_control_thread class inherit from a generic_thread
  */
-class tutorial_control_thread: public generic_thread
+class locoman_control_thread: public generic_thread
 {
 private:   
     // left_arm chain interface
@@ -37,7 +37,7 @@ public:
      * @param rf passed from the module
      * @param ph a param helper builted while generating the control thread
      */
-    tutorial_control_thread(    std::string module_prefix, 
+    locoman_control_thread(    std::string module_prefix, 
                                 yarp::os::ResourceFinder rf, 
                                 std::shared_ptr<paramHelp::ParamHelperServer> ph );
 

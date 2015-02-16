@@ -1,9 +1,9 @@
 // include yarp and generic_module headers
 #include <yarp/os/all.h>
 #include <GYM/generic_module.hpp>
-// include tutorial module and control thread headers 
-#include "tutorial_module.hpp"
-#include "tutorial_control_thread.h"
+// include locoman module and control thread headers 
+#include "locoman_module.hpp"
+#include "locoman_control_thread.h"
 
 // define representing the period of the module in [milliseconds]
 #define MODULE_PERIOD_MILLISEC 1000
@@ -19,19 +19,19 @@ int main(int argc, char* argv[])
     // yarp network initialization
     yarp.init();
 
-    // create the resource finder for the tutorial module
-    yarp::os::ResourceFinder tutorial_rf;
-    tutorial_rf.setVerbose(true);
-    tutorial_rf.setDefaultConfigFile( "tutorial_configuration.ini" );
-    tutorial_rf.setDefaultContext( "generic_tutorial" );  
-    tutorial_rf.configure(argc, argv);
+    // create the resource finder for the locomanipulation module
+    yarp::os::ResourceFinder locoman_rf;
+    locoman_rf.setVerbose(true);
+    locoman_rf.setDefaultConfigFile( "locoman_configuration.ini" );
+    locoman_rf.setDefaultContext( "generic_tutorial" );  
+    locoman_rf.configure(argc, argv);
 
-    // create tutorial module
-    tutorial_module tutorial_mod = tutorial_module( argc, 
+    // create locomanipulation module
+    locoman_module locoman_mod = locoman_module( argc, 
                                                     argv, 
                                                     "generic_tutorial", 
                                                     MODULE_PERIOD_MILLISEC, 
-                                                    tutorial_rf );
+                                                    locoman_rf );
         
     // yarp network deinitialization
     yarp.fini();

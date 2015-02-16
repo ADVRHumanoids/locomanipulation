@@ -1,10 +1,10 @@
 #include <yarp/os/all.h>
 #include <cstdlib>
 
-#include "tutorial_control_thread.h"
-#include "tutorial_constants.h"
+#include "locoman_control_thread.h"
+#include "locoman_constants.h"
 
-tutorial_control_thread::tutorial_control_thread(   std::string module_prefix, 
+locoman_control_thread::locoman_control_thread(   std::string module_prefix,
                                                     yarp::os::ResourceFinder rf, 
                                                     std::shared_ptr< paramHelp::ParamHelperServer > ph) :   left_arm_chain_interface( "left_arm", module_prefix, get_robot_name() ),
                                                                                                             num_joints( left_arm_chain_interface.getNumberOfJoints() ),
@@ -17,7 +17,7 @@ tutorial_control_thread::tutorial_control_thread(   std::string module_prefix,
     left_arm_chain_interface.setPositionMode();
 }
 
-void tutorial_control_thread::link_tutorial_params()
+void locoman_control_thread::link_locoman_params()
 {
     // get a shared pointer to param helper
     std::shared_ptr<paramHelp::ParamHelperServer> ph = get_param_helper();
@@ -28,14 +28,14 @@ void tutorial_control_thread::link_tutorial_params()
 }
 
 
-bool tutorial_control_thread::custom_init()
+bool locoman_control_thread::custom_init()
 {   
     // link the tutorial additional params to param helper
-    link_tutorial_params(); 
+    link_locoman_params();
     return true;
 }
 
-void tutorial_control_thread::run()
+void locoman_control_thread::run()
 {   
     std::string cmd = command_interface.getCommand();
     // when we receive the string "test_cmd" through the command interface, go to the desired configuration
@@ -52,13 +52,13 @@ void tutorial_control_thread::run()
     }
 }
 
-bool tutorial_control_thread::custom_pause()
+bool locoman_control_thread::custom_pause()
 {
     // set the ref speed to 0 for all the joints
     left_arm_chain_interface.setReferenceSpeed( 0 );
 }
 
-bool tutorial_control_thread::custom_resume()
+bool locoman_control_thread::custom_resume()
 {
     // set the ref speed to max_vel for all the joints
     left_arm_chain_interface.setReferenceSpeed( max_vel );

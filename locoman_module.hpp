@@ -1,16 +1,16 @@
-#ifndef TUTORIAL_MODULE_HPP_
-#define TUTORIAL_MODULE_HPP_
+#ifndef LOCOMAN_MODULE_HPP_
+#define LOCOMAN_MODULE_HPP_
 
 // include generic module header
 #include <GYM/generic_module.hpp>
 // include control thread and constants header files
-#include "tutorial_control_thread.h"
-#include "tutorial_constants.h"
+#include "locoman_control_thread.h"
+#include "locoman_constants.h"
 
 /**
- * @brief The tutorial_module class inherit from generic_module.
+ * @brief The locoman_module class inherit from generic_module.
  */
-class tutorial_module : public generic_module<tutorial_control_thread> {
+class locoman_module : public generic_module<locoman_control_thread> {
 public:
     /**
      * @brief tutorial_module constructor
@@ -20,11 +20,11 @@ public:
      * @param module_period period of the module (ex: 1000 [ms])
      * @param rf resource finder
      */
-    tutorial_module(    int argc, 
+    locoman_module(    int argc, 
                         char* argv[],
                         std::string module_prefix, 
                         int module_period, 
-                        yarp::os::ResourceFinder rf ) : generic_module<tutorial_control_thread>(    argc, 
+                        yarp::os::ResourceFinder rf ) : generic_module<locoman_control_thread>(    argc, 
                                                                                                     argv, 
                                                                                                     module_prefix, 
                                                                                                     module_period,
