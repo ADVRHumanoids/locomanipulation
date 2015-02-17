@@ -6,30 +6,30 @@
 
 #include <idynutils/yarp_single_chain_interface.h>
 #include <GYM/yarp_command_interface.hpp>
-#include <GYM/generic_thread.hpp>
+#include <GYM/control_thread.hpp>
 
 /**
- * @brief The locoman_control_thread class inherit from a generic_thread
+ * @brief The locoman_control_thread class inherit from a control_thread
  */
-class locoman_control_thread: public generic_thread
+class locoman_control_thread: public control_thread
 {
 private:   
-    // left_arm chain interface
-    walkman::yarp_single_chain_interface left_arm_chain_interface;
-    // joints number
-    int num_joints;
-    // left_arm configuration vector
-    yarp::sig::Vector left_arm_configuration;
-    // max velocity 
-    double max_vel;
-    // ref speed vector
-    yarp::sig::Vector ref_speed_vector;
-    // command interface
+
     walkman::yarp_command_interface command_interface;
 
-    // link the tutorial optional params
-    void link_tutorial_params();
+    // link the locoman optional params
+    void link_locoman_params();
     
+    //Example stuff (for sin wave generation)
+    unsigned int left_arm_joints;
+    double omega;
+    double phi;
+    int tick;
+    
+    
+    //Example stuff for parameters setting from outside
+    yarp::sig::Vector left_arm_configuration;
+    double max_vel;
 public:
     /**
      * @brief tutorial_control_thread constructor

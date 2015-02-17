@@ -7,12 +7,12 @@ Current Build Directory Index=0
 ProjectRootRelative=./
 
 [CMake][CMake Build Directory 0]
-Build Directory Path=file:///home/edo/walkman/build/drc/locomanipulation/build
-Build Type=Debug
-CMake Binary=file:///home/edo/walkman/build/install/
+Build Directory Path=file:///home/edo/walkman/build/drc/locomanipulation/
+Build Type=
+CMake Binary=file:///usr/bin/cmake
 Environment Profile=
 Extra Arguments=
-Install Directory=
+Install Directory=file:///home/edo/walkman/build/install
 
 [Project]
 VersionControlSupport=kdevgit

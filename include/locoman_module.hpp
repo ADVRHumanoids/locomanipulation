@@ -6,11 +6,11 @@
 // include control thread and constants header files
 #include "locoman_control_thread.h"
 #include "locoman_constants.h"
-
+#include <GYM/control_module.hpp>
 /**
  * @brief The locoman_module class inherit from generic_module.
  */
-class locoman_module : public generic_module<locoman_control_thread> {
+class locoman_module : public control_module<locoman_control_thread> {
 public:
     /**
      * @brief locoman_module constructor
@@ -24,7 +24,7 @@ public:
                         char* argv[],
                         std::string module_prefix, 
                         int module_period, 
-                        yarp::os::ResourceFinder rf ) : generic_module<locoman_control_thread>(    argc, 
+                        yarp::os::ResourceFinder rf ) : control_module<locoman_control_thread>(    argc, 
                                                                                                     argv, 
                                                                                                     module_prefix, 
                                                                                                     module_period,

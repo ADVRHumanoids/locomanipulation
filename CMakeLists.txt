@@ -4,8 +4,7 @@
 
 #minimum cmake required version
 cmake_minimum_required(VERSION 2.8)
-# generic_tutorial project
-project(generic_tutorial)
+project(locomanipulation)
 
 # add app cmake subdirectory
 add_subdirectory(app)
@@ -30,22 +29,24 @@ endif()
 find_package(idynutils REQUIRED)
 find_package(paramHelp REQUIRED)
 find_package(YARP REQUIRED)
-
+FIND_PACKAGE(GYM REQUIRED)
+find_package(iDynTree REQUIRED)
 ###########
 ## Build ##
 ###########
 
-file(GLOB_RECURSE generic_tutorial_INCLUDES "${CMAKE_CURRENT_SOURCE_DIR}/include/" *.h*)
+file(GLOB_RECURSE generic_locoman_INCLUDES "${CMAKE_CURRENT_SOURCE_DIR}/include/" *.h*)
 
 # include directories list
-include_directories( include ${CMAKE_SOURCE_DIR}/include ${idynutils_INCLUDE_DIRS} ${paramHelp_INCLUDE_DIRS} ${YARP_INCLUDE_DIRS} )
+include_directories( include ${CMAKE_SOURCE_DIR}/include ${idynutils_INCLUDE_DIRS} ${paramHelp_INCLUDE_DIRS} ${YARP_INCLUDE_DIRS} 
+		    ${GYM_INCLUDE_DIRS})
 
-# create the generic tutorial executable
-add_executable( ${PROJECT_NAME} src/tutorial_main.cpp 
-                                src/tutorial_control_thread.cpp
-                                ${generic_tutorial_INCLUDES} )
+# create the generic locoman executable
+add_executable( ${PROJECT_NAME} src/locoman_main.cpp 
+                                src/locoman_control_thread.cpp
+                                ${generic_locoman_INCLUDES} )
 
-# wait for GYM to compile before building the tutorial
+# wait for GYM to compile before building the locoman
 add_dependencies( ${PROJECT_NAME} GYM )
 
 
@@ -54,7 +55,10 @@ add_dependencies( ${PROJECT_NAME} GYM )
 ##########
 
 # linking the tutorial executable against YARP, idynutils and the tutorial lib
-target_link_libraries( ${PROJECT_NAME} ${idynutils_LIBRARIES} GYM ${YARP_LIBRARIES} )
+target_link_libraries( ${PROJECT_NAME} ${idynutils_LIBRARIES} ${YARP_LIBRARIES} 
+				      ${iDynTree_LIBRARIES}
+                                      ${GYM_LIBRARIES}
+				      ${iDynTree_LIBRARIES})
 
 #############
 ## Install ##

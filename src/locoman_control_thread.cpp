@@ -3,18 +3,19 @@
 
 #include "locoman_control_thread.h"
 #include "locoman_constants.h"
+#include <GYM/yarp_command_interface.hpp>
 
-locoman_control_thread::locoman_control_thread(   std::string module_prefix,
-                                                    yarp::os::ResourceFinder rf, 
-                                                    std::shared_ptr< paramHelp::ParamHelperServer > ph) :   left_arm_chain_interface( "left_arm", module_prefix, get_robot_name() ),
-                                                                                                            num_joints( left_arm_chain_interface.getNumberOfJoints() ),
-                                                                                                            left_arm_configuration( num_joints ),
-                                                                                                            ref_speed_vector( num_joints ),
-                                                                                                            command_interface( module_prefix ),
-                                                                                                            generic_thread( module_prefix, rf, ph )
+locoman_control_thread::locoman_control_thread( std::string module_prefix, 
+                             			yarp::os::ResourceFinder rf, 
+                             			std::shared_ptr< paramHelp::ParamHelperServer > ph ):
+    control_thread( module_prefix, rf, ph ),command_interface(module_prefix)
 {
-    // position mode on left arm chain interface
-    left_arm_chain_interface.setPositionMode();
+    left_arm_joints = robot.left_arm.getNumberOfJoints();
+    omega = 0.1;
+    phi = 10;
+    tick = 0;
+    max_vel=20;
+    left_arm_configuration.resize(left_arm_joints);
 }
 
 void locoman_control_thread::link_locoman_params()
@@ -30,38 +31,38 @@ void locoman_control_thread::link_locoman_params()
 
 bool locoman_control_thread::custom_init()
 {   
-    // link the tutorial additional params to param helper
     link_locoman_params();
+    robot.setPositionMode();
+    robot.setReferenceSpeed(0.2);
     return true;
 }
 
 void locoman_control_thread::run()
 {   
     std::string cmd = command_interface.getCommand();
-    // when we receive the string "test_cmd" through the command interface, go to the desired configuration
-    if( cmd == "test_cmd" ) {
-        
-        // set the ref speed for all the joints
-        left_arm_chain_interface.setReferenceSpeed( max_vel );
-        
-        // position move to desired configuration
-        left_arm_chain_interface.move(left_arm_configuration);
+   yarp::sig::Vector q_sensed = robot.left_arm.sensePosition();
+    std::cout << "Sense : " << q_sensed.toString() << std::endl;
+    
+    yarp::sig::Vector q_ref(left_arm_joints, 0.0);
+    for( int i = 0; i < left_arm_joints; i++) {
+	q_ref[i] = q_sensed[i] + sin( (omega * tick / 5) + phi );
     }
-    else if( cmd != "" ) {
-	std::cout << cmd <<  " -> command not valid" << std::endl;
-    }
+    
+    std::cout << "Rererence : " << q_ref.toString() << std::endl;
+    
+    robot.left_arm.move(q_ref);
+    
+    tick++;
 }
 
 bool locoman_control_thread::custom_pause()
 {
-    // set the ref speed to 0 for all the joints
-    left_arm_chain_interface.setReferenceSpeed( 0 );
+
 }
 
 bool locoman_control_thread::custom_resume()
 {
-    // set the ref speed to max_vel for all the joints
-    left_arm_chain_interface.setReferenceSpeed( max_vel );
+
 }
 
 
