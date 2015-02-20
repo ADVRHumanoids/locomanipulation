@@ -115,13 +115,13 @@ void locoman_control_thread::run()
     
     yarp::sig::Vector C_vec_right_arm(  robot.right_arm.getNumberOfJoints() ) ;
    
-    C_vec_right_arm[0] = 1/1000 ;
-    C_vec_right_arm[1] = 1/1000 ;
-    C_vec_right_arm[2] = 1/600 ;
-    C_vec_right_arm[3] = 1/1000 ;
-    C_vec_right_arm[4] = 1/100 ;
-    C_vec_right_arm[5] = 1/100 ;
-    C_vec_right_arm[6] = 1/10 ;
+    C_vec_right_arm[0] = 1.0/1000.0 ;
+    C_vec_right_arm[1] = 1.0/1000.0 ;
+    C_vec_right_arm[2] = 1.0/600.0 ;
+    C_vec_right_arm[3] = 1.0/1000.0 ;
+    C_vec_right_arm[4] = 1.0/100.0 ;
+    C_vec_right_arm[5] = 1.0/100.0 ;
+    C_vec_right_arm[6] = 1.0/10.0 ;
 
     C_right_arm.diagonal( C_vec_right_arm );
     
@@ -130,13 +130,13 @@ void locoman_control_thread::run()
     
     yarp::sig::Vector C_vec_left_arm(  robot.left_arm.getNumberOfJoints() ) ;
    
-    C_vec_left_arm[0] = 1/1000 ;
-    C_vec_left_arm[1] = 1/1000 ;
-    C_vec_left_arm[2] = 1/600 ;
-    C_vec_left_arm[3] = 1/1000 ;
-    C_vec_left_arm[4] = 1/100 ;
-    C_vec_left_arm[5] = 1/100 ;
-    C_vec_left_arm[6] = 1/10 ;
+    C_vec_left_arm[0] = 1.0/1000.0 ;
+    C_vec_left_arm[1] = 1.0/1000.0 ;
+    C_vec_left_arm[2] = 1.0/600.0 ;
+    C_vec_left_arm[3] = 1.0/1000.0 ;
+    C_vec_left_arm[4] = 1.0/100.0 ;
+    C_vec_left_arm[5] = 1.0/100.0 ;
+    C_vec_left_arm[6] = 1.0/10.0 ;
 
     C_left_arm.diagonal( C_vec_left_arm );
      
@@ -145,9 +145,9 @@ void locoman_control_thread::run()
     
     yarp::sig::Vector C_vec_torso(  robot.torso.getNumberOfJoints() ) ;
    
-    C_vec_torso[0] = 1/1000 ;
-    C_vec_torso[1] = 1/1000 ;
-    C_vec_torso[2] = 1/1000 ;
+    C_vec_torso[0] = 1.0/1000.0 ;
+    C_vec_torso[1] = 1.0/1000.0 ;
+    C_vec_torso[2] = 1.0/1000.0 ;
 
 
     C_torso.diagonal( C_vec_torso );
@@ -158,12 +158,12 @@ void locoman_control_thread::run()
     
     yarp::sig::Vector C_vec_right_leg(  robot.right_leg.getNumberOfJoints() ) ;
    
-    C_vec_right_leg[0] = 1/3000 ;
-    C_vec_right_leg[1] = 1/5000 ;
-    C_vec_right_leg[2] = 1/3000 ;
-    C_vec_right_leg[3] = 1/3000 ;
-    C_vec_right_leg[4] = 1/4000 ;
-    C_vec_right_leg[5] = 1/3000 ;
+    C_vec_right_leg[0] = 1.0/3000.0 ;
+    C_vec_right_leg[1] = 1.0/5000.0 ;
+    C_vec_right_leg[2] = 1.0/3000.0 ;
+    C_vec_right_leg[3] = 1.0/3000.0 ;
+    C_vec_right_leg[4] = 1.0/4000.0 ;
+    C_vec_right_leg[5] = 1.0/3000.0 ;
 
     C_right_leg.diagonal( C_vec_right_leg );
     
@@ -172,14 +172,14 @@ void locoman_control_thread::run()
     
     yarp::sig::Vector C_vec_left_leg(  robot.left_leg.getNumberOfJoints() ) ;
    
-    C_vec_left_leg[0] = 1/3000 ;
-    C_vec_left_leg[1] = 1/5000 ;
-    C_vec_left_leg[2] = 1/3000 ;
-    C_vec_left_leg[3] = 1/3000 ;
-    C_vec_left_leg[4] = 1/4000 ;
-    C_vec_left_leg[5] = 1/3000 ;
+    C_vec_left_leg[0] = 1.0/3000.0 ;
+    C_vec_left_leg[1] = 1.0/5000.0 ;
+    C_vec_left_leg[2] = 1.0/3000.0 ;
+    C_vec_left_leg[3] = 1.0/3000.0 ;
+    C_vec_left_leg[4] = 1.0/4000.0 ;
+    C_vec_left_leg[5] = 1.0/3000.0 ;
 
-    C_left_arm.diagonal( C_vec_left_arm );    
+    C_left_leg.diagonal( C_vec_left_arm );    
     
     //---------------------------------------------------------------------------//
 
@@ -200,9 +200,36 @@ void locoman_control_thread::run()
     //---------------------------------------------------------------------------//
     // Test Printing
     
-    std::cout << "q_ref_torso[0]" << q_ref_torso[0] << endl ;
+     std::cout << "C_vec_left_leg[0] = " << C_vec_left_leg[0] << std::endl ;  
+     std::cout << "C_torso[1][1] = " << C_torso[1][1] << std::endl ;  
+     std::cout << "C_torso[2][2] = " << C_torso[2][2] << std::endl ;  
+
+    
+    std::cout << "q_ref_torso[0] = " << q_ref_torso[0] << std::endl ;
+    std::cout << "q_current_torso[0] = " << q_current_torso[0] << std::endl ;        
+    
+    double temp_0 =  1000*(q_ref_torso[0] -q_current_torso[0] ) ;
+    std::cout << "temp_0 = " << temp_0 << std::endl ;
+    std::cout << "tau_current_torso[0] = " << tau_current_torso[0] << std::endl ;                           
                            
-                           
+    std::cout << "q_ref_torso[1] = " << q_ref_torso[01] << std::endl ;
+    std::cout << "q_current_torso[1] = " << q_current_torso[1] << std::endl ;            
+    double temp_1 =  1000*(q_ref_torso[1] -q_current_torso[1] ) ;
+    std::cout << "temp_1 = " << temp_1 << std::endl ;
+    std::cout << "tau_current_torso[1] = " << tau_current_torso[1] << std::endl ;   
+    
+    std::cout << "q_ref_torso[2] = " << q_ref_torso[2] << std::endl ;
+    std::cout << "q_current_torso[2] = " << q_current_torso[2] << std::endl ;      
+    double temp_2 =  1000*(q_ref_torso[2] -q_current_torso[2] ) ;
+    std::cout << "temp_2 = " << temp_2 << std::endl ;
+    std::cout << "tau_current_torso[2] = " << tau_current_torso[2] << std::endl ;  
+
+    //---------------------------------------------------------------------------//
+
+    
+    
+    
+    
                            
   //Try to stay in the current configuration
   
