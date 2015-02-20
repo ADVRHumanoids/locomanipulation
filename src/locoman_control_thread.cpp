@@ -179,7 +179,7 @@ void locoman_control_thread::run()
     C_vec_left_leg[4] = 1.0/4000.0 ;
     C_vec_left_leg[5] = 1.0/3000.0 ;
 
-    C_left_leg.diagonal( C_vec_left_arm );    
+    C_left_leg.diagonal( C_vec_left_leg );    
     
     //---------------------------------------------------------------------------//
 
@@ -201,8 +201,11 @@ void locoman_control_thread::run()
     // Test Printing
     
      std::cout << "C_vec_left_leg[0] = " << C_vec_left_leg[0] << std::endl ;  
-     std::cout << "C_torso[1][1] = " << C_torso[1][1] << std::endl ;  
-     std::cout << "C_torso[2][2] = " << C_torso[2][2] << std::endl ;  
+     std::cout << "C_vec_left_leg[1] = " << C_vec_left_leg[1] << std::endl ;
+     std::cout << "C_vec_left_leg[2] = " << C_vec_left_leg[2] << std::endl ;  
+     std::cout << "C_left_leg[0][0] = " << C_left_leg[0][0] << std::endl ; 
+     std::cout << "C_left_leg[1][1] = " << C_left_leg[1][1] << std::endl ;  
+     std::cout << "C_left_leg[2][2] = " << C_left_leg[2][2] << std::endl ;  
 
     
     std::cout << "q_ref_torso[0] = " << q_ref_torso[0] << std::endl ;
@@ -230,6 +233,11 @@ void locoman_control_thread::run()
     
     
     
+    
+    
+//     robot.left_arm.move(q_ref);
+    
+    
                            
   //Try to stay in the current configuration
   
@@ -239,7 +247,7 @@ void locoman_control_thread::run()
 //     yarp::sig::Vector q_ref = q_current ;
 //     q_ref[0] += .1 ;
 
-    // robot.move(q_ref);
+    robot.move(q_ref);
     
     //     std::string cmd = command_interface.getCommand() ;  // USEFUL TO SEND INPUT TO THE MOUDLE
 
@@ -254,7 +262,7 @@ void locoman_control_thread::run()
     
     std::cout << "Reference : " << q_ref.toString() << std::endl;
     
-    robot.left_arm.move(q_ref);
+    
     tick++;
     */
 }
