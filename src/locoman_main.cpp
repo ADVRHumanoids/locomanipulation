@@ -23,13 +23,13 @@ int main(int argc, char* argv[])
     yarp::os::ResourceFinder locoman_rf;
     locoman_rf.setVerbose(true);
     locoman_rf.setDefaultConfigFile( "locoman_configuration.ini" );
-    locoman_rf.setDefaultContext( "generic_locoman" );  
+    locoman_rf.setDefaultContext( "generic_locoman" );  //generic_locoman
     locoman_rf.configure(argc, argv);
 
     // create locomanipulation module
     locoman_module locoman_mod = locoman_module( argc, 
                                                     argv, 
-                                                    "generic_locoman", 
+                                                    "generic_locoman",   //generic_locoman
                                                     MODULE_PERIOD_MILLISEC, 
                                                     locoman_rf );
         
