@@ -14,5 +14,8 @@ Environment Profile=
 Extra Arguments=
 Install Directory=file:///home/edo/walkman/build/install
 
+[MakeBuilder]
+Additional Options=install
+
 [Project]
 VersionControlSupport=kdevgit

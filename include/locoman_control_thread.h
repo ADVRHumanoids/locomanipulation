@@ -63,6 +63,8 @@ public:
      * @return true on success, false otherwise
      */
     virtual bool custom_resume();
+        
+    yarp::sig::Vector senseMotorPosition( ) ;
     
 };
 

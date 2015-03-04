@@ -49,6 +49,66 @@ bool locoman_control_thread::custom_init()
     return true;
 }
 
+yarp::sig::Vector locoman_control_thread::senseMotorPosition()
+{
+    yarp::sig::Vector q_link = robot.sensePosition() ;
+    yarp::sig::Vector tau  = robot.senseTorque() ;
+    //     
+    yarp::sig::Vector Cq_vec_right_arm(  robot.right_arm.getNumberOfJoints() ) ;
+    yarp::sig::Vector Cq_vec_left_arm(   robot.left_arm.getNumberOfJoints() ) ;  
+    yarp::sig::Vector Cq_vec_torso(      robot.torso.getNumberOfJoints() ) ;
+    yarp::sig::Vector Cq_vec_right_leg(  robot.right_leg.getNumberOfJoints() ) ;
+    yarp::sig::Vector Cq_vec_left_leg(   robot.left_leg.getNumberOfJoints() ) ;
+    // RIGHT ARM    
+    Cq_vec_right_arm[0] = 1.0/1000.0 ;
+    Cq_vec_right_arm[1] = 1.0/1000.0 ;
+    Cq_vec_right_arm[2] = 1.0/600.0 ;
+    Cq_vec_right_arm[3] = 1.0/1000.0 ;
+    Cq_vec_right_arm[4] = 1.0/100.0 ;
+    Cq_vec_right_arm[5] = 1.0/100.0 ;
+    Cq_vec_right_arm[6] = 1.0/10.0 ;
+    // LEFT ARM   
+    Cq_vec_left_arm[0] = 1.0/1000.0 ;
+    Cq_vec_left_arm[1] = 1.0/1000.0 ;
+    Cq_vec_left_arm[2] = 1.0/600.0 ;
+    Cq_vec_left_arm[3] = 1.0/1000.0 ;
+    Cq_vec_left_arm[4] = 1.0/100.0 ;
+    Cq_vec_left_arm[5] = 1.0/100.0 ;
+    Cq_vec_left_arm[6] = 1.0/10.0 ;
+    //TORSO
+    Cq_vec_torso[0] = 1.0/1000.0 ;
+    Cq_vec_torso[1] = 1.0/1000.0 ;
+    Cq_vec_torso[2] = 1.0/1000.0 ;
+    // RIGHT LEG
+    Cq_vec_right_leg[0] = 1.0/3000.0 ;
+    Cq_vec_right_leg[1] = 1.0/5000.0 ;
+    Cq_vec_right_leg[2] = 1.0/3000.0 ;
+    Cq_vec_right_leg[3] = 1.0/3000.0 ;
+    Cq_vec_right_leg[4] = 1.0/4000.0 ;
+    Cq_vec_right_leg[5] = 1.0/3000.0 ;
+    // LEFT LEG
+    Cq_vec_left_leg[0] = 1.0/3000.0 ;
+    Cq_vec_left_leg[1] = 1.0/5000.0 ;
+    Cq_vec_left_leg[2] = 1.0/3000.0 ;
+    Cq_vec_left_leg[3] = 1.0/3000.0 ;
+    Cq_vec_left_leg[4] = 1.0/4000.0 ;
+    Cq_vec_left_leg[5] = 1.0/3000.0 ;
+    //
+    yarp::sig::Vector Cq_vec( robot.getNumberOfJoints()  )  ;     
+    robot.fromRobotToIdyn( Cq_vec_right_arm ,
+                           Cq_vec_left_arm  ,
+                           Cq_vec_torso  ,
+                           Cq_vec_right_leg ,
+                           Cq_vec_left_leg  ,
+                           Cq_vec ); 
+    yarp::sig::Matrix Cq_matrix(  robot.getNumberOfJoints(), robot.getNumberOfJoints() )  ; 
+    Cq_matrix.diagonal(  Cq_vec ) ;  
+    yarp::sig::Vector q_motor( robot.getNumberOfJoints()  )  ; 
+    q_motor = Cq_matrix*tau  + q_link ;
+    return q_motor ;
+}
+
+
 void locoman_control_thread::run()
 {   
     
@@ -57,6 +117,7 @@ void locoman_control_thread::run()
     
     yarp::sig::Vector tau_current = robot.senseTorque() ;
 
+    // Splitting q_
     yarp::sig::Vector q_current_right_arm(robot.right_arm.getNumberOfJoints()) ; 
     yarp::sig::Vector q_current_left_arm(robot.left_arm.getNumberOfJoints()) ;
     yarp::sig::Vector q_current_torso(robot.torso.getNumberOfJoints()) ;
@@ -69,7 +130,7 @@ void locoman_control_thread::run()
                             q_current_torso,
                             q_current_right_leg,
                             q_current_left_leg  ) ;
-			    
+    // Splitting tau_
     yarp::sig::Vector tau_current_right_arm(robot.right_arm.getNumberOfJoints()) ; 
     yarp::sig::Vector tau_current_left_arm(robot.left_arm.getNumberOfJoints()) ;
     yarp::sig::Vector tau_current_torso(robot.torso.getNumberOfJoints()) ;
@@ -83,18 +144,17 @@ void locoman_control_thread::run()
                             tau_current_right_leg,
                             tau_current_left_leg ) ;
 
-    yarp::sig::Vector q_ref_current_right_arm(robot.right_arm.getNumberOfJoints()) ; 
+    
+			    
+			    
+			    
+/*     yarp::sig::Vector q_ref_current_right_arm(robot.right_arm.getNumberOfJoints()) ; 
     yarp::sig::Vector q_ref_current_left_arm(robot.left_arm.getNumberOfJoints()) ;
     yarp::sig::Vector q_ref_current_torso(robot.torso.getNumberOfJoints()) ;
     yarp::sig::Vector q_ref_current_right_leg(robot.right_leg.getNumberOfJoints()) ;
     yarp::sig::Vector q_ref_current_left_leg(robot.left_leg.getNumberOfJoints()) ;
-    yarp::sig::Vector q_ref_current(robot.getNumberOfJoints()) ;
-    
-//     q_ref_current_torso = q_current_torso ;  //  (1/1000)*tau_current_torso + q_current_torso  
-//     q_ref_current_right_arm  =  q_current_right_arm	;
-//     q_ref_current_left_arm   =  q_current_left_arm 	;
-//     q_ref_current_right_leg  =  q_current_right_leg 	;
-//     q_ref_current_left_leg   =  q_current_left_leg 	;
+    yarp::sig::Vector q_ref_current( robot.getNumberOfJoints() ) ;
+   
     
     
     //---------------------------------------------------------------------------//
@@ -154,7 +214,7 @@ void locoman_control_thread::run()
     C_vec_left_leg[2] = 1.0/3000.0 ;
     C_vec_left_leg[3] = 1.0/3000.0 ;
     C_vec_left_leg[4] = 1.0/4000.0 ;
-    C_vec_left_leg[5] = 1.0/3000.0 ;
+    C_vec_left_leg[5] = 1.0/3000.0 ;  
     
     //---------------------------------------------------------------------------//
 
@@ -169,7 +229,7 @@ void locoman_control_thread::run()
     // q_ref computation: Method 2
     // Chain-by-chain computation of the _ref variables
     
-   /* yarp::sig::Matrix C_right_arm( robot.right_arm.getNumberOfJoints() ,  robot.right_arm.getNumberOfJoints() ) ;
+    yarp::sig::Matrix C_right_arm( robot.right_arm.getNumberOfJoints() ,  robot.right_arm.getNumberOfJoints() ) ;
     yarp::sig::Matrix C_left_arm(  robot.left_arm.getNumberOfJoints()  ,  robot.left_arm.getNumberOfJoints() ) ;
     yarp::sig::Matrix C_torso(     robot.torso.getNumberOfJoints()     ,  robot.torso.getNumberOfJoints() ) ;
     yarp::sig::Matrix C_right_leg( robot.right_leg.getNumberOfJoints() ,  robot.right_leg.getNumberOfJoints() ) ;
@@ -204,14 +264,14 @@ void locoman_control_thread::run()
                             q_ref_ToMove_right_leg,
                             q_ref_ToMove_left_leg  ) ;  */
 
-    // STOP
+    // STOP   
     //--------------------------------------------------------------------------//  
     //---------------------------------------------------------------------------//
     // q_ref computation: Method 2
     // Whole computation of the _ref variables
     //
     
-    yarp::sig::Vector C_vec( robot.getNumberOfJoints()  )  ; 
+    /* yarp::sig::Vector C_vec( robot.getNumberOfJoints()  )  ; 
     
     robot.fromRobotToIdyn( C_vec_right_arm ,
                            C_vec_left_arm  ,
@@ -223,7 +283,7 @@ void locoman_control_thread::run()
     
     C_q.diagonal(  C_vec ) ;  
    
-    q_ref_current = C_q*tau_current + q_current ;
+    q_ref_current = C_q*tau_current + q_current ; 
     
     robot.fromIdynToRobot(  q_ref_current,
                             q_ref_current_right_arm,
@@ -239,10 +299,16 @@ void locoman_control_thread::run()
                             q_ref_ToMove_left_arm,
                             q_ref_ToMove_torso,
                             q_ref_ToMove_right_leg,
-                            q_ref_ToMove_left_leg  ) ; 
+                            q_ref_ToMove_left_leg  ) ;  */
 			    
     // STOP   
+    //
     //---------------------------------------------------------------------------//
+    // Sensing motor via external function
+    
+    yarp::sig::Vector q_motor_side(robot.getNumberOfJoints() ) ;		    
+    q_motor_side = senseMotorPosition() ;
+			    
     // u defnition
     // virtual kinematic chain (VKC) parameters
 
@@ -256,7 +322,8 @@ void locoman_control_thread::run()
     u_current[5] = 0 ;
 
     yarp::sig::Vector u_ref( 6 )  ;  // no spring at the joints of the VKC
-    u_ref = u_current ;  
+    u_ref = u_current ;   
+    
     
     //--------------------------------------------------------------------------//
     // Getting Contact Forces
@@ -277,7 +344,6 @@ void locoman_control_thread::run()
 //      (*i).second->getReferenceFrame();
 //      fts[i->first]->getReferenceFrame(); 
     }*/
-    
   
   //--------------------------------------------------------------------//
     //Getting the Sensor Measures
@@ -317,7 +383,8 @@ void locoman_control_thread::run()
     
   //--------------------------------------------------------------------//  
     
-    
+  //
+ //q_ref_ToMove_left_arm = left_arm_configuration; // left_arm_configuration [rad]
   
   
   
@@ -326,17 +393,21 @@ void locoman_control_thread::run()
     //---------------------------------------------------------------------------//
     //---------------------------------------------------------------------------//
 			    
+  
+  
+  
     // Move something
-    q_ref_ToMove_right_arm[0] += -.00 ;  
+   /* q_ref_ToMove_right_arm[0] += -.00 ;  
     
     robot.fromRobotToIdyn( q_ref_ToMove_right_arm ,
                            q_ref_ToMove_left_arm  ,
                            q_ref_ToMove_torso  ,
                            q_ref_ToMove_right_leg ,
                            q_ref_ToMove_left_leg  ,
-                           q_ref_ToMove );    
+                           q_ref_ToMove );    */
 
-    robot.move(q_ref_ToMove);
+     robot.move(q_motor_side);  // q_ref_ToMove
+   // robot.left_arm.move(q_ref_ToMove_left_arm);
     
     
     
@@ -366,9 +437,9 @@ void locoman_control_thread::run()
     std::cout << " C_vec[1]  = " <<     C_vec[1]  << std::endl ; */
 
     
+    std::cout << "q_ref : " << q_motor_side.toString() << std::endl;
     
-    
- /*    std::cout << "q_ref_ToMove[0] = " << q_ref_ToMove[0] << std::endl ;  
+  /*   std::cout << "q_ref_ToMove[0] = " << q_ref_ToMove[0] << std::endl ;  
      std::cout << "q_ref_ToMove[1] = " << q_ref_ToMove[1] << std::endl ;  
      std::cout << "q_ref_ToMove[2] = " << q_ref_ToMove[2] << std::endl ;  
      std::cout << "q_ref_ToMove[3] = " << q_ref_ToMove[3] << std::endl ;  
@@ -380,7 +451,7 @@ void locoman_control_thread::run()
      std::cout << "q_ref_ToMove[9] = " << q_ref_ToMove[9] << std::endl ;  
      std::cout << "q_ref_ToMove[10] = " << q_ref_ToMove[10] << std::endl ;  
      std::cout << "q_ref_ToMove[11] = " << q_ref_ToMove[11] << std::endl ;  
-     std::cout << "q_ref_ToMove[12] = " << q_ref_ToMove[12] << std::endl ;  */
+     std::cout << "q_ref_ToMove[12] = " << q_ref_ToMove[12] << std::endl ;   */
     /* std::cout << "q_ref_ToMove[13] = " << q_ref_ToMove[13] << std::endl ; 
      std::cout << "q_ref_ToMove[14] = " << q_ref_ToMove[14] << std::endl ;  
      std::cout << "q_ref_ToMove[15] = " << q_ref_ToMove[15] << std::endl ;  
