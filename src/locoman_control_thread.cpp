@@ -1,10 +1,11 @@
-#include <yarp/os/all.h>
+// #include <yarp/os/all.h>
 #include <cstdlib>
 #include <yarp/math/Math.h>
 //#include <yarp/sig/all.h>
 #include "locoman_control_thread.h"
 #include "locoman_constants.h"
 #include <GYM/yarp_command_interface.hpp>
+#include <iCub/iDynTree/yarp_kdl.h>
 #include <fstream>
 
 using namespace yarp::math;
@@ -308,6 +309,11 @@ void locoman_control_thread::run()
     
     yarp::sig::Vector q_motor_side(robot.getNumberOfJoints() ) ;		    
     q_motor_side = senseMotorPosition() ;
+   
+    
+    yarp::sig::Matrix T;
+    KDL::Frame T_KDL;
+    YarptoKDL(T,T_KDL);
 			    
     // u defnition
     // virtual kinematic chain (VKC) parameters
@@ -346,8 +352,7 @@ void locoman_control_thread::run()
     }*/
   
   //--------------------------------------------------------------------//
-    //Getting the Sensor Measures
-    
+    //Getting Sensor Measures
 
     yarp::sig::Vector ft_r_ankle(6,0.0);
     if(!robot.senseftSensor("r_ankle", ft_r_ankle)) std::cout << "ERROR READING SENSOR r_ankle" << std::endl; 
@@ -373,55 +378,136 @@ void locoman_control_thread::run()
     
     //
   
+    // writing data on a file
+    //std::ofstream r_ankle ;
+    //r_ankle.open ("r_ankle.txt");
+    std::ofstream r_ankle_cl ( "r_ankle.m", std::ios::app );
+    if( r_ankle_cl.is_open() )
+    r_ankle_cl <<  ft_r_ankle[2] << std::endl;
+    //r_ankle.close();
     
-  //std::ofstream r_ankle ;
-  //r_ankle.open ("r_ankle.txt");
-  std::ofstream r_ankle_cl ( "r_ankle.m", std::ios::app );
-  if( r_ankle_cl.is_open() )
-  r_ankle_cl <<  ft_r_ankle[2] << std::endl;
-  //r_ankle.close();
+    std::ofstream l_ankle_cl ( "l_ankle.m", std::ios::app );
+    if( l_ankle_cl.is_open() )
+    l_ankle_cl <<  ft_l_ankle[2] << std::endl;
     
-  //--------------------------------------------------------------------//  
+    //--------------------------------------------------------------------//  
     
-  //
- //q_ref_ToMove_left_arm = left_arm_configuration; // left_arm_configuration [rad]
+    //
+    //q_ref_ToMove_left_arm = left_arm_configuration; // left_arm_configuration [rad]
+   
+    //-------------------------------------------------------------------------//
+    // Getting Jacobians of the left foot
+        
+    int l_sole_index = model.iDyn3_model.getLinkIndex("l_sole") ;
+    int l_foot_lower_left_link_index   = model.iDyn3_model.getLinkIndex("l_foot_lower_left_link");
+    int l_foot_lower_right_link_index  = model.iDyn3_model.getLinkIndex("l_foot_lower_right_link");
+    int l_foot_upper_left_link_index   = model.iDyn3_model.getLinkIndex("l_foot_upper_left_link");
+    int l_foot_upper_right_link_index  = model.iDyn3_model.getLinkIndex("l_foot_upper_right_link");
+    
+    yarp::sig::Matrix Jac_l_sole(robot.getNumberOfJoints(), ( robot.getNumberOfJoints() + 6 ) ) ; 
+    yarp::sig::Matrix Jac_l_foot_lower_left_link_body(  6  , ( robot.getNumberOfJoints() + 6 ) ) ; 
+    yarp::sig::Matrix Jac_l_foot_lower_right_link_body( 6  , ( robot.getNumberOfJoints() + 6)  ) ; 
+    yarp::sig::Matrix Jac_l_foot_upper_left_link_body(  6  , ( robot.getNumberOfJoints() + 6 ) ) ; 
+    yarp::sig::Matrix Jac_l_foot_upper_right_link_body( 6  , ( robot.getNumberOfJoints() + 6 ) ) ; 
+    
+    model.iDyn3_model.getJacobian( l_sole_index, Jac_l_sole, false ) ; //false= mixed version jacobian
+    model.iDyn3_model.getJacobian( l_foot_lower_left_link_index  , Jac_l_foot_lower_left_link_body  , true  ) ; //true= body jacobian
+    model.iDyn3_model.getJacobian( l_foot_lower_right_link_index , Jac_l_foot_lower_right_link_body , true  ) ; //true= body jacobian
+    model.iDyn3_model.getJacobian( l_foot_upper_left_link_index  , Jac_l_foot_upper_left_link_body  , true  ) ; //true= body jacobian
+    model.iDyn3_model.getJacobian( l_foot_upper_right_link_index , Jac_l_foot_upper_right_link_body , true  ) ; //true= body jacobian
+
+    // Getting Jacobians of the right foot
+    
+    int r_sole_index = model.iDyn3_model.getLinkIndex("r_sole") ;
+    int r_foot_lower_left_link_index   = model.iDyn3_model.getLinkIndex("r_foot_lower_left_link");
+    int r_foot_lower_right_link_index  = model.iDyn3_model.getLinkIndex("r_foot_lower_right_link");
+    int r_foot_upper_left_link_index   = model.iDyn3_model.getLinkIndex("r_foot_upper_left_link");
+    int r_foot_upper_right_link_index  = model.iDyn3_model.getLinkIndex("r_foot_upper_right_link");
+    
+    yarp::sig::Matrix Jac_r_sole(robot.getNumberOfJoints(), ( robot.getNumberOfJoints() + 6 ) ) ; 
+    yarp::sig::Matrix Jac_r_foot_lower_left_link_body(  6  , ( robot.getNumberOfJoints() + 6 ) ) ; 
+    yarp::sig::Matrix Jac_r_foot_lower_right_link_body( 6  , ( robot.getNumberOfJoints() + 6)  ) ; 
+    yarp::sig::Matrix Jac_r_foot_upper_left_link_body(  6  , ( robot.getNumberOfJoints() + 6 ) ) ; 
+    yarp::sig::Matrix Jac_r_foot_upper_right_link_body( 6  , ( robot.getNumberOfJoints() + 6 ) ) ; 
+    
+    model.iDyn3_model.getJacobian( r_sole_index, Jac_l_sole, false ) ; //false= mixed version jacobian
+    model.iDyn3_model.getJacobian( r_foot_lower_left_link_index  , Jac_r_foot_lower_left_link_body  , true  ) ; //true= body jacobian
+    model.iDyn3_model.getJacobian( r_foot_lower_right_link_index , Jac_r_foot_lower_right_link_body , true  ) ; //true= body jacobian
+    model.iDyn3_model.getJacobian( r_foot_upper_left_link_index  , Jac_r_foot_upper_left_link_body  , true  ) ; //true= body jacobian
+    model.iDyn3_model.getJacobian( r_foot_upper_right_link_index , Jac_r_foot_upper_right_link_body , true  ) ; //true= body jacobian
+
+//----------------------------------------------------------------------------------------//
+// Computing contact forces at each point - Left Foot
+    
+    yarp::sig::Matrix T_w_l_sole(  4 ,   4 ) ;
+    yarp::sig::Matrix T_w_l_foot_lower_left_link(   4 ,   4 ) ;    
+    yarp::sig::Matrix T_w_l_foot_lower_right_link(  4 ,   4 ) ;
+    yarp::sig::Matrix T_w_l_foot_upper_left_link(   4 ,   4 ) ;	
+    yarp::sig::Matrix T_w_l_foot_upper_right_link(  4 ,   4 ) ;	
+
+    T_w_l_sole = model.iDyn3_model.getPosition(l_sole_index) ;
+    T_w_l_foot_lower_left_link  = model.iDyn3_model.getPosition(l_foot_lower_left_link_index)  ;
+    T_w_l_foot_lower_right_link = model.iDyn3_model.getPosition(l_foot_lower_right_link_index) ;    
+    T_w_l_foot_upper_left_link  = model.iDyn3_model.getPosition(l_foot_upper_left_link_index)  ;    
+    T_w_l_foot_upper_left_link  = model.iDyn3_model.getPosition(l_foot_upper_right_link_index) ;    
+
+    
+//----------------------------------------------------------------------------------------//
+// Computing contact forces at each point - Right Foot    
+    
+    yarp::sig::Matrix T_w_r_sole(  4 ,   4 ) ;	
+    yarp::sig::Matrix T_w_r_foot_lower_left_link(   4 ,   4 ) ;    
+    yarp::sig::Matrix T_w_r_foot_lower_right_link(  4 ,   4 ) ;
+    yarp::sig::Matrix T_w_r_foot_upper_left_link(   4 ,   4 ) ;	
+    yarp::sig::Matrix T_w_r_foot_upper_right_link(  4 ,   4 ) ;	
+	
+	
+ // model.iDyn3_model.getPosition()  ; //Getting Configuration in world Frame
+   
   
   
+//----------------------------------------------------------------------------------------//
+// Computing contact forces at each point - Right Foot
   
-  
+    
+    
+    
     
     //---------------------------------------------------------------------------//
     //---------------------------------------------------------------------------//
 			    
   
   
+    yarp::sig::Vector q_ref_ToMove_right_arm(robot.right_arm.getNumberOfJoints()) ; 
+    yarp::sig::Vector q_ref_ToMove_left_arm(robot.left_arm.getNumberOfJoints()) ;
+    yarp::sig::Vector q_ref_ToMove_torso(robot.torso.getNumberOfJoints()) ;
+    yarp::sig::Vector q_ref_ToMove_right_leg(robot.right_leg.getNumberOfJoints()) ;
+    yarp::sig::Vector q_ref_ToMove_left_leg(robot.left_leg.getNumberOfJoints()) ;
+    yarp::sig::Vector q_ref_ToMove(robot.getNumberOfJoints()) ; 
   
+    q_ref_ToMove = q_motor_side ;
+    
+    robot.fromIdynToRobot(  q_ref_ToMove,
+                            q_ref_ToMove_right_arm,
+                            q_ref_ToMove_left_arm,
+                            q_ref_ToMove_torso,
+                            q_ref_ToMove_right_leg,
+                            q_ref_ToMove_left_leg  ) ; 
+  
+    
+			    
     // Move something
-   /* q_ref_ToMove_right_arm[0] += -.00 ;  
+    q_ref_ToMove_right_arm[0] += -.00 ;  
     
     robot.fromRobotToIdyn( q_ref_ToMove_right_arm ,
                            q_ref_ToMove_left_arm  ,
                            q_ref_ToMove_torso  ,
                            q_ref_ToMove_right_leg ,
                            q_ref_ToMove_left_leg  ,
-                           q_ref_ToMove );    */
+                           q_ref_ToMove );    
 
-     robot.move(q_motor_side);  // q_ref_ToMove
+     robot.move(q_ref_ToMove);  // q_ref_ToMove
    // robot.left_arm.move(q_ref_ToMove_left_arm);
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
     
     
     
