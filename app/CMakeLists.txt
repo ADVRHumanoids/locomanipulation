@@ -10,7 +10,7 @@ include(YarpInstallationHelpers)
 # get all the .ini files in conf
 file(GLOB conf conf/*.ini)
 # install all the .ini files in conf in the "default context" directory
-yarp_install(FILES ${conf} DESTINATION ${YARP_CONTEXTS_INSTALL_DIR}/generic_locoman)
+yarp_install(FILES ${conf} DESTINATION ${YARP_CONTEXTS_INSTALL_DIR}/locoman)   #generic_locoman
 
 add_custom_target(  copy_conf_files_to_build ALL
     COMMAND ${CMAKE_COMMAND} -E copy_directory

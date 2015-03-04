@@ -5,7 +5,7 @@
 #include "locoman_control_thread.h"
 #include "locoman_constants.h"
 #include <GYM/yarp_command_interface.hpp>
-
+#include <fstream>
 
 using namespace yarp::math;
 
@@ -165,8 +165,8 @@ void locoman_control_thread::run()
     yarp::sig::Vector q_ref_ToMove_left_leg(robot.left_leg.getNumberOfJoints()) ;
     yarp::sig::Vector q_ref_ToMove(robot.getNumberOfJoints()) ;     
     
-    
     //---------------------------------------------------------------------------//
+    // q_ref computation: Method 2
     // Chain-by-chain computation of the _ref variables
     
    /* yarp::sig::Matrix C_right_arm( robot.right_arm.getNumberOfJoints() ,  robot.right_arm.getNumberOfJoints() ) ;
@@ -205,12 +205,9 @@ void locoman_control_thread::run()
                             q_ref_ToMove_left_leg  ) ;  */
 
     // STOP
-    //--------------------------------------------------------------------------//
-  
-			    
-			    
-			    
+    //--------------------------------------------------------------------------//  
     //---------------------------------------------------------------------------//
+    // q_ref computation: Method 2
     // Whole computation of the _ref variables
     //
     
@@ -246,16 +243,91 @@ void locoman_control_thread::run()
 			    
     // STOP   
     //---------------------------------------------------------------------------//
+    // u defnition
+    // virtual kinematic chain (VKC) parameters
 
-   
-			    
+    yarp::sig::Vector u_current( 6 )  ;
     
-			    
+    u_current[0] = 0 ;
+    u_current[1] = 0 ;
+    u_current[2] = 0 ;
+    u_current[3] = 0 ;
+    u_current[4] = 0 ;
+    u_current[5] = 0 ;
+
+    yarp::sig::Vector u_ref( 6 )  ;  // no spring at the joints of the VKC
+    u_ref = u_current ;  
+    
+    //--------------------------------------------------------------------------//
+    // Getting Contact Forces
+    RobotUtils::ftPtrMap fts = robot.getftSensors();
+    
+   //Cheking the existence of the sensors
+    //assert(fts.size() > 0 && "no ft found!");
+    
+    //Printing Sensor Names
+    RobotUtils::ftPtrMap::iterator i = fts.begin() ;    
+   // std::cout << i->second->getReferenceFrame() << std::endl;
+
+  /*  for(RobotUtils::ftPtrMap::iterator i = fts.begin() ;  i != fts.end(); i++)
+    {
+      std::cout << i->first << std::endl;
+// Alternative formulations for the iterators      
+// std::cout << i->second->getReferenceFrame() << std::endl;     
+//      (*i).second->getReferenceFrame();
+//      fts[i->first]->getReferenceFrame(); 
+    }*/
+    
+  
+  //--------------------------------------------------------------------//
+    //Getting the Sensor Measures
+    
+
+    yarp::sig::Vector ft_r_ankle(6,0.0);
+    if(!robot.senseftSensor("r_ankle", ft_r_ankle)) std::cout << "ERROR READING SENSOR r_ankle" << std::endl; 
+    
+    yarp::sig::Vector ft_l_ankle(6,0.0);
+    if(!robot.senseftSensor("l_ankle", ft_l_ankle)) std::cout << "ERROR READING SENSOR l_ankle" << std::endl; 
+    
+    std::cout << "start r_ankle" << std::endl;
+    for(int i=0; i< ft_r_ankle.size() ; i++)
+    {
+    //  std::cout<< ft_l_ankle.size()<< std::endl ;
+     std::cout <<  ft_r_ankle[i] << std::endl ;
+    }
+    std::cout << "end r_ankle" << std::endl ;
+    
+    std::cout << "start l_ankle" << std::endl;
+    for(int i=0; i< ft_l_ankle.size() ; i++)
+    {
+    //  std::cout<< ft_l_ankle.size()<< std::endl ;
+     std::cout <<  ft_l_ankle[i] << std::endl ;
+    }
+    std::cout << "end l_ankle" << std::endl ;
+    
+    //
+  
+    
+  //std::ofstream r_ankle ;
+  //r_ankle.open ("r_ankle.txt");
+  std::ofstream r_ankle_cl ( "r_ankle.m", std::ios::app );
+  if( r_ankle_cl.is_open() )
+  r_ankle_cl <<  ft_r_ankle[2] << std::endl;
+  //r_ankle.close();
+    
+  //--------------------------------------------------------------------//  
+    
+    
+  
+  
+  
+  
+    
     //---------------------------------------------------------------------------//
     //---------------------------------------------------------------------------//
 			    
     // Move something
-    q_ref_ToMove_right_arm[0] += -.05 ;  
+    q_ref_ToMove_right_arm[0] += -.00 ;  
     
     robot.fromRobotToIdyn( q_ref_ToMove_right_arm ,
                            q_ref_ToMove_left_arm  ,

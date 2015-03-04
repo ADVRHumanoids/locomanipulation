@@ -11,7 +11,7 @@
  * @brief The locoman_module class inherit from generic_module.
  */
 class locoman_module : public control_module<locoman_control_thread> {
-public:
+public:	
     /**
      * @brief locoman_module constructor
      * @param argc main argc

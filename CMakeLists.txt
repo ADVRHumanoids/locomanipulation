@@ -35,7 +35,7 @@ find_package(iDynTree REQUIRED)
 ## Build ##
 ###########
 
-file(GLOB_RECURSE generic_locoman_INCLUDES "${CMAKE_CURRENT_SOURCE_DIR}/include/" *.h*)  #generic_locoman_INCLUDES
+file(GLOB_RECURSE locoman_INCLUDES "${CMAKE_CURRENT_SOURCE_DIR}/include/" *.h*)  #generic_locoman_INCLUDES
 
 # include directories list
 include_directories( include ${CMAKE_SOURCE_DIR}/include ${idynutils_INCLUDE_DIRS} ${paramHelp_INCLUDE_DIRS} ${YARP_INCLUDE_DIRS} 
@@ -44,7 +44,7 @@ include_directories( include ${CMAKE_SOURCE_DIR}/include ${idynutils_INCLUDE_DIR
 # create the generic locoman executable
 add_executable( ${PROJECT_NAME} src/locoman_main.cpp 
                                 src/locoman_control_thread.cpp
-                                ${generic_locoman_INCLUDES} )  #generic_locoman_INCLUDES
+                                ${locoman_INCLUDES} )  #generic_locoman_INCLUDES
 
 # wait for GYM to compile before building the locoman
 add_dependencies( ${PROJECT_NAME} GYM )
