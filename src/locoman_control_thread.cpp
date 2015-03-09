@@ -6,6 +6,7 @@
 #include "locoman_constants.h"
 #include <GYM/yarp_command_interface.hpp>
 #include <iCub/iDynTree/yarp_kdl.h>
+#include <yarp/math/SVD.h>
 #include <fstream>
 
 using namespace yarp::math;
@@ -233,11 +234,45 @@ yarp::sig::Matrix locoman_control_thread::fConToSens(const int sens_index, const
     return map_fConToSens ;
 }
 
+yarp::sig::Vector locoman_control_thread::SkewToVect(const yarp::sig::Matrix Skew)
+{
+    yarp::sig::Vector Vect(3) ;
+    
+    Vect[0] = Skew[2][1] ;
+    Vect[1] = Skew[0][2] ;
+    Vect[2] = Skew[1][0] ;
+    return Vect ;
+}
+
+yarp::sig::Matrix locoman_control_thread::AdjToPose(const yarp::sig::Matrix Adj)
+{
+    yarp::sig::Matrix T(4,4) ;
+    T.setSubmatrix( Adj.submatrix(0,2,0,2), 0,0 ); // = Adj.submatrix(0,2,0,2) ;
+    yarp::sig::Matrix R = getRot(T)  ;
+    //     std::cout << "R = "  << R.toString()  << std::endl ;
+    yarp::sig::Matrix Temp = Adj.submatrix(0,2,3,5) ;
+    //std::cout << "Temp = "  << Temp.toString()  << std::endl ;
+    yarp::sig::Matrix Temp_2 =  Temp*R.transposed(); 
+    //   std::cout << "Temp_2 = "  <<  Temp_2.toString()  << std::endl ;
+    yarp::sig::Vector d = SkewToVect(Temp_2) ;
+    //    std::cout << "d = "  << d.toString()  << std::endl ;
+    yarp::sig::Matrix d_matr(3,1) ;
+    d_matr[0][0] = d[0] ;
+    d_matr[1][0] = d[1] ;    
+    d_matr[2][0] = d[2] ;
+    //    std::cout << "d_matr = "  << d_matr.toString()  << std::endl ;
+    T.setSubmatrix(d_matr , 0,3)  ; 
+    //    std::cout << "T = "  << T.toString()  << std::endl ;
+    T[3][3] = 1 ;
+    return T ;
+}
+
+
+
 
 
 void locoman_control_thread::run()
-{   
-    
+{     
     yarp::sig::Vector q_current = robot.sensePosition() ;
     robot.idynutils.updateiDyn3Model( q_current, true ); //update model first
     
@@ -466,16 +501,16 @@ void locoman_control_thread::run()
     //Printing Sensor Names
     RobotUtils::ftPtrMap::iterator i = fts.begin() ;    
     //std::cout << "qui" << std::endl;
-    //std::cout << i->second->getReferenceFrame() << std::endl;
+    //::cout << i->second->getReferenceFrame() << std::endl;
 
-  /*  for(RobotUtils::ftPtrMap::iterator i = fts.begin() ;  i != fts.end(); i++)
+    for(RobotUtils::ftPtrMap::iterator i = fts.begin() ;  i != fts.end(); i++)
     {
       std::cout << i->first << std::endl;
 // Alternative formulations for the iterators      
 // std::cout << i->second->getReferenceFrame() << std::endl;     
 //      (*i).second->getReferenceFrame();
 //      fts[i->first]->getReferenceFrame(); 
-    }*/
+    }
   
   //--------------------------------------------------------------------//
     //Getting Sensor Measures
@@ -486,7 +521,7 @@ void locoman_control_thread::run()
     yarp::sig::Vector ft_l_ankle(6,0.0);
     if(!robot.senseftSensor("l_ankle", ft_l_ankle)) std::cout << "ERROR READING SENSOR l_ankle" << std::endl; 
     
-   // std::cout << "start r_ankle" << std::endl;
+  /* // std::cout << "start r_ankle" << std::endl;
     for(int i=0; i< ft_r_ankle.size() ; i++)
     {
     //  std::cout<< ft_l_ankle.size()<< std::endl ;
@@ -499,7 +534,7 @@ void locoman_control_thread::run()
     {
     //  std::cout<< ft_l_ankle.size()<< std::endl ;
      std::cout <<  ft_l_ankle[i] << std::endl ;
-    }
+    } */
   //  std::cout << "end l_ankle" << std::endl ;
     
     //
@@ -520,29 +555,14 @@ void locoman_control_thread::run()
     
     //
     //q_ref_ToMove_left_arm = left_arm_configuration; // left_arm_configuration [rad]
-   
-    //-------------------------------------------------------------------------//
-    // Getting Jacobians of the left foot
-        
+
+    
+    
     int l_ankle_index = model.iDyn3_model.getLinkIndex("l_ankle") ; // sensors are placed in _ankle in the model
     int l_foot_lower_left_link_index   = model.iDyn3_model.getLinkIndex("l_foot_lower_left_link");
     int l_foot_lower_right_link_index  = model.iDyn3_model.getLinkIndex("l_foot_lower_right_link");
     int l_foot_upper_left_link_index   = model.iDyn3_model.getLinkIndex("l_foot_upper_left_link");
     int l_foot_upper_right_link_index  = model.iDyn3_model.getLinkIndex("l_foot_upper_right_link");
-    
-    yarp::sig::Matrix Jac_l_ankle_body(robot.getNumberOfJoints(), ( robot.getNumberOfJoints() + 6 ) ) ; 
-    yarp::sig::Matrix Jac_l_foot_lower_left_link_body(  6  , ( robot.getNumberOfJoints() + 6 ) ) ; 
-    yarp::sig::Matrix Jac_l_foot_lower_right_link_body( 6  , ( robot.getNumberOfJoints() + 6)  ) ; 
-    yarp::sig::Matrix Jac_l_foot_upper_left_link_body(  6  , ( robot.getNumberOfJoints() + 6 ) ) ; 
-    yarp::sig::Matrix Jac_l_foot_upper_right_link_body( 6  , ( robot.getNumberOfJoints() + 6 ) ) ; 
-    
-    model.iDyn3_model.getJacobian( l_ankle_index, Jac_l_ankle_body, true ) ; //false= mixed version jacobian
-    model.iDyn3_model.getJacobian( l_foot_lower_left_link_index  , Jac_l_foot_lower_left_link_body  , true  ) ; //true= body jacobian
-    model.iDyn3_model.getJacobian( l_foot_lower_right_link_index , Jac_l_foot_lower_right_link_body , true  ) ; //true= body jacobian
-    model.iDyn3_model.getJacobian( l_foot_upper_left_link_index  , Jac_l_foot_upper_left_link_body  , true  ) ; //true= body jacobian
-    model.iDyn3_model.getJacobian( l_foot_upper_right_link_index , Jac_l_foot_upper_right_link_body , true  ) ; //true= body jacobian
-
-    // Getting Jacobians of the right foot
     
     int r_ankle_index = model.iDyn3_model.getLinkIndex("r_ankle") ;
     int r_foot_lower_left_link_index   = model.iDyn3_model.getLinkIndex("r_foot_lower_left_link");
@@ -550,18 +570,12 @@ void locoman_control_thread::run()
     int r_foot_upper_left_link_index   = model.iDyn3_model.getLinkIndex("r_foot_upper_left_link");
     int r_foot_upper_right_link_index  = model.iDyn3_model.getLinkIndex("r_foot_upper_right_link");
     
-    yarp::sig::Matrix Jac_r_ankle_body(robot.getNumberOfJoints(), ( robot.getNumberOfJoints() + 6 ) ) ; 
-    yarp::sig::Matrix Jac_r_foot_lower_left_link_body(  6  , ( robot.getNumberOfJoints() + 6 ) ) ; 
-    yarp::sig::Matrix Jac_r_foot_lower_right_link_body( 6  , ( robot.getNumberOfJoints() + 6)  ) ; 
-    yarp::sig::Matrix Jac_r_foot_upper_left_link_body(  6  , ( robot.getNumberOfJoints() + 6 ) ) ; 
-    yarp::sig::Matrix Jac_r_foot_upper_right_link_body( 6  , ( robot.getNumberOfJoints() + 6 ) ) ; 
     
-    model.iDyn3_model.getJacobian( r_ankle_index, Jac_l_ankle_body, true ) ; //false= mixed version jacobian
-    model.iDyn3_model.getJacobian( r_foot_lower_left_link_index  , Jac_r_foot_lower_left_link_body  , true  ) ; //true= body jacobian
-    model.iDyn3_model.getJacobian( r_foot_lower_right_link_index , Jac_r_foot_lower_right_link_body , true  ) ; //true= body jacobian
-    model.iDyn3_model.getJacobian( r_foot_upper_left_link_index  , Jac_r_foot_upper_left_link_body  , true  ) ; //true= body jacobian
-    model.iDyn3_model.getJacobian( r_foot_upper_right_link_index , Jac_r_foot_upper_right_link_body , true  ) ; //true= body jacobian
+    
 
+   
+    
+ 
 //----------------------------------------------------------------------------------------//
 // Computing contact forces at each point - Left Foot
     
@@ -587,11 +601,10 @@ void locoman_control_thread::run()
     T_l_l3 = yarp::math::luinv(T_w_l_ankle)*T_w_l_foot_lower_left_link  ;
     T_l_l4 = yarp::math::luinv(T_w_l_ankle)*T_w_l_foot_lower_right_link ;
     
-    std::cout << " T_l_l1 = " << T_l_l1.toString() << std::endl ;
+    /*std::cout << " T_l_l1 = " << T_l_l1.toString() << std::endl ;
     std::cout << " T_l_l2 = " << T_l_l2.toString() << std::endl ;
     std::cout << " T_l_l3 = " << T_l_l3.toString() << std::endl ;
-    std::cout << " T_l_l4 = " << T_l_l4.toString() << std::endl ;
-    
+    std::cout << " T_l_l4 = " << T_l_l4.toString() << std::endl ;  */
     
 //----------------------------------------------------------------------------------------//
 // Computing contact forces at each point - Right Foot    
@@ -613,24 +626,24 @@ void locoman_control_thread::run()
     T_w_r_foot_upper_left_link  = model.iDyn3_model.getPosition(r_foot_upper_left_link_index)  ;    
     T_w_r_foot_upper_right_link  = model.iDyn3_model.getPosition(r_foot_upper_right_link_index) ;    
 
-    T_r_r1 = yarp::math::luinv(T_w_r_ankle)*T_w_r_foot_upper_left_link  ;
-    T_r_r2 = yarp::math::luinv(T_w_r_ankle)*T_w_r_foot_upper_right_link ; 
-    T_r_r3 = yarp::math::luinv(T_w_r_ankle)*T_w_r_foot_lower_left_link  ;
-    T_r_r4 = yarp::math::luinv(T_w_r_ankle)*T_w_r_foot_lower_right_link ;
+    T_r_r1 = iHomogeneous(T_w_r_ankle) *T_w_r_foot_upper_left_link     ;//yarp::math::luinv(T_w_r_ankle)*T_w_r_foot_upper_left_link  ; 
+    T_r_r2 = iHomogeneous(T_w_r_ankle) *T_w_r_foot_upper_right_link ; 
+    T_r_r3 = iHomogeneous(T_w_r_ankle) *T_w_r_foot_lower_left_link  ;
+    T_r_r4 = iHomogeneous(T_w_r_ankle) *T_w_r_foot_lower_right_link ;
     
-    std::cout << " T_r_r1 = " << T_r_r1.toString() << std::endl ;
+    /*std::cout << " T_r_r1 = " << T_r_r1.toString() << std::endl ;
     std::cout << " T_r_r2 = " << T_r_r2.toString() << std::endl ;
     std::cout << " T_r_r3 = " << T_r_r3.toString() << std::endl ;
-    std::cout << " T_r_r4 = " << T_r_r4.toString() << std::endl ;
-    std::cout << "  ------------ "  << std::endl ;     
+    std::cout << " T_r_r4 = " << T_r_r4.toString() << std::endl ; */
+    std::cout << "  ---------------------------------------- "  << std::endl ;     
     
     yarp::sig::Matrix Ad_g_rr1(  6 ,   6 ) ;
     yarp::sig::Matrix Ad_g_MT_rr1(  6 ,   6 ) ;
     
     Ad_g_rr1 = Adjoint(T_r_r1) ;
     Ad_g_MT_rr1 = Adjoint_MT(T_r_r1) ;
-    std::cout << " Ad_g_rr1 = "    << Ad_g_rr1.toString() << std::endl ;
-    std::cout << " Ad_g_MT_rr1 = " << Ad_g_MT_rr1.toString() << std::endl ;
+   // std::cout << " Ad_g_rr1 = "    << Ad_g_rr1.toString() << std::endl ;
+   // std::cout << " Ad_g_MT_rr1 = " << Ad_g_MT_rr1.toString() << std::endl ;
     
     
      yarp::sig::Matrix map_l_fcToSens =   fConToSens( l_ankle_index, 
@@ -643,68 +656,160 @@ void locoman_control_thread::run()
 						      r_foot_lower_right_link_index, 
 					              r_foot_upper_left_link_index, 
 						      r_foot_upper_right_link_index) ;	
+    //  std::cout << "map_l_fcToSens = " << std::endl << map_l_fcToSens.toString() << std::endl ; 
+    //  std::cout << "map_r_fcToSens = " << std::endl << map_r_fcToSens.toString() << std::endl ; 
+    yarp::sig::Vector fc_r_contacts =  yarp::math::pinv( map_r_fcToSens)  *  ft_r_ankle     ;
+    yarp::sig::Vector fc_l_contacts =  yarp::math::pinv( map_l_fcToSens)  *  ft_l_ankle     ;
+    //  std::cout << "fc_r_contacts = " << std::endl << fc_r_contacts.toString() << std::endl ; 
+    //  std::cout << "fc_l_contacts = " << std::endl << fc_l_contacts.toString() << std::endl ; 
 
-     std::cout << "map_l_fcToSens = " << map_l_fcToSens.toString() << std::endl ; 
-    
-     // Jacobian tests
-     yarp::sig::Matrix Jac_l_ankle_spa = Adjoint( iHomogeneous( T_w_l_ankle )   )*Jac_l_ankle_body  ;
+
      
+     
+     
+     
+						      
+						      
+						      
+						      
+						      
+    
+//--------------------------------------------------------------------------------------------------------//
+//                 ----    Jacobians     -----    
+//--------------------------------------------------------------------------------------------------------//
+//-------------------------------------------------------------------------//						      
+  
+						      
+						      
+						       // Jacobian tests   
+						        // Getting Jacobians of the left foot
+        
+
+
+    yarp::sig::Matrix Jac_l_ankle_body(robot.getNumberOfJoints(), ( robot.getNumberOfJoints() + 6 ) )  ; 
+    yarp::sig::Matrix Jac_l_foot_lower_left_link_body(  6  , ( robot.getNumberOfJoints() + 6 ) ) ; 
+    yarp::sig::Matrix Jac_l_foot_lower_right_link_body( 6  , ( robot.getNumberOfJoints() + 6)  ) ; 
+    yarp::sig::Matrix Jac_l_foot_upper_left_link_body(  6  , ( robot.getNumberOfJoints() + 6 ) ) ; 
+    yarp::sig::Matrix Jac_l_foot_upper_right_link_body( 6  , ( robot.getNumberOfJoints() + 6 ) ) ; 
+    
+    model.iDyn3_model.getJacobian( l_ankle_index, Jac_l_ankle_body, true ) ; //false= mixed version jacobian
+    model.iDyn3_model.getJacobian( l_foot_lower_left_link_index  , Jac_l_foot_lower_left_link_body  , true  ) ; //true= body jacobian
+    model.iDyn3_model.getJacobian( l_foot_lower_right_link_index , Jac_l_foot_lower_right_link_body , true  ) ; //true= body jacobian
+    model.iDyn3_model.getJacobian( l_foot_upper_left_link_index  , Jac_l_foot_upper_left_link_body  , true  ) ; //true= body jacobian
+    model.iDyn3_model.getJacobian( l_foot_upper_right_link_index , Jac_l_foot_upper_right_link_body , true  ) ; //true= body jacobian
+
+    // Getting Jacobians of the right foot
+   
+    
+    yarp::sig::Matrix Jac_r_ankle_body(robot.getNumberOfJoints(), ( robot.getNumberOfJoints() + 6 ) ) ; 
+    yarp::sig::Matrix Jac_r_foot_lower_left_link_body(  6  , ( robot.getNumberOfJoints() + 6 ) ) ; 
+    yarp::sig::Matrix Jac_r_foot_lower_right_link_body( 6  , ( robot.getNumberOfJoints() + 6)  ) ; 
+    yarp::sig::Matrix Jac_r_foot_upper_left_link_body(  6  , ( robot.getNumberOfJoints() + 6 ) ) ; 
+    yarp::sig::Matrix Jac_r_foot_upper_right_link_body( 6  , ( robot.getNumberOfJoints() + 6 ) ) ; 
+    
+    model.iDyn3_model.getJacobian( r_ankle_index, Jac_l_ankle_body, true ) ; //false= mixed version jacobian
+    model.iDyn3_model.getJacobian( r_foot_lower_left_link_index  , Jac_r_foot_lower_left_link_body  , true  ) ; //true= body jacobian
+    model.iDyn3_model.getJacobian( r_foot_lower_right_link_index , Jac_r_foot_lower_right_link_body , true  ) ; //true= body jacobian
+    model.iDyn3_model.getJacobian( r_foot_upper_left_link_index  , Jac_r_foot_upper_left_link_body  , true  ) ; //true= body jacobian
+    model.iDyn3_model.getJacobian( r_foot_upper_right_link_index , Jac_r_foot_upper_right_link_body , true  ) ; //true= body jacobian
+
+    
+    
+  
+    
     yarp::sig::Matrix Jac_l_ankle_mix_1(robot.getNumberOfJoints(), ( robot.getNumberOfJoints() + 6 ) ) ; 
     
     model.iDyn3_model.getJacobian( l_ankle_index, Jac_l_ankle_mix_1, false ) ;      
      
+    //Verifying equalityies.........................................
     
-    yarp::sig::Matrix Jac_l_ankle_mix_2(robot.getNumberOfJoints(), ( robot.getNumberOfJoints() + 6 ) ) ; 
-    yarp::sig::Matrix Jac_l_ankle_mix_3(robot.getNumberOfJoints(), ( robot.getNumberOfJoints() + 6 ) ) ; 
-
     yarp::sig::Matrix Eye_3( 3 , 3 ) ;
     Eye_3.eye() ;
     
+    yarp::sig::Vector zer_3( 3  ) ;
+    zer_3[0] = 0 ;
+    zer_3[1] = 0 ;
+    zer_3[2] = 0 ;
+    yarp::sig::Matrix Jac_l_ankle_mix_2(robot.getNumberOfJoints(), ( robot.getNumberOfJoints() + 6 ) ) ; 
+    yarp::sig::Matrix Jac_l_ankle_mix_3(robot.getNumberOfJoints(), ( robot.getNumberOfJoints() + 6 ) ) ; 
+    yarp::sig::Matrix Jac_l_ankle_mix_4(robot.getNumberOfJoints(), ( robot.getNumberOfJoints() + 6 ) ) ; 
+    yarp::sig::Matrix Jac_l_ankle_mix_5(robot.getNumberOfJoints(), ( robot.getNumberOfJoints() + 6 ) ) ;
     
-    Jac_l_ankle_mix_2 = Adjoint(Homogeneous(Eye_3, getTrasl(T_w_l_ankle)))*Jac_l_ankle_spa; //Transformed from the spatial form
-    Jac_l_ankle_mix_3 = Adjoint( iHomogeneous(Homogeneous(Eye_3, getTrasl(T_w_l_ankle)) ) )*Jac_l_ankle_body ; //Transformed from the body form;
+    //------------------------------------------------------------
+    Jac_l_ankle_mix_2 = Adjoint( iHomogeneous(Homogeneous(getRot(T_w_l_ankle),zer_3)))*Jac_l_ankle_body; 
+    yarp::sig::Matrix Temp_2 = Jac_l_ankle_body.submatrix(0,5,0,5) ; 
+   // std::cout << "Temp_2 = " << Temp_2.toString() <<  std::endl ;
     
-    //Verify equalityies.........................................
+    yarp::sig::Matrix Temp_3 = Jac_l_ankle_mix_1.submatrix(0,5,0,5) ; 
+    // std::cout << "Temp_3 = " << Temp_3.toString() <<  std::endl ;
+   
     
+    // Jacobian of the waist 
+    int waist_index = model.iDyn3_model.getLinkIndex("Waist") ;
+    yarp::sig::Matrix  T_w_waist = model.iDyn3_model.getPosition(waist_index) ;
+    std::cout << "T_w_waist = " <<  std::endl << T_w_waist.toString() << std::endl; 
     
-    
-   /* yarp::sig::Matrix R_r_r1(  3 ,   3 ) ;
-    yarp::sig::Vector d_r_r1(  3  ) ;
+   
+    yarp::sig::Matrix Jac_waist_mix(robot.getNumberOfJoints(), ( robot.getNumberOfJoints() + 6 ) ) ;    
+    model.iDyn3_model.getJacobian( waist_index, Jac_waist_mix, false ) ;  
+    std::cout << "Jac_waist_mix = " <<  std::endl << Jac_waist_mix.submatrix(0,5,0,5).toString() << std::endl; 
 
-    R_r_r1 = getRot(T_r_r1) ;
-    d_r_r1 = getTrasl(T_r_r1) ;  */
-  
-    /* std::cout << " R_r_r1 = " << R_r_r1.toString() << std::endl ;
-    std::cout << " d_r_r1 = " << d_r_r1.toString() << std::endl ;
-    std::cout << "  ------------ "  << std::endl ;     */
+    yarp::sig::Matrix Jac_waist_body(robot.getNumberOfJoints(), ( robot.getNumberOfJoints() + 6 ) ) ; 
+    model.iDyn3_model.getJacobian( waist_index, Jac_waist_body, true ) ; 
+    std::cout << "Jac_waist_body = " <<  std::endl << Jac_waist_body.submatrix(0,5,0,5).toString() << std::endl; 
 
-    /*yarp::sig::Matrix T_r1_r_temp_1(  4 ,   4 ) ;
-    yarp::sig::Matrix T_r1_r_temp_2(  4 ,   4 ) ;  */
+    std::cout <<"Virtual_Pose_waist = " <<  std::endl<<  AdjToPose(Jac_waist_body.submatrix(0,5,0,5)).toString()<<  std::endl;
 
-    /*T_r1_r_temp_1 = iHomogeneous(T_r_r1) ;
-    T_r1_r_temp_2 = Homogeneous(R_r_r1, d_r_r1 )     ;  */
-    
-   /* std::cout << " T_r1_r_temp_1 = " << T_r1_r_temp_1.toString() << std::endl ;
-    std::cout << " T_r1_r_temp_2 = " << T_r1_r_temp_2.toString() << std::endl ;
-    std::cout << "  ------------ "  << std::endl ;    */
+    std::cout <<"Virtual_Pose_waist_inv = " <<  std::endl<< iHomogeneous( AdjToPose(Jac_waist_body.submatrix(0,5,0,5))).toString()<<  std::endl;
    
     
+    /* std::cout << "  ---------------------------------------- "  << std::endl ;     
+  
+    int l_sole_index = model.iDyn3_model.getLinkIndex("l_sole") ;
+    yarp::sig::Matrix  T_w_l_sole = model.iDyn3_model.getPosition(l_sole_index) ;
+    std::cout << "T_w_l_sole = " <<  std::endl << T_w_l_sole.toString() << std::endl; 
+    
+    yarp::sig::Matrix Jac_l_sole_mix(robot.getNumberOfJoints(), ( robot.getNumberOfJoints() + 6 ) ) ; 
+    model.iDyn3_model.getJacobian( l_sole_index, Jac_l_sole_mix, false ) ; 
+    std::cout << "Jac_l_sole_mix = " <<  std::endl << Jac_l_sole_mix.submatrix(0,5,0,5).toString() << std::endl;     
+    
+    yarp::sig::Matrix Jac_l_sole_body(robot.getNumberOfJoints(), ( robot.getNumberOfJoints() + 6 ) ) ; 
+    model.iDyn3_model.getJacobian( l_sole_index, Jac_l_sole_body, true ) ; 
+    std::cout << "Jac_l_sole_body = " <<  std::endl << Jac_l_sole_body.submatrix(0,5,0,5).toString() << std::endl;     
+        
+    //yarp::sig::Matrix Adj_l_sole =    Jac_l_sole_body.submatrix(0,5,0,5) *    yarp::math::luinv(Jac_l_sole_mix.submatrix(0,5,0,5)) ; 
+    
+    std::cout <<"Virtual_Pose_l_sole = " <<  std::endl<<  AdjToPose(Jac_l_sole_mix.submatrix(0,5,0,5)).toString()<<  std::endl;
+
+    
+    yarp::sig::Matrix T_waist_l_sole = iHomogeneous(T_w_waist)*T_w_l_sole ;
+    
+    std::cout <<"T_waist_l_sole = " <<  std::endl<<  T_waist_l_sole.toString()<<  std::endl;
+    
+    std::cout <<"Virtual_Pose_l_sole_body = " <<  std::endl<<  AdjToPose(Jac_l_sole_body.submatrix(0,5,0,5)).toString()<<  std::endl;
+    
+    std::cout << "  ---------------------------------------- "  << std::endl ;     
+
+    
+    
+    yarp::sig::Matrix Adj_l_sole =    Jac_l_sole_body.submatrix(0,5,0,5) *    yarp::math::luinv(Jac_l_sole_mix.submatrix(0,5,0,5)) ; 
+
+    std::cout <<"Virtual_Pose_sole_mix_body = " <<  std::endl<<  AdjToPose( Adj_l_sole ).toString()<<  std::endl;
+   */
+    
+    
+    
+    
    
    
    
    
     
- // model.iDyn3_model.getPosition()  ; //Getting Configuration in world Frame
    
   
   
-//----------------------------------------------------------------------------------------//
-// Computing contact forces at each point - Right Foot
-  
-    
-    
-    
-    
+
+   
     //---------------------------------------------------------------------------//
     //---------------------------------------------------------------------------//
 			    
@@ -747,123 +852,15 @@ void locoman_control_thread::run()
     
     //---------------------------------------------------------------------------------------------------//
     // Test Printing
-      
-    /*std::cout << " C_q[0][0]  = " <<     C_q[0][0]  << std::endl ; 
-    std::cout << " C_q[0][1]  = " <<     C_q[0][1]  << std::endl ;
-    std::cout << " C_q[1][1]  = " <<     C_q[1][1]  << std::endl ; 
-    std::cout << " C_vec[0]  = " <<     C_vec[0]  << std::endl ; 
-    std::cout << " C_vec[1]  = " <<     C_vec[1]  << std::endl ; */
-
     
     std::cout << "q_ref : " << q_motor_side.toString() << std::endl;
     
-  /*   std::cout << "q_ref_ToMove[0] = " << q_ref_ToMove[0] << std::endl ;  
-     std::cout << "q_ref_ToMove[1] = " << q_ref_ToMove[1] << std::endl ;  
-     std::cout << "q_ref_ToMove[2] = " << q_ref_ToMove[2] << std::endl ;  
-     std::cout << "q_ref_ToMove[3] = " << q_ref_ToMove[3] << std::endl ;  
-     std::cout << "q_ref_ToMove[4] = " << q_ref_ToMove[4] << std::endl ;  
-     std::cout << "q_ref_ToMove[5] = " << q_ref_ToMove[5] << std::endl ;  
-     std::cout << "q_ref_ToMove[6] = " << q_ref_ToMove[6] << std::endl ;  
-     std::cout << "q_ref_ToMove[7] = " << q_ref_ToMove[7] << std::endl ;  
-     std::cout << "q_ref_ToMove[8] = " << q_ref_ToMove[8] << std::endl ;  
-     std::cout << "q_ref_ToMove[9] = " << q_ref_ToMove[9] << std::endl ;  
-     std::cout << "q_ref_ToMove[10] = " << q_ref_ToMove[10] << std::endl ;  
-     std::cout << "q_ref_ToMove[11] = " << q_ref_ToMove[11] << std::endl ;  
-     std::cout << "q_ref_ToMove[12] = " << q_ref_ToMove[12] << std::endl ;   */
-    /* std::cout << "q_ref_ToMove[13] = " << q_ref_ToMove[13] << std::endl ; 
-     std::cout << "q_ref_ToMove[14] = " << q_ref_ToMove[14] << std::endl ;  
-     std::cout << "q_ref_ToMove[15] = " << q_ref_ToMove[15] << std::endl ;  
-     std::cout << "q_ref_ToMove[16] = " << q_ref_ToMove[16] << std::endl ;  
-     std::cout << "q_ref_ToMove[17] = " << q_ref_ToMove[17] << std::endl ; 
-     std::cout << "q_ref_ToMove[18] = " << q_ref_ToMove[18] << std::endl ;  
-     std::cout << "q_ref_ToMove[19] = " << q_ref_ToMove[19] << std::endl ;  
-     std::cout << "q_ref_ToMove[20] = " << q_ref_ToMove[20] << std::endl ;  
-     std::cout << "q_ref_ToMove[21] = " << q_ref_ToMove[21] << std::endl ; 
-     std::cout << "q_ref_ToMove[22] = " << q_ref_ToMove[22] << std::endl ; 
-     std::cout << "q_ref_ToMove[23] = " << q_ref_ToMove[23] << std::endl ;  
-     std::cout << "q_ref_ToMove[24] = " << q_ref_ToMove[24] << std::endl ;  
-     std::cout << "q_ref_ToMove[25] = " << q_ref_ToMove[25] << std::endl ;  
-     std::cout << "q_ref_ToMove[26] = " << q_ref_ToMove[26] << std::endl ; 
-     std::cout << "q_ref_ToMove[27] = " << q_ref_ToMove[27] << std::endl ;  
-     std::cout << "q_ref_ToMove[28] = " << q_ref_ToMove[28] << std::endl ;  
-     //
-     std::cout << "q_ref_ToMove_torso[0] = " << q_ref_ToMove_torso[0] << std::endl ;  
-     std::cout << "q_ref_ToMove_torso[1] = " << q_ref_ToMove_torso[1] << std::endl ;  
-     std::cout << "q_ref_ToMove_torso[2] = " << q_ref_ToMove_torso[2] << std::endl ;  
-     //
-     std::cout << "q_ref_ToMove_right_arm[0] = " << q_ref_ToMove_right_arm[0] << std::endl ;  
-     std::cout << "q_ref_ToMove_right_arm[1] = " << q_ref_ToMove_right_arm[1] << std::endl ;  
-     std::cout << "q_ref_ToMove_right_arm[2] = " << q_ref_ToMove_right_arm[2] << std::endl ;  
-     std::cout << "q_ref_ToMove_right_arm[3] = " << q_ref_ToMove_right_arm[3] << std::endl ;  
-     std::cout << "q_ref_ToMove_right_arm[4] = " << q_ref_ToMove_right_arm[4] << std::endl ;  
-     std::cout << "q_ref_ToMove_right_arm[5] = " << q_ref_ToMove_right_arm[5] << std::endl ;  
-     std::cout << "q_ref_ToMove_right_arm[6] = " << q_ref_ToMove_right_arm[6] << std::endl ;  
-     //
-     std::cout << "q_ref_ToMove_left_arm[0] = " << q_ref_ToMove_left_arm[0] << std::endl ;  
-     std::cout << "q_ref_ToMove_left_arm[1] = " << q_ref_ToMove_left_arm[1] << std::endl ;  
-     std::cout << "q_ref_ToMove_left_arm[2] = " << q_ref_ToMove_left_arm[2] << std::endl ;  
-     std::cout << "q_ref_ToMove_left_arm[3] = " << q_ref_ToMove_left_arm[3] << std::endl ;  
-     std::cout << "q_ref_ToMove_left_arm[4] = " << q_ref_ToMove_left_arm[4] << std::endl ;  
-     std::cout << "q_ref_ToMove_left_arm[5] = " << q_ref_ToMove_left_arm[5] << std::endl ;  
-     std::cout << "q_ref_ToMove_left_arm[6] = " << q_ref_ToMove_left_arm[6] << std::endl ;  
-     std::cout << "q_ref_ToMove_left_arm[7] = " << q_ref_ToMove_left_arm[7] << std::endl ;  */
-     //
-  /*   std::cout << "q_ref_ToMove_right_leg[0] = " << q_ref_ToMove_right_leg[0] << std::endl ;  
-     std::cout << "q_ref_ToMove_right_leg[1] = " << q_ref_ToMove_right_leg[1] << std::endl ;  
-     std::cout << "q_ref_ToMove_right_leg[2] = " << q_ref_ToMove_right_leg[2] << std::endl ;  
-     std::cout << "q_ref_ToMove_right_leg[3] = " << q_ref_ToMove_right_leg[3] << std::endl ;  
-     std::cout << "q_ref_ToMove_right_leg[4] = " << q_ref_ToMove_right_leg[4] << std::endl ;  
-     std::cout << "q_ref_ToMove_right_leg[5] = " << q_ref_ToMove_right_leg[5] << std::endl ;  
-    // std::cout << "q_ref_ToMove_right_leg[6] = " << q_ref_ToMove_right_leg[6] << std::endl ;  
-     //
-     std::cout << "q_ref_ToMove_left_leg[0] = " << q_ref_ToMove_left_leg[0] << std::endl ;  
-     std::cout << "q_ref_ToMove_left_leg[1] = " << q_ref_ToMove_left_leg[1] << std::endl ;  
-     std::cout << "q_ref_ToMove_left_leg[2] = " << q_ref_ToMove_left_leg[2] << std::endl ;  
-     std::cout << "q_ref_ToMove_left_leg[3] = " << q_ref_ToMove_left_leg[3] << std::endl ;  
-     std::cout << "q_ref_ToMove_left_leg[4] = " << q_ref_ToMove_left_leg[4] << std::endl ;  
-     std::cout << "q_ref_ToMove_left_leg[5] = " << q_ref_ToMove_left_leg[5] << std::endl ;  
-    // std::cout << "q_ref_ToMove_left_leg[6] = " << q_ref_ToMove_left_leg[6] << std::endl ;       */
-    
-    
-  
-  
-  
-  
-  
-  
-/*     std::cout << "C_vec_left_leg[0] = " << C_vec_left_leg[0] << std::endl ;  
-     std::cout << "C_vec_left_leg[1] = " << C_vec_left_leg[1] << std::endl ;
-     std::cout << "C_vec_left_leg[2] = " << C_vec_left_leg[2] << std::endl ;  
-     std::cout << "C_left_leg[0][0] = " << C_left_leg[0][0] << std::endl ; 
-     std::cout << "C_left_leg[1][1] = " << C_left_leg[1][1] << std::endl ;  
-     std::cout << "C_left_leg[2][2] = " << C_left_leg[2][2] << std::endl ;  
+ 
 
-    
-    std::cout << "q_ref_torso[0] = " << q_ref_torso[0] << std::endl ;
-    std::cout << "q_current_torso[0] = " << q_current_torso[0] << std::endl ;        
-    
-    double temp_0 =  1000*(q_ref_torso[0] -q_current_torso[0] ) ;
-    std::cout << "temp_0 = " << temp_0 << std::endl ;
-    std::cout << "tau_current_torso[0] = " << tau_current_torso[0] << std::endl ;                           
-                           
-    std::cout << "q_ref_torso[1] = " << q_ref_torso[01] << std::endl ;
-    std::cout << "q_current_torso[1] = " << q_current_torso[1] << std::endl ;            
-    double temp_1 =  1000*(q_ref_torso[1] -q_current_torso[1] ) ;
-    std::cout << "temp_1 = " << temp_1 << std::endl ;
-    std::cout << "tau_current_torso[1] = " << tau_current_torso[1] << std::endl ;   
-    
-    std::cout << "q_ref_torso[2] = " << q_ref_torso[2] << std::endl ;
-    std::cout << "q_current_torso[2] = " << q_current_torso[2] << std::endl ;      
-    double temp_2 =  1000*(q_ref_torso[2] -q_current_torso[2] ) ;
-    std::cout << "temp_2 = " << temp_2 << std::endl ;
-    std::cout << "tau_current_torso[2] = " << tau_current_torso[2] << std::endl ;  
-    
-    std::cout << "q_ref[0] = " << q_ref[0] << std::endl ;
-*/
     //---------------------------------------------------------------------------//
     
     //---------------------------------------------------------------------------// 
-    // Default Stuff form the Generic Module
+    // Default Stuff form the Generic Module -- Command Interface
     //
     //     std::string cmd = command_interface.getCommand() ;  // USEFUL TO SEND INPUT TO THE MOUDLE
 

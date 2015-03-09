@@ -131,7 +131,7 @@ public:
     //-----------------------------------------------------------------
      /**
      * @brief  fConToSens maps contact forces on the sensor frame, is equivalent to a grasp matrix
-     * @param  sens_index, ... c4_index arethe indexes of the sensor and of the 4 contact points
+     * @param  sens_index, ... c4_index are the indexes of the sensor and of the 4 contact points
      * @return is a 6x6 yarp matrix, able to map contact forces in sensor wrenches
      */
     yarp::sig::Matrix fConToSens( const int sens_index,
@@ -139,7 +139,27 @@ public:
                                   const int c2_index,
 				  const int c3_index,
                                   const int c4_index  ) ;
+
+				  
+     //-----------------------------------------------------------------
+     /**
+     * @brief  SkewToVect transforms a cross product matrix into the original vector
+     * @param  Skew is a 3x3 yarp matrix describing an cross product
+     * @return 3x1 yarp vector
+     */
+    yarp::sig::Vector SkewToVect( const yarp::sig::Matrix Skew) ;
     
+     //-----------------------------------------------------------------
+     /**
+     * @brief  AdjToPose transforms an Adjoint matrix into the original homogenous matrix
+     * @param  Adj is a 6x6 yarp matrix describing an Adjoint transformation
+     * @return 4x4 yarp matrix describing a homogenous transformation
+     */
+    yarp::sig::Matrix AdjToPose( const yarp::sig::Matrix Adj) ;
+    
+   
+  
+  
 };
 
 #endif
