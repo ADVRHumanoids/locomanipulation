@@ -65,10 +65,18 @@ public:
     virtual bool custom_resume();
 
     //------------------------------------------------------------
+
+
+     /**
+     * @brief getKq returns the joint stiffness matrix (hardcoded for now)
+     * @return a yarp Matrix of dimension =  robot.getNumberOfJoints() x robot.getNumberOfJoints()
+     */
+    yarp::sig::Matrix getKq( ) ;
+
     
      /**
      * @brief senseMotorPosition we use this method to obtain the motor position
-     * @return a yarp vector of dimwnsion equal to robot.getNumberOfJoints() 
+     * @return a yarp vector of dimension equal to robot.getNumberOfJoints() 
      */
     yarp::sig::Vector senseMotorPosition( ) ;
     
