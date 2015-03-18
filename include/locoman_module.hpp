@@ -43,20 +43,44 @@ public:
         std::vector<paramHelp::ParamProxyInterface *> custom_params;
         // insert left_arm param
         /// NOTE: "left_arm" id has to be the same of the one in the locoman_configuration.ini
-        custom_params.push_back( new paramHelp::ParamProxyBasic<double>(   "left_arm", 
+	
+	custom_params.push_back( new paramHelp::ParamProxyBasic<double>(   "left_leg", 
+                                                                            PARAM_ID_LEFT_LEG , 
+                                                                            PARAM_SIZE_LEFT_LEG , 
+                                                                            paramHelp::PARAM_IN_OUT, 
+                                                                            NULL, 
+                                                                            "left_leg configuration in [rad]" ) );
+	custom_params.push_back( new paramHelp::ParamProxyBasic<double>(   "right_leg", 
+                                                                            PARAM_ID_RIGHT_LEG , 
+                                                                            PARAM_SIZE_RIGHT_LEG , 
+                                                                            paramHelp::PARAM_IN_OUT, 
+                                                                            NULL, 
+                                                                            "right_leg configuration in [rad]" ) );
+	custom_params.push_back( new paramHelp::ParamProxyBasic<double>(   "torso", 
+                                                                            PARAM_ID_TORSO , 
+                                                                            PARAM_SIZE_TORSO , 
+                                                                            paramHelp::PARAM_IN_OUT, 
+                                                                            NULL, 
+                                                                            "torso configuration in [rad]" ) );	
+	custom_params.push_back( new paramHelp::ParamProxyBasic<double>(   "left_arm", 
                                                                             PARAM_ID_LEFT_ARM, 
                                                                             PARAM_SIZE_LEFT_ARM, 
                                                                             paramHelp::PARAM_IN_OUT, 
                                                                             NULL, 
-                                                                            "left_arm configuration in [degree]" ) );
+                                                                            "left_arm configuration in [rad]" ) );
+	custom_params.push_back( new paramHelp::ParamProxyBasic<double>(   "right_arm", 
+                                                                            PARAM_ID_RIGHT_ARM, 
+                                                                            PARAM_SIZE_RIGHT_ARM, 
+                                                                            paramHelp::PARAM_IN_OUT, 
+                                                                            NULL, 
+                                                                            "right_arm configuration in [rad]" ) );
         // insert max_vel param
         custom_params.push_back( new paramHelp::ParamProxyBasic<double>(    "max_vel", 
                                                                             PARAM_ID_MAX_VEL, 
                                                                             PARAM_SIZE_MAX_VEL, 
                                                                             paramHelp::PARAM_IN_OUT, 
                                                                             NULL, 
-                                                                            "maximum velocity in [degree/second]" ) );
-        
+                                                                            "maximum velocity in [rad/second]" ) );      
         return custom_params;
     }
 };

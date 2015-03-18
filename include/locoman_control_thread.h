@@ -25,10 +25,18 @@ private:
     double omega;
     double phi;
     int tick;
-    
+    unsigned int right_arm_joints;
+    unsigned int left_leg_joints;
+    unsigned int right_leg_joints;
+    unsigned int torso_joints;    
     
     //Example stuff for parameters setting from outside
     yarp::sig::Vector left_arm_configuration;
+    yarp::sig::Vector right_arm_configuration;
+    yarp::sig::Vector left_leg_configuration;
+    yarp::sig::Vector right_leg_configuration;
+    yarp::sig::Vector torso_configuration;
+    
     double max_vel;
 public:
     /**
