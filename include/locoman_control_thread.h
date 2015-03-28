@@ -165,7 +165,41 @@ public:
      */
     yarp::sig::Vector SkewToVect( const yarp::sig::Matrix Skew) ;
     
+    
      //-----------------------------------------------------------------
+     /**
+     * @brief  xi_hat returns the homogeneous form of a tiwst
+     * @param  xi is a 6 dimentional yarp vector describing a twits = [v^T, w^T]^T
+     * @return 4x4 yarp matrix describing the homogenous form of a the twist xi
+     */
+    yarp::sig::Matrix xi_hat( const yarp::sig::Vector xi) ;
+
+     //-----------------------------------------------------------------
+     /**
+     * @brief  exp_omega_theta returns the rotation matrix provided by the Rodrigues formula
+     * @param  omega is the rotation axis
+     * @param  theta is the rotation amount
+     * @return 4x4 yarp matrix describing the homogenous form of a the twist xi
+     */
+    yarp::sig::Matrix exp_omega_theta( const yarp::sig::Vector omega, const double theta) ;
+
+
+    
+    
+     //-----------------------------------------------------------------
+     /**
+     * @brief  exp_xi_theta returns the homogenous transformation associated to the twist
+     * @param  xi is the twist = [v^T, w^T]^T 
+     * @param  theta is the transformation amount
+     * @return 4x4 yarp matrix describing the homogenous transformation
+     */
+    yarp::sig::Matrix twistexp( const yarp::sig::Vector xi, const double theta) ;
+
+    
+
+
+   
+     //----------------------------------------------------------------------------
      /**
      * @brief  AdjToPose transforms an Adjoint matrix into the original homogenous matrix
      * @param  Adj is a 6x6 yarp matrix describing an Adjoint transformation
@@ -173,7 +207,30 @@ public:
      */
     yarp::sig::Matrix AdjToPose( const yarp::sig::Matrix Adj) ;
     
-   
+    
+    
+     //------------------------------------------------------------------------------------
+     /**
+     * @brief  FLMM computes the basic version of the FLMM for a compliant humanoid robot 
+     * @param  J_c is a contacts x joints yarp matrix describing the body Jacobian of the humanoid
+     * @param  S_c is a 6 x contacts yarp matrix describing the body Stance matrix of the humanoid
+     * @param  Q_j is a joints x joints yarp matrix about the derivative of the Jacobian 
+     * @param  Q_s is a contacts x joints yarp matrix about the derivative of the Jacobian 
+     * @param  U_j is a joints x 6 yarp matrix about the derivative of the Jacobian 
+     * @param  U_s is a 6 x 6 yarp matrix about the derivative of the Jacobian 
+     * @param  K_c is a contacts x contacts yarp matrix describing the contact stiffness matrix
+     * @param  K_q is a joints x joints yarp matrix describing the joint stiffness matrix
+     * @return FLMM is the Fundamental Loco-Manipulation Matrix
+     */
+    yarp::sig::Matrix FLMM( const yarp::sig::Matrix J_c ,
+			    const yarp::sig::Matrix S_c ,
+			    const yarp::sig::Matrix Q_j,
+			    const yarp::sig::Matrix Q_s,
+			    const yarp::sig::Matrix U_j,
+			    const yarp::sig::Matrix U_s,
+			    const yarp::sig::Matrix K_c,
+			    const yarp::sig::Matrix K_q
+			      ) ;
   
   
 };
