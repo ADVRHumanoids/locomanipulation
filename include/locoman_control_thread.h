@@ -209,6 +209,44 @@ public:
     
     
     
+    
+     //----------------------------------------------------------------------------
+     /**
+     * @brief  ad_lie transforms a tiwst given as a yarp matrix into the Lie adjoint matrix
+     * @param  Xi is a 6x1 yarp matrix describing a twist
+     * @return 6xc yarp matrix 
+     */
+    yarp::sig::Matrix ad_lie( const yarp::sig::Matrix Xi) ;
+    
+    yarp::sig::Matrix ad_lie( const yarp::sig::Vector Xi) ;
+
+    
+    
+     //----------------------------------------------------------------------------
+     /**
+     * @brief  D_Jacob_spa_i compute the derivative of the spatial Jacobian with respect to the i-th q
+     * @param  J_s is a 6xc yarp matrix describing a spatial Jacobian
+     * @param  i -th joint () with repect to the derivative is computed 
+     * @return 6x6 yarp matrix describing the Lie adjoint matrix
+     */
+    yarp::sig::Matrix D_Jacob_spa_i( const yarp::sig::Matrix J_s, const int i ) ;
+
+    
+    
+
+         //----------------------------------------------------------------------------
+     /**
+     * @brief  Q_ci compute the derivative of the spatial Jacobian 
+     * @param  J_spa_i is a 6xc yarp matrix describing a spatial Jacobian
+     * @param  T_a_ci is the homogeneous transformation between the floating base and the contact frame 
+     * @param  f_ci contact force vector
+     * @return qxq yarp matrix 
+     */
+    yarp::sig::Matrix Q_ci( const yarp::sig::Matrix J_spa_i, const yarp::sig::Matrix T_a_ci , const yarp::sig::Vector f_ci) ;
+    
+    
+    
+    
      //------------------------------------------------------------------------------------
      /**
      * @brief  FLMM computes the basic version of the FLMM for a compliant humanoid robot 
