@@ -563,6 +563,133 @@ yarp::sig::Matrix locoman_control_thread::Q_ci(const yarp::sig::Matrix J_spa_i, 
 
 
 
+yarp::sig::Matrix locoman_control_thread::RoundMatrix(const yarp::sig::Matrix M, const int k)
+{
+  yarp::sig::Matrix Round_M = M ;
+  for( int i=0 ; i<Round_M.cols(); i++) {
+      for( int j=0 ; j<Round_M.rows(); j++){
+      Round_M[j][i]  = Round_M[j][i]  * std::pow(10,k) ;
+      Round_M[j][i]  = floor( Round_M[j][i] +0.5) ;
+      Round_M[j][i]  = Round_M[j][i]* std::pow(10,-k) ;
+      } ;
+  } ;
+return Round_M ;
+}
+
+
+
+
+yarp::sig::Matrix locoman_control_thread::FLMM_ext(const yarp::sig::Matrix J_c, const yarp::sig::Matrix S_c, const yarp::sig::Matrix Q_j, const yarp::sig::Matrix Q_s, const yarp::sig::Matrix U_j, const yarp::sig::Matrix U_s, const yarp::sig::Matrix K_c, const yarp::sig::Matrix K_q)
+{
+    int size_fc  = J_c.rows();
+    int size_q  = J_c.cols() ;
+    int r_FLMM = size_fc + 6 + 2*size_q;
+    int c_FLMM = size_fc + 6 + 3*size_q;
+    yarp::sig::Matrix FLMM(r_FLMM, c_FLMM) ;    
+    yarp::sig::Matrix Eye_fc(size_fc, size_fc) ;
+    yarp::sig::Matrix Eye_q(size_q, size_q) ;
+    Eye_fc.eye() ;
+    Eye_q.eye() ;
+    yarp::sig::Matrix Eye_tau = Eye_q ;
+    yarp::sig::Matrix Zeros_fc_q(size_fc, size_q) ;
+    yarp::sig::Matrix Zeros_q_fc(size_q, size_fc) ;
+    yarp::sig::Matrix Zeros_q_q(size_q, size_q) ;
+    yarp::sig::Matrix Zeros_6_q( 6 , size_q) ;
+    yarp::sig::Matrix Zeros_q_6(size_q, 6 ) ;
+    Zeros_fc_q.zero();
+    Zeros_q_fc.zero();
+    Zeros_q_q.zero();
+    Zeros_6_q.zero();    
+    Zeros_q_6.zero();  
+    // Setting the first block-row of the FLMM
+    FLMM.setSubmatrix( Eye_fc                           , 0 , 0                   ) ;
+    FLMM.setSubmatrix( Zeros_fc_q                       , 0 , size_fc             ) ;
+    FLMM.setSubmatrix( -1.0 * K_c*S_c.transposed()       , 0 , size_fc+size_q      ) ;
+    FLMM.setSubmatrix( -1.0 * K_c*J_c                    , 0 , size_fc+size_q+6    ) ;
+    FLMM.setSubmatrix( Zeros_fc_q                       , 0 , size_fc+2*size_q+6  ) ;
+    // Setting the second block-row of the FLMM
+    FLMM.setSubmatrix( -1.0*J_c.transposed()        , size_fc , 0                  ) ;
+    FLMM.setSubmatrix( Eye_tau                      , size_fc , size_fc            ) ;
+    FLMM.setSubmatrix( -1.0 * U_j                   , size_fc , size_fc+size_q     ) ;
+    FLMM.setSubmatrix( -1.0 * Q_j                   , size_fc , size_fc+size_q+6   ) ;
+    FLMM.setSubmatrix( Zeros_q_q                    , size_fc , size_fc+2*size_q+6 ) ;
+    // Setting the third block-row of the FLMM
+    FLMM.setSubmatrix( -1.0*S_c      , size_fc +size_q , 0                  ) ;
+    FLMM.setSubmatrix( Zeros_6_q     , size_fc +size_q , size_fc            ) ;
+    FLMM.setSubmatrix( -1.0 * U_s    , size_fc +size_q , size_fc+size_q     ) ;
+    FLMM.setSubmatrix( -1.0 * Q_s    , size_fc +size_q , size_fc+size_q+6   ) ;
+    FLMM.setSubmatrix( Zeros_6_q     , size_fc +size_q , size_fc+2*size_q+6 ) ;
+
+    // Setting the fourth block-row of the FLMM
+    FLMM.setSubmatrix( Zeros_q_fc  , size_fc +size_q +6  , 0                  ) ;
+    FLMM.setSubmatrix( Eye_tau     , size_fc +size_q +6  , size_fc            ) ;
+    FLMM.setSubmatrix( Zeros_q_6   , size_fc +size_q +6  , size_fc+size_q     ) ;
+    FLMM.setSubmatrix( K_q          , size_fc +size_q +6  , size_fc+size_q+6   ) ;
+    FLMM.setSubmatrix( -1.0*K_q     , size_fc +size_q +6  , size_fc+2*size_q+6 ) ;
+    return FLMM ;
+}
+
+yarp::sig::Matrix locoman_control_thread::Rf_ext(const yarp::sig::Matrix J_c, const yarp::sig::Matrix S_c, const yarp::sig::Matrix Q_j, const yarp::sig::Matrix Q_s, const yarp::sig::Matrix U_j, const yarp::sig::Matrix U_s, const yarp::sig::Matrix K_c, const yarp::sig::Matrix K_q)
+{
+   yarp::sig::Matrix Q_j_1 = -1.0*Q_j - 1.0* J_c.transposed()*K_c*J_c  ;
+   yarp::sig::Matrix U_j_1 = -1.0*U_j -1.0*J_c.transposed() *K_c*S_c.transposed() ;    
+   yarp::sig::Matrix Q_s_1 =  -1.0*Q_s-1.0*S_c*K_c*J_c  ;
+   yarp::sig::Matrix U_s_1 = -1.0*U_s-1.0*S_c*K_c*S_c.transposed() ;    
+   yarp::sig::Matrix L = yarp::math::luinv(U_s_1)* Q_s_1 ;
+   yarp::sig::Matrix M = Q_j_1-U_j_1*L ;    
+   yarp::sig::Matrix H = K_q-M ;
+   yarp::sig::Matrix F = -1.0*yarp::math::luinv(H)*K_q ;    
+   yarp::sig::Matrix E = -1.0*K_c* S_c.transposed()* L *F ;
+   yarp::sig::Matrix R_f_1 = E+K_c*J_c*F  ;
+   return R_f_1 ;
+}
+
+
+yarp::sig::Matrix locoman_control_thread::FLMM_redu(const yarp::sig::Matrix J_c, const yarp::sig::Matrix S_c, const yarp::sig::Matrix Q_s, const yarp::sig::Matrix U_s, const yarp::sig::Matrix K_c)
+{
+    int size_fc  = J_c.rows();
+    int size_q  = J_c.cols() ;
+    int r_FLMM = size_fc + 6  ;
+    int c_FLMM = size_fc + 6 + size_q;
+    yarp::sig::Matrix FLMM(r_FLMM, c_FLMM) ;    
+    yarp::sig::Matrix Eye_fc(size_fc, size_fc) ;
+    Eye_fc.eye() ;
+    // Setting the first block-row of the FLMM
+    FLMM.setSubmatrix( Eye_fc                      , 0 , 0                   ) ;
+    FLMM.setSubmatrix( -1.0 * K_c*S_c.transposed() , 0 , size_fc             ) ;
+    FLMM.setSubmatrix( -1.0 * K_c*J_c              , 0 , size_fc+6      ) ;
+    // Setting the second block-row of the FLMM
+    FLMM.setSubmatrix( -1.0 * S_c    , size_fc , 0                  ) ;
+    FLMM.setSubmatrix( -1.0 * U_s    , size_fc , size_fc            ) ;
+    FLMM.setSubmatrix( -1.0 * Q_s    , size_fc , size_fc+6     ) ;    
+    return FLMM ;
+}
+
+
+yarp::sig::Matrix locoman_control_thread::Rf_redu(const yarp::sig::Matrix J_c, const yarp::sig::Matrix S_c, const yarp::sig::Matrix Q_s, const yarp::sig::Matrix U_s, const yarp::sig::Matrix K_c)
+{
+ //    
+   yarp::sig::Matrix Q_s_1 =  -1.0*Q_s-1.0*S_c*K_c*J_c  ;
+   yarp::sig::Matrix U_s_1 = -1.0*U_s-1.0*S_c*K_c*S_c.transposed() ;    
+   yarp::sig::Matrix L = yarp::math::luinv(U_s_1)* Q_s_1 ;
+   yarp::sig::Matrix R_f_1 = - 1.0*K_c*J_c + K_c*S_c.transposed()* L  ;
+   return R_f_1 ;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 void locoman_control_thread::run()
 {     
 
@@ -663,7 +790,7 @@ void locoman_control_thread::run()
     yarp::sig::Matrix Kq = getKq() ;
     yarp::sig::Matrix Kc(size_fc, size_fc) ;
     Kc.eye() ;
-    Kc = 1E7*Kc ;
+    Kc = 1E5*Kc ;  //1E7*Kc ;
     
    // desired contact force definition
     yarp::sig::Vector fc_des_to_world( size_fc, 0.0)  ;
@@ -906,9 +1033,10 @@ void locoman_control_thread::run()
     yarp::sig::Matrix S_c = S_trasp.transposed() ;
     
 //----------------------------------------------------------------------------------------------------------------
-// Derivative Terms
+// 
     
     yarp::sig::Vector d_q_motor_deriv(size_q) ;
+    yarp::sig::Vector d_q_motor_no_deriv(size_q) ;
     yarp::sig::Vector fc_teor(size_fc) ;
     yarp::sig::Vector d_fc_des_to_world(size_fc)  ;
    
@@ -927,8 +1055,6 @@ void locoman_control_thread::run()
     yarp::sig::Matrix Q_j( size_q , size_q) ;
     yarp::sig::Matrix Q_s( 6 , size_q) ;   
 
- 
-    
   //--------------------------------------------------------------------------------------
   // Without Derivative terms
     
@@ -950,23 +1076,106 @@ void locoman_control_thread::run()
    yarp::sig::Matrix F = -1.0*yarp::math::luinv(H)*Kq ;    
    yarp::sig::Matrix E = -1.0*Kc* S_c.transposed()* L *F ;
    yarp::sig::Matrix R_f_1 = E+Kc*J_c*F  ;
-
-
    
-   yarp::sig::Vector d_q_motor_no_deriv = -1.0* pinv( R_f_1 , 1E-6 ) * d_fc_des_to_world ; 
+   d_fc_des_to_world = fc_des_to_world - fc_to_world_0 ;
+   d_q_motor_no_deriv = -1.0* pinv( R_f_1 , 1E-6 ) * d_fc_des_to_world ; 
    fc_teor   = fc_to_world_0 - 1.0*R_f_1 *d_q_motor_no_deriv ;
 
+   yarp::sig::Vector d_q_motor_no_deriv_damp =   -1.0* pinvDamped( R_f_1, 1E6 )* d_fc_des_to_world ; 
+   
+   
+   
    std::cout << " ----------------------------------------------------- "   << std::endl;    
    std::cout << " Without derivative terms "   << std::endl; 
-   std::cout << " d_q_motor_no_deriv = " <<  std::endl << d_q_motor_no_deriv.toString() << std::endl; 
    std::cout << " fc_teor = " <<  std::endl << fc_teor.toString() << std::endl;   
+   
+   std::cout << " d_q_motor_no_deriv = " <<  std::endl << d_q_motor_no_deriv.toString() << std::endl; 
 
- 
+//   std::cout << " d_q_motor_no_deriv_damp = " <<  std::endl << (d_q_motor_no_deriv_damp).toString() << std::endl; 
 
+  // std::cout << " d_q_damp_no_damp = " <<  std::endl << (d_q_motor_no_deriv_damp- d_q_motor_no_deriv).toString() << std::endl; 
+  // std::cout << "norm( d_q_damp_no_damp) = " <<  std::endl << norm(d_q_motor_no_deriv_damp- d_q_motor_no_deriv) << std::endl; 
+
+     
+      std::cout << " err_fc_teor  = " <<  std::endl << norm(fc_teor -fc_des_to_world)  << std::endl; 
+
+   
+        
+// pinvDamped( RoundMatrix(R_f_1,7), 1E-6 )
+
+   
+ /*   yarp::sig::Vector d_q_motor_no_deriv_damp_7 =   -1.0* pinv( RoundMatrix(R_f_1,8), 1E-6 )* d_fc_des_to_world ; //pinv( RoundMatrix(R_f_1,8), 1E-7 )
+    yarp::sig::Vector d_q_motor_no_deriv_damp_6 =   -1.0* pinv( RoundMatrix(R_f_1,7), 1E-5 )* d_fc_des_to_world ; 
+    yarp::sig::Vector d_q_motor_no_deriv_damp_5 =   -1.0* pinv( RoundMatrix(R_f_1,6), 1E-5 )* d_fc_des_to_world ; 
+    yarp::sig::Vector d_q_motor_no_deriv_damp_4 =   -1.0* pinv( RoundMatrix(R_f_1,5), 1E-4 )* d_fc_des_to_world ; 
+    yarp::sig::Vector d_q_motor_no_deriv_damp_3 =   -1.0* pinv( RoundMatrix(R_f_1,4), 1E-2 )* d_fc_des_to_world ; 
+    yarp::sig::Vector d_q_motor_no_deriv_damp_2 =   -1.0* pinv( RoundMatrix(R_f_1,12), 1E-10 )* d_fc_des_to_world ; 
+    
+    yarp::sig::Vector fc_teor_1   = fc_to_world_0 - 1.0*     R_f_1 *d_q_motor_no_deriv_damp ;
+
+    yarp::sig::Vector fc_teor_7   = fc_to_world_0 - 1.0*R_f_1 *d_q_motor_no_deriv_damp_7 ;
+    yarp::sig::Vector fc_teor_6   = fc_to_world_0 - 1.0*R_f_1 *d_q_motor_no_deriv_damp_6 ;
+    yarp::sig::Vector fc_teor_5   = fc_to_world_0 - 1.0*R_f_1 *d_q_motor_no_deriv_damp_5 ;
+    yarp::sig::Vector fc_teor_4   = fc_to_world_0 - 1.0*R_f_1 *d_q_motor_no_deriv_damp_4 ;
+    yarp::sig::Vector fc_teor_3   = fc_to_world_0 - 1.0*R_f_1 *d_q_motor_no_deriv_damp_3 ;
+    yarp::sig::Vector fc_teor_2   = fc_to_world_0 - 1.0*R_f_1 *d_q_motor_no_deriv_damp_2 ;*/
 
     
-    
-    
+ /*  std::cout << " d_q_motor_no_deriv_damp_7 = " <<  std::endl << (d_q_motor_no_deriv_damp_7).toString() << std::endl;  
+   std::cout << " d_q_motor_no_deriv_damp_6 = " <<  std::endl << (d_q_motor_no_deriv_damp_6).toString() << std::endl; 
+   std::cout << " d_q_motor_no_deriv_damp_5 = " <<  std::endl << (d_q_motor_no_deriv_damp_5).toString() << std::endl; 
+   std::cout << " d_q_motor_no_deriv_damp_4 = " <<  std::endl << (d_q_motor_no_deriv_damp_4).toString() << std::endl; 
+   std::cout << " d_q_motor_no_deriv_damp_3 = " <<  std::endl << (d_q_motor_no_deriv_damp_3).toString() << std::endl; 
+   std::cout << " d_q_motor_no_deriv_damp_2 = " <<  std::endl << (d_q_motor_no_deriv_damp_2).toString() << std::endl; 
+
+   
+   std::cout << " fc_teor_7 = " <<  std::endl << (fc_teor_7).toString() << std::endl; 
+   std::cout << " fc_teor_6 = " <<  std::endl << (fc_teor_6).toString() << std::endl; 
+   std::cout << " fc_teor_5 = " <<  std::endl << (fc_teor_5).toString() << std::endl; 
+   std::cout << " fc_teor_4 = " <<  std::endl << (fc_teor_4).toString() << std::endl; 
+   std::cout << " fc_teor_3 = " <<  std::endl << (fc_teor_3).toString() << std::endl;    
+   std::cout << " fc_teor_2 = " <<  std::endl << (fc_teor_2).toString() << std::endl;    
+
+   
+   std::cout << " err_fc_teor_7 = " <<  std::endl << norm(fc_teor_7-fc_des_to_world)  << std::endl; 
+   std::cout << " err_fc_teor_6 = " <<  std::endl << norm(fc_teor_6-fc_des_to_world)  << std::endl; 
+   std::cout << " err_fc_teor_5 = " <<  std::endl << norm(fc_teor_5-fc_des_to_world)  << std::endl; 
+   std::cout << " err_fc_teor_4 = " <<  std::endl << norm(fc_teor_4-fc_des_to_world)  << std::endl; 
+   std::cout << " err_fc_teor_3 = " <<  std::endl << norm(fc_teor_3-fc_des_to_world)  << std::endl;  
+   std::cout << " err_fc_teor_2 = " <<  std::endl << norm(fc_teor_2-fc_des_to_world)  << std::endl;  */
+
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   //----------------------------------------------------------------------------------------------------------------
+ // Filtering
+    yarp::sig::Vector d_q_motor_filter(size_q) ;
+    double     max;
+    double     min ;
+    double min_abs;
+    double d_q_max ;
+    d_q_motor_filter = d_q_motor_no_deriv ;
+    max=findMax( d_q_motor_no_deriv ) ;
+    min=findMin( d_q_motor_no_deriv ) ;    
+    max = std::abs(max) ;
+    min_abs = std::abs(min) ;
+    if(min_abs>max) max = min_abs;
+    d_q_max = 0.08722/100 ;  // 0.08722 rad = 5 deg  // 0.08722/100  seems fine
+    if(max>d_q_max)  { d_q_motor_filter =  (d_q_motor_no_deriv/max)*d_q_max ; } //(d_q_motor_filter/max)  *d_q_max  
+
+
 //----------------------------------------------------------------------------------------------------------------
 // FLMM computation  
 
@@ -1035,9 +1244,16 @@ void locoman_control_thread::run()
   
    std::cout << " norm( d_fc_des_to_world ) = " <<  std::endl << norm( d_fc_des_to_world ) << std::endl; 
     
+   
+   //   writing data on a file
+    double err = norm( d_fc_des_to_world )  ;
+    std::ofstream err_cl ( "err.m", std::ios::app );
+    if( err_cl.is_open() )
+    err_cl <<  err << std::endl;  
+   
+   
+   
 
-    
-    
      //---------------------------------------------------------------------------//
     yarp::sig::Vector q_ref_ToMove_right_arm(robot.right_arm.getNumberOfJoints()) ; 
     yarp::sig::Vector q_ref_ToMove_left_arm(robot.left_arm.getNumberOfJoints()) ;
@@ -1065,9 +1281,9 @@ void locoman_control_thread::run()
                            q_ref_ToMove_left_leg  ,
                            q_ref_ToMove );    
      
-     q_ref_ToMove = q_ref_ToMove  + (1.0/1.0 )*d_q_motor_no_deriv ; // to balance... q_ref_ToMove  + d_q_motor_desired ;
+ //    q_ref_ToMove = q_ref_ToMove ; // + d_q_motor_no_deriv_damp_2 ; // + (1.0/1.0 )*d_q_motor_filter ; // to balance... q_ref_ToMove  + d_q_motor_desired ;
        
-     robot.move(q_ref_ToMove);  // q_ref_ToMove
+ //    robot.move(q_ref_ToMove);  // q_ref_ToMove
  
      // robot.left_arm.move(q_ref_ToMove_left_arm);
     
@@ -1079,7 +1295,7 @@ void locoman_control_thread::run()
     
     
     // Introducing derivative terms
-        Q_l_c1 = Q_ci(J_waist_l_c1_spa_0, T_waist_l_c1_0, fc_l_c1 ) ;
+    Q_l_c1 = Q_ci(J_waist_l_c1_spa_0, T_waist_l_c1_0, fc_l_c1 ) ;
     Q_l_c2 = Q_ci(J_waist_l_c2_spa_0, T_waist_l_c2_0, fc_l_c2 ) ; // (size_q+ 6, size_q + 6) ;
     Q_l_c3 = Q_ci(J_waist_l_c3_spa_0, T_waist_l_c3_0, fc_l_c3 ) ; //(size_q+ 6, size_q + 6) ; 
     Q_l_c4 = Q_ci(J_waist_l_c4_spa_0, T_waist_l_c4_0, fc_l_c4 ) ; //(size_q+ 6, size_q + 6) ;
@@ -1092,24 +1308,21 @@ void locoman_control_thread::run()
     yarp::sig::Matrix Q_l_tot = Q_l_c1 + Q_l_c2 + Q_l_c3 + Q_l_c4;
     yarp::sig::Matrix Q_r_tot = Q_r_c1 + Q_r_c2 + Q_r_c3 + Q_r_c4;
     yarp::sig::Matrix Q_c =  Q_l_tot + Q_r_tot ;  
-    
 
    U_s = Q_c.submatrix(0,5 , 0, 5) ;
-   U_j = Q_c.submatrix(6, (Q_c.rows()-1) , 0, 5) ;
+   U_j.zero(); //Q_c.submatrix(6, (Q_c.rows()-1) , 0, 5) ;
      
    Q_s = Q_c.submatrix(0,5,  6, (Q_c.cols()-1)  ) ;
    Q_j = Q_c.submatrix( 6 , (Q_c.rows()-1)  ,  6, (Q_c.cols()-1)  ) ;
 
-/* std::cout << " Q_c = " <<  std::endl << Q_c.toString() << std::endl;
+/*   std::cout << " Q_c = " <<  std::endl << Q_c.toString() << std::endl;
    std::cout << " U_s = " <<  std::endl << U_s.toString() << std::endl;
    std::cout << " U_j = " <<  std::endl << U_j.toString() << std::endl;
    std::cout << " Q_s = " <<  std::endl << Q_s.toString() << std::endl;
-   std::cout << " Q_j = " <<  std::endl << Q_j.toString() << std::endl;  */
-
-
+   std::cout << " Q_j = " <<  std::endl << Q_j.toString() << std::endl;    */
    
-   std::cout << " ----------------------------------------------------- "   << std::endl;    
-   std::cout << " With derivative terms "   << std::endl; 
+//   std::cout << " ----------------------------------------------------- "   << std::endl;    
+//   std::cout << " With derivative terms "   << std::endl; 
    
   //  Kc.eye() ;
   //  Kc = 1E7*Kc ;
@@ -1127,18 +1340,174 @@ void locoman_control_thread::run()
    R_f_1 = E+Kc*J_c*F  ;
    
     d_fc_des_to_world = fc_des_to_world - fc_to_world_0 ;
-    d_q_motor_deriv = -1.0* pinv( R_f_1 , 1E-6 ) * d_fc_des_to_world ; 
+    yarp::sig::Vector d_q_motor_deriv_no_damp = -1.0* pinv( R_f_1 , 1E-6 ) * d_fc_des_to_world ; 
     fc_teor   = fc_to_world_0 - 1.0*R_f_1 *d_q_motor_deriv ;
 
-    std::cout << " fc_des_to_world  "   <<  std::endl  << fc_des_to_world.toString() << std::endl   ; 
-    std::cout << " d_q_motor_deriv = " <<  std::endl << d_q_motor_deriv.toString() << std::endl; 
-    std::cout << " fc_teor = " <<  std::endl << fc_teor.toString() << std::endl; 
+ /*  std::cout << " fc_des_to_world  "   <<  std::endl  << fc_des_to_world.toString() << std::endl   ; 
+   std::cout << " d_q_motor_deriv = " <<  std::endl << d_q_motor_deriv.toString() << std::endl; 
+   std::cout << " fc_teor = " <<  std::endl << fc_teor.toString() << std::endl;  */
     //
-  
+/*   d_fc_des_to_world = fc_des_to_world - fc_to_world_0 ;
+   d_q_motor_no_deriv = -1.0* pinv( R_f_1 , 1E-6 ) * d_fc_des_to_world ; 
+   fc_teor   = fc_to_world_0 - 1.0*R_f_1 *d_q_motor_no_deriv ;   */
+
+   yarp::sig::Vector d_q_motor_deriv_damp =   -1.0* pinvDamped( R_f_1, 1E4 )* d_fc_des_to_world ; 
+   
+    yarp::sig::Vector d_q_motor_deriv_damp_1 =   -1.0* pinvDamped( R_f_1, 1E1 )* d_fc_des_to_world ; 
+    yarp::sig::Vector d_q_motor_deriv_damp_2 =   -1.0* pinvDamped( R_f_1, 1E2 )* d_fc_des_to_world ; 
+    yarp::sig::Vector d_q_motor_deriv_damp_3 =   -1.0* pinvDamped( R_f_1, 1E3 )* d_fc_des_to_world ; 
+    yarp::sig::Vector d_q_motor_deriv_damp_4 =   -1.0* pinvDamped( R_f_1, 1E4 )* d_fc_des_to_world ; 
+    yarp::sig::Vector d_q_motor_deriv_damp_5 =   -1.0* pinvDamped( R_f_1, 1E5 )* d_fc_des_to_world ; 
+    yarp::sig::Vector d_q_motor_deriv_damp_6 =   -1.0* pinvDamped( R_f_1, 1E6 )* d_fc_des_to_world ; 
+    
+   
+    yarp::sig::Vector d_q_motor_no_deriv_damp_7 =   -1.0* pinv( RoundMatrix(R_f_1,5), 1E-4 )* d_fc_des_to_world ; //pinv( RoundMatrix(R_f_1,8), 1E-7 )
+    yarp::sig::Vector d_q_motor_no_deriv_damp_6 =   -1.0* pinv( RoundMatrix(R_f_1,4), 1E-3 )* d_fc_des_to_world ; 
+    yarp::sig::Vector d_q_motor_no_deriv_damp_5 =   -1.0* pinv( RoundMatrix(R_f_1,3), 1E-2 )* d_fc_des_to_world ; 
+    yarp::sig::Vector d_q_motor_no_deriv_damp_4 =   -1.0* pinv( RoundMatrix(R_f_1,2), 1E-5 )* d_fc_des_to_world ; 
+    yarp::sig::Vector d_q_motor_no_deriv_damp_3 =   -1.0* pinv( RoundMatrix(R_f_1,1), 1E-0 )* d_fc_des_to_world ; 
+    yarp::sig::Vector d_q_motor_no_deriv_damp_2 =   -1.0* pinv( RoundMatrix(R_f_1,12), 1E-10 )* d_fc_des_to_world ; 
+    
+    yarp::sig::Vector fc_teor_1   = fc_to_world_0 - 1.0*     R_f_1 *d_q_motor_no_deriv_damp ;
+
+    yarp::sig::Vector fc_teor_7   = fc_to_world_0 - 1.0*R_f_1 *d_q_motor_no_deriv_damp_7 ;
+    yarp::sig::Vector fc_teor_6   = fc_to_world_0 - 1.0*R_f_1 *d_q_motor_no_deriv_damp_6 ;
+    yarp::sig::Vector fc_teor_5   = fc_to_world_0 - 1.0*R_f_1 *d_q_motor_no_deriv_damp_5 ;
+    yarp::sig::Vector fc_teor_4   = fc_to_world_0 - 1.0*R_f_1 *d_q_motor_no_deriv_damp_4 ;
+    yarp::sig::Vector fc_teor_3   = fc_to_world_0 - 1.0*R_f_1 *d_q_motor_no_deriv_damp_3 ;
+    yarp::sig::Vector fc_teor_2   = fc_to_world_0 - 1.0*R_f_1 *d_q_motor_no_deriv_damp_2 ;
+
+    
+ /*  std::cout << " d_q_motor_no_deriv_damp_7 = " <<  std::endl << (d_q_motor_no_deriv_damp_7).toString() << std::endl;  
+   std::cout << " d_q_motor_no_deriv_damp_6 = " <<  std::endl << (d_q_motor_no_deriv_damp_6).toString() << std::endl; 
+   std::cout << " d_q_motor_no_deriv_damp_5 = " <<  std::endl << (d_q_motor_no_deriv_damp_5).toString() << std::endl; 
+   std::cout << " d_q_motor_no_deriv_damp_4 = " <<  std::endl << (d_q_motor_no_deriv_damp_4).toString() << std::endl; 
+   std::cout << " d_q_motor_no_deriv_damp_3 = " <<  std::endl << (d_q_motor_no_deriv_damp_3).toString() << std::endl; 
+   std::cout << " d_q_motor_no_deriv_damp_2 = " <<  std::endl << (d_q_motor_no_deriv_damp_2).toString() << std::endl; */
+
+   
+/*   std::cout << " fc_teor_7 = " <<  std::endl << (fc_teor_7).toString() << std::endl; 
+   std::cout << " fc_teor_6 = " <<  std::endl << (fc_teor_6).toString() << std::endl; 
+   std::cout << " fc_teor_5 = " <<  std::endl << (fc_teor_5).toString() << std::endl; 
+   std::cout << " fc_teor_4 = " <<  std::endl << (fc_teor_4).toString() << std::endl; 
+   std::cout << " fc_teor_3 = " <<  std::endl << (fc_teor_3).toString() << std::endl;    
+   std::cout << " fc_teor_2 = " <<  std::endl << (fc_teor_2).toString() << std::endl;    
+
+   
+   std::cout << " err_fc_teor_7 = " <<  std::endl << norm(fc_teor_7-fc_des_to_world)  << std::endl; 
+   std::cout << " err_fc_teor_6 = " <<  std::endl << norm(fc_teor_6-fc_des_to_world)  << std::endl; 
+   std::cout << " err_fc_teor_5 = " <<  std::endl << norm(fc_teor_5-fc_des_to_world)  << std::endl; 
+   std::cout << " err_fc_teor_4 = " <<  std::endl << norm(fc_teor_4-fc_des_to_world)  << std::endl; 
+   std::cout << " err_fc_teor_3 = " <<  std::endl << norm(fc_teor_3-fc_des_to_world)  << std::endl;  
+   std::cout << " err_fc_teor_2 = " <<  std::endl << norm(fc_teor_2-fc_des_to_world)  << std::endl;  */
+
     
     
     
+ 
+ 
+    //----------------------------------------------------------------------------------------------------------------
+ // Filtering
+    d_q_motor_filter = d_q_motor_deriv_damp_3 ;  //d_q_motor_deriv_damp_2
+    max=findMax( d_q_motor_filter ) ;
+    min=findMin( d_q_motor_filter ) ;    
+    max = std::abs(max) ;
+    min_abs = std::abs(min) ;
+    if(min_abs>max) max = min_abs;
+    d_q_max = 0.08722/100 ;  // 0.08722 rad = 5 deg  // 0.08722/100  seems fine
+    if(max>d_q_max)  { d_q_motor_filter =  (d_q_motor_filter/max)*d_q_max ; } //(d_q_motor_filter/max)  *d_q_max  
+
+
+
+     
+     
+     
+     q_ref_ToMove = q_ref_ToMove  ; //+ (1.0/1.0 )*d_q_motor_filter ; // + (1.0/1.0 )*d_q_motor_filter ; // to balance... q_ref_ToMove  + d_q_motor_desired ;
+       
+     robot.move(q_ref_ToMove);  
+     
+     
+     
+     
+     
+     
+   // Derivati about the COM
+
+    //--------------------------------------
+     yarp::sig::Matrix Jac_w_COM_0_temp( 6 , robot.getNumberOfJoints()  + 6 ) ; 
+     yarp::sig::Matrix Jac_COM_body_0_temp( 6 , robot.getNumberOfJoints()  + 6 ) ; 
+     yarp::sig::Matrix Jac_COM_body_0( 6 , robot.getNumberOfJoints()  + 6 ) ; 
+     yarp::sig::Matrix Jac_COM_spa_0( 6 , robot.getNumberOfJoints()  + 6 ) ; 
+     yarp::sig::Matrix zero_3_6q(3,size_q+6);
+
+     yarp::sig::Vector d_w_COM_0(3) ;
+     yarp::sig::Matrix T_w_COM_0_temp(4,4) ;
+     yarp::sig::Matrix T_w_COM_0(4,4) ;
+     yarp::sig::Matrix T_COM_w_0(4,4) ;     
+     yarp::sig::Matrix R_w_COM_0(3,3) ;
+     yarp::sig::Matrix R_COM_w_0(3,3) ;
+
+     yarp::sig::Matrix T_aw_COM_0(4,4)  ;
+     yarp::sig::Matrix T_waist_COM_0(4,4);
+     yarp::sig::Matrix T_COM_waist_0(4,4) ;
+     
+     model.iDyn3_model.getCOMJacobian( Jac_w_COM_0_temp ) ;  
+     d_w_COM_0 = model.iDyn3_model.getCOM()  ;  
+     T_w_COM_0_temp = Homogeneous(Eye_3, d_w_COM_0 ) ;
+     T_aw_COM_0 =  T_aw_w_0  *T_w_COM_0 ;
+     T_aw_COM_0.setSubmatrix(Eye_3,0,0) ;
+     T_waist_COM_0 =  T_waist_w_0 * T_w_aw_0*T_aw_COM_0 ;
+     T_COM_waist_0 = iHomogeneous(T_waist_COM_0)   ;
+     
+     T_w_COM_0 = T_w_waist_0*  T_waist_COM_0;
+     T_COM_w_0 = iHomogeneous(T_w_COM_0 ) ;
+     R_w_COM_0 = getRot( T_w_COM_0 ) ;
+     R_COM_w_0 = getRot( T_COM_w_0 ) ;
+
+     Jac_COM_body_0_temp    =  Adjoint(Homogeneous(R_COM_w_0, zero_3))   *  Jac_w_COM_0_temp ;
+     Jac_COM_spa_0 =  Adjoint( T_waist_COM_0   )  * Jac_COM_body_0 ;
+     Jac_COM_spa_0.setSubmatrix(Eye_6,0,0) ;
+  //   Jac_COM_spa_0.setSubmatrix(zero_3_6q,3,0) ;
+     Jac_COM_body_0 = Adjoint( T_COM_waist_0 )*Jac_COM_spa_0 ;
+     
+     yarp::sig::Vector mg_vect(3, 0.0) ;
+     mg_vect[2] = - mg ;
+         // Introducing derivative terms
+    yarp::sig::Matrix Q_mg(size_q+6, size_q+6 ) ;
+    Q_mg = Q_ci( Jac_COM_spa_0, T_waist_COM_0, mg_vect ) ;
+
+    yarp::sig::Matrix Q_c_mg = Q_c + Q_mg; //  Q_l_tot + Q_r_tot ;  
+     
+    yarp::sig::Matrix U_s_mg( 6 , 6) ;  
+    yarp::sig::Matrix U_j_mg( size_q , 6 ) ;
+    yarp::sig::Matrix Q_s_mg( 6 , size_q) ;      
+    yarp::sig::Matrix Q_j_mg( size_q , size_q) ;
     
+   U_s_mg = Q_c_mg.submatrix(0,5 , 0, 5) ;
+   U_j_mg = Q_c_mg.submatrix(6, (Q_c.rows()-1) , 0, 5) ;
+     
+   Q_s_mg = Q_c_mg.submatrix(0,5,  6, (Q_c.cols()-1)  ) ;
+   Q_j_mg = Q_c_mg.submatrix( 6 , (Q_c.rows()-1)  ,  6, (Q_c.cols()-1)  ) ;
+
+   std::cout << " Q_mg = " <<  std::endl << Q_mg.toString() << std::endl;
+  std::cout << " Q_c_mg = " <<  std::endl << Q_c_mg.toString() << std::endl;
+   std::cout << " U_s = " <<  std::endl << U_s.toString() << std::endl;
+   std::cout << " U_mg = " <<  std::endl << (Q_mg.submatrix(0,5 , 0, 5)).toString() << std::endl;
+
+  std::cout << " U_s_mg = " <<  std::endl << U_s_mg.toString() << std::endl;
+   std::cout << " U_j_mg = " <<  std::endl << U_j_mg.toString() << std::endl;
+   std::cout << " Q_s_mg = " <<  std::endl << Q_s_mg.toString() << std::endl;
+   std::cout << " Q_j_mg = " <<  std::endl << Q_j_mg.toString() << std::endl;      
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
 
      
      
@@ -1162,6 +1531,40 @@ void locoman_control_thread::run()
      
      
      
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+  
+     
+     
+     
+    /* yarp::sig::Matrix R_2 =  RoundMatrix(Temp_3 , 2) ;
+     yarp::sig::Matrix R_3 =  RoundMatrix(Temp_3 , 3) ;
+     yarp::sig::Matrix R_4 =  RoundMatrix(Temp_3 , 4) ;
+     yarp::sig::Matrix R_5 =  RoundMatrix(Temp_3 , 5) ;
+     
+     
+     
+     std::cout << " R_2 = " <<  std::endl << R_2.toString()  << std::endl; 
+     std::cout << " R_3 = " <<  std::endl << R_3.toString()  << std::endl; 
+     std::cout << " R_4 = " <<  std::endl << R_4.toString()  << std::endl; 
+     std::cout << " R_5 = " <<  std::endl << R_5.toString()  << std::endl; */
+
      
      
      

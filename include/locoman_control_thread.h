@@ -231,8 +231,6 @@ public:
      */
     yarp::sig::Matrix D_Jacob_spa_i( const yarp::sig::Matrix J_s, const int i ) ;
 
-    
-    
 
          //----------------------------------------------------------------------------
      /**
@@ -245,11 +243,22 @@ public:
     yarp::sig::Matrix Q_ci( const yarp::sig::Matrix J_spa_i, const yarp::sig::Matrix T_a_ci , const yarp::sig::Vector f_ci) ;
     
     
+     //----------------------------------------------------------------------------
+     /**
+     * @brief  RoundMatrix computes the round of M to k decimal places 
+     * @param  M yarp matrix to round
+     * @param  k number of decimal places 
+     * @return rounded yarp matrix 
+     */
+    yarp::sig::Matrix RoundMatrix( const yarp::sig::Matrix M, const int k) ;
+    
+    
+    
     
     
      //------------------------------------------------------------------------------------
      /**
-     * @brief  FLMM computes the basic version of the FLMM for a compliant humanoid robot 
+     * @brief  FLMM_ext computes the FLMM for a compliant humanoid robot 
      * @param  J_c is a contacts x joints yarp matrix describing the body Jacobian of the humanoid
      * @param  S_c is a 6 x contacts yarp matrix describing the body Stance matrix of the humanoid
      * @param  Q_j is a joints x joints yarp matrix about the derivative of the Jacobian 
@@ -258,9 +267,9 @@ public:
      * @param  U_s is a 6 x 6 yarp matrix about the derivative of the Jacobian 
      * @param  K_c is a contacts x contacts yarp matrix describing the contact stiffness matrix
      * @param  K_q is a joints x joints yarp matrix describing the joint stiffness matrix
-     * @return FLMM is the Fundamental Loco-Manipulation Matrix
+     * @return FLMM_ext is the Fundamental Loco-Manipulation Matrix
      */
-    yarp::sig::Matrix FLMM( const yarp::sig::Matrix J_c ,
+    yarp::sig::Matrix FLMM_ext( const yarp::sig::Matrix J_c ,
 			    const yarp::sig::Matrix S_c ,
 			    const yarp::sig::Matrix Q_j,
 			    const yarp::sig::Matrix Q_s,
@@ -269,7 +278,63 @@ public:
 			    const yarp::sig::Matrix K_c,
 			    const yarp::sig::Matrix K_q
 			      ) ;
-  
+
+   //------------------------------------------------------------------------------------
+     /**
+     * @brief  Rf_ext computes the joint-forces map for a compliant humanoid robot 
+     * @param  J_c is a contacts x joints yarp matrix describing the body Jacobian of the humanoid
+     * @param  S_c is a 6 x contacts yarp matrix describing the body Stance matrix of the humanoid
+     * @param  Q_j is a joints x joints yarp matrix about the derivative of the Jacobian 
+     * @param  Q_s is a contacts x joints yarp matrix about the derivative of the Jacobian 
+     * @param  U_j is a joints x 6 yarp matrix about the derivative of the Jacobian 
+     * @param  U_s is a 6 x 6 yarp matrix about the derivative of the Jacobian 
+     * @param  K_c is a contacts x contacts yarp matrix describing the contact stiffness matrix
+     * @param  K_q is a joints x joints yarp matrix describing the joint stiffness matrix
+     * @return Rf_ext computes the joint-forces map
+     */
+    yarp::sig::Matrix Rf_ext( const yarp::sig::Matrix J_c ,
+			    const yarp::sig::Matrix S_c ,
+			    const yarp::sig::Matrix Q_j,
+			    const yarp::sig::Matrix Q_s,
+			    const yarp::sig::Matrix U_j,
+			    const yarp::sig::Matrix U_s,
+			    const yarp::sig::Matrix K_c,
+			    const yarp::sig::Matrix K_q
+			      ) ;			      
+	      
+     //------------------------------------------------------------------------------------
+     /**
+     * @brief  FLMM_redu computes a basic version of the FLMM for a rigid humanoid robot 
+     * @param  J_c is a contacts x joints yarp matrix describing the body Jacobian of the humanoid
+     * @param  S_c is a 6 x contacts yarp matrix describing the body Stance matrix of the humanoid
+     * @param  Q_s is a contacts x joints yarp matrix about the derivative of the Jacobian 
+     * @param  U_s is a 6 x 6 yarp matrix about the derivative of the Jacobian 
+     * @param  K_c is a contacts x contacts yarp matrix describing the contact stiffness matrix
+     * @return FLMM_ext is the Fundamental Loco-Manipulation Matrix
+     */
+    yarp::sig::Matrix FLMM_redu( const yarp::sig::Matrix J_c ,
+			    const yarp::sig::Matrix S_c ,
+			    const yarp::sig::Matrix Q_s,
+			    const yarp::sig::Matrix U_s,
+			    const yarp::sig::Matrix K_c
+			      ) ; 			      
+     //------------------------------------------------------------------------------------
+     /**
+     * @brief  Rf_redu computes a basic version of the FLMM for a rigid humanoid robot 
+     * @param  J_c is a contacts x joints yarp matrix describing the body Jacobian of the humanoid
+     * @param  S_c is a 6 x contacts yarp matrix describing the body Stance matrix of the humanoid
+     * @param  Q_s is a contacts x joints yarp matrix about the derivative of the Jacobian 
+     * @param  U_s is a 6 x 6 yarp matrix about the derivative of the Jacobian 
+     * @param  K_c is a contacts x contacts yarp matrix describing the contact stiffness matrix
+     * @return Rf_redu is the Fundamental Loco-Manipulation Matrix
+     */
+    yarp::sig::Matrix Rf_redu( const yarp::sig::Matrix J_c ,
+			    const yarp::sig::Matrix S_c ,
+			    const yarp::sig::Matrix Q_s,
+			    const yarp::sig::Matrix U_s,
+			    const yarp::sig::Matrix K_c
+			      ) ;			      
+			      
   
 };
 
