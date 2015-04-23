@@ -39,6 +39,20 @@ private:
     
     double max_vel;
 public:
+    int mg =  290 ; // [N]  295
+    int loop_counter;
+    int WINDOW_size;
+    int FC_size ;  
+    bool flag_robot = 0 ;
+    bool flag_simulator = 1-flag_robot ;
+    yarp::sig::Vector FC_DES ;  //     yarp::sig::Vector FC_DES( FC_size   ) ;
+    yarp::sig::Vector FC_DES_LEFT_sensor ;
+    yarp::sig::Vector FC_DES_RIGHT_sensor ;
+    yarp::sig::Vector FC_SUM ;
+    yarp::sig::Vector FC_FILTERED ;
+    yarp::sig::Matrix FC_WINDOW ;  //    yarp::sig::Matrix FC_WINDOW(FC_size, WINDOW_filter ) ;
+    
+  
     /**
      * @brief tutorial_control_thread constructor
      * @param module_prefix passed from the module
@@ -281,7 +295,7 @@ public:
 
    //------------------------------------------------------------------------------------
      /**
-     * @brief  Rf_ext computes the joint-forces map for a compliant humanoid robot 
+     * @brief  Rf_ext computes the joints-forces map for a compliant humanoid robot 
      * @param  J_c is a contacts x joints yarp matrix describing the body Jacobian of the humanoid
      * @param  S_c is a 6 x contacts yarp matrix describing the body Stance matrix of the humanoid
      * @param  Q_j is a joints x joints yarp matrix about the derivative of the Jacobian 
@@ -320,7 +334,7 @@ public:
 			      ) ; 			      
      //------------------------------------------------------------------------------------
      /**
-     * @brief  Rf_redu computes a basic version of the FLMM for a rigid humanoid robot 
+     * @brief  Rf_redu computes the joints-forces map for a rigid humanoid robot 
      * @param  J_c is a contacts x joints yarp matrix describing the body Jacobian of the humanoid
      * @param  S_c is a 6 x contacts yarp matrix describing the body Stance matrix of the humanoid
      * @param  Q_s is a contacts x joints yarp matrix about the derivative of the Jacobian 
@@ -335,7 +349,89 @@ public:
 			    const yarp::sig::Matrix K_c
 			      ) ;			      
 			      
-  
+       //------------------------------------------------------------------------------------
+     /**
+     * @brief  Ru_redu computes the joints-movements map for a a rigid humanoid robot 
+     * @param  J_c is a contacts x joints yarp matrix describing the body Jacobian of the humanoid
+     * @param  S_c is a 6 x contacts yarp matrix describing the body Stance matrix of the humanoid
+     * @param  Q_s is a contacts x joints yarp matrix about the derivative of the Jacobian 
+     * @param  U_s is a 6 x 6 yarp matrix about the derivative of the Jacobian 
+     * @param  K_c is a contacts x contacts yarp matrix describing the contact stiffness matrix
+     * @return Ru_redu is the Fundamental Loco-Manipulation Matrix
+     */
+    yarp::sig::Matrix Ru_redu( const yarp::sig::Matrix J_c ,
+			    const yarp::sig::Matrix S_c ,
+			    const yarp::sig::Matrix Q_s,
+			    const yarp::sig::Matrix U_s,
+			    const yarp::sig::Matrix K_c
+			      ) ;		
+//------------------------------------------------------------------------------------
+     /**
+     * @brief  Pinv_trunc_SVD computes the pseudoinverse of A via the truncated SVD method 
+     * @param  A is the matrix to pseudo-inverse
+     * @param  k is the maximum ratio admitted between the max and min singular values
+     * @return Pinv_trunc_SVD is the pseudo-inverse of A
+     */
+      yarp::sig::Matrix Pinv_trunc_SVD( const yarp::sig::Matrix A ,
+			                const double k = 1E-4 
+			              ) ;   // 
+//------------------------------------------------------------------------------------
+     /**
+     * @brief  Pinv_Regularized computes the Tikhonov Regularized pseudo-inverse of A 
+     * @param  A is the matrix to pseudo-inverse
+     * @param  k is the regularization factor
+     * @return Pinv_Regularized is the pseudo-inverse of A
+     */ 
+      yarp::sig::Matrix Pinv_Regularized( const yarp::sig::Matrix A ,
+			                  const double k  
+			                ) ;     
+//------------------------------------------------------------------------------------
+     /**
+     * @brief  x_Pinv_Iter computes the variable x: Ax=b via the Landweber iteration method
+     * @param  A is the matrix to pseudo-inverse
+     * @param  b is the vector of known terms
+     * @param  n is the maximum number of steps to be performed (less that the minimum dimension of A)
+     * @return x_Pinv_Iter is the solution vetor
+     */
+      yarp::sig::Vector x_Pinv_Iter( const yarp::sig::Matrix A , 
+				   const yarp::sig::Vector b , 
+			           double n 
+			           ) ;   // 			      
+     /**
+     * @brief  orth_SVD computes a basis for the span of A via the truncated SVD method 
+     * @param  A is the matrix of which a basis is needed
+     * @param  k is the maximum ratio admitted between the max and min singular values
+     * @return orth_SVD is a basis for the span of A
+     */
+      yarp::sig::Matrix orth_SVD( const yarp::sig::Matrix A ,
+			                const double k = 1E-4 
+			              ) ;   // 			           
+     /**
+     * @brief  null_SVD computes a basis for the nullspace of A via the truncated SVD method 
+     * @param  A is the matrix of which a basis for the nullspace is needed
+     * @param  k is the maximum ratio admitted between the max and min singular values
+     * @return null_SVD is a basis for the nullspace of A
+     */
+      yarp::sig::Matrix null_SVD( const yarp::sig::Matrix A ,
+			                const double k = 1E-4 
+			              ) ;  
+           
+     /**
+     * @brief  filter_SVD computes a "fileters" version of A via the truncated SVD  
+     * @param  A is the matrix of which the filtration effect is needed
+     * @param  k is the maximum ratio admitted between the max and min singular values
+     * @return filter_SVD is the filtered version of A
+     */
+      yarp::sig::Matrix filter_SVD( const yarp::sig::Matrix A ,
+			                const double k = 1E-4 
+			              ) ; 				      
+				      
+			           
 };
+
+
+
+
+
 
 #endif
