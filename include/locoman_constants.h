@@ -24,11 +24,6 @@
 #define PARAM_SIZE_RIGHT_ARM 7
 
 
-
-
-
-
-
 // max_vel : ID and SIZE definition
 #define PARAM_ID_MAX_VEL   11
 #define PARAM_SIZE_MAX_VEL 1

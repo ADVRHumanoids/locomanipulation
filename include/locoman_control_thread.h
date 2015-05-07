@@ -8,6 +8,8 @@
 #include <GYM/yarp_command_interface.hpp>
 #include <GYM/control_thread.hpp>
 
+#include <fstream> 
+
 /**
  * @brief The locoman_control_thread class inherit from a control_thread
  */
@@ -38,19 +40,23 @@ private:
     yarp::sig::Vector torso_configuration;
     
     double max_vel;
+    
+    std::ofstream err_cl;
 public:
-    int mg =  290 ; // [N]  295
-    int loop_counter;
+    double mg =  340 ; // simulator : 295  [N]   ; robot =    340 [N];  350 
+    int loop_counter; 
     int WINDOW_size;
     int FC_size ;  
-    bool flag_robot = 0 ;
-    bool flag_simulator = 1-flag_robot ;
+    bool flag_robot ; // = 0 ;
+    bool flag_simulator ; // = 1-flag_robot ;
     yarp::sig::Vector FC_DES ;  //     yarp::sig::Vector FC_DES( FC_size   ) ;
     yarp::sig::Vector FC_DES_LEFT_sensor ;
     yarp::sig::Vector FC_DES_RIGHT_sensor ;
     yarp::sig::Vector FC_SUM ;
     yarp::sig::Vector FC_FILTERED ;
     yarp::sig::Matrix FC_WINDOW ;  //    yarp::sig::Matrix FC_WINDOW(FC_size, WINDOW_filter ) ;
+    yarp::sig::Vector FC_BIAS_LEFT_SENS  ;
+    yarp::sig::Vector FC_BIAS_RIGHT_SENS ;
     
   
     /**
@@ -85,6 +91,12 @@ public:
      * @return true on success, false otherwise
      */
     virtual bool custom_resume();
+    
+   /**
+    * @brief custom release function: called befire releasing the thread
+    * 
+    */
+    virtual void custom_release();
 
     //------------------------------------------------------------
 
@@ -248,9 +260,9 @@ public:
 
          //----------------------------------------------------------------------------
      /**
-     * @brief  Q_ci compute the derivative of the spatial Jacobian 
+     * @brief  Q_ci compute the derivative of J^T*fc with respect to the joint variables 
      * @param  J_spa_i is a 6xc yarp matrix describing a spatial Jacobian
-     * @param  T_a_ci is the homogeneous transformation between the floating base and the contact frame 
+     * @param  T_a_ci is the homogeneous transformation between the  base and the contact frame 
      * @param  f_ci contact force vector
      * @return qxq yarp matrix 
      */
@@ -417,7 +429,7 @@ public:
 			              ) ;  
            
      /**
-     * @brief  filter_SVD computes a "fileters" version of A via the truncated SVD  
+     * @brief  filter_SVD computes a "filtered" version of A via the truncated SVD  
      * @param  A is the matrix of which the filtration effect is needed
      * @param  k is the maximum ratio admitted between the max and min singular values
      * @return filter_SVD is the filtered version of A

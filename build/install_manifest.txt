@@ -1,0 +1,2 @@
+/home/lucamuratore/walkman/build/install/bin/locomanipulation
+/home/lucamuratore/walkman/build/install/share/yarp/contexts/locoman/locoman_configuration.ini
