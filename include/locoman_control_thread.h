@@ -425,12 +425,50 @@ public:
       yarp::sig::Matrix filter_SVD( const yarp::sig::Matrix A ,
 			                const double k = 1E-4 
 			              ) ; 				      
+
+
+     /**
+     * @brief  sigma_frict computes the metrics measuring the goodness of the cotnact force with respect to friction limits 
+     * @param  fc is the contact force. The normal is assumed to be n = [0 0 1]^T 
+     * @param  mu is the friction coefficient
+     * @return the value of sigma_frict
+     */
+      double sigma_frict( const yarp::sig::Vector fc ,
+			  const double mu 
+			              ) ; 
+
+     /**
+     * @brief  sigma_min computes the distance (along a certain metric) with respect to minimum force allowed 
+     * @param  fc is the contact force.  
+     * @param  f_min is the minimum module of the force allowed
+     * @return the value of sigma_min
+     */
+      double sigma_min( const yarp::sig::Vector fc,
+         		const double f_min 
+			              ) ; 
+
+     /**
+     * @brief  sigma_max computes the distance (along a certain metric) with respect to maximum force allowed 
+     * @param  fc is the contact force.  
+     * @param  f_max is the maximum module of the force allowed
+     * @return the value of sigma_min
+     */
+      double sigma_max( const yarp::sig::Vector fc,
+         		const double f_max 
+			              ) ; 
+	      
+     /**
+     * @brief  V_ij computes the distance (along a certain metric) with respect to the contact limits
+     * @param  sigma is one exit of the functions sigma_frict, sigma_min, sigma_max
+     * @param  toll is the admitted tolerance with respect to sigma limit value (= 0)
+     * @return the value of V_ij
+     */
+      double V_ij( const double sigma, 
+                   const double toll  = 1E-7
+			              ) ; 
 				      
-			           
+      
 };
-
-
-
 
 
 
