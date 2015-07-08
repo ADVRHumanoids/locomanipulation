@@ -28,4 +28,8 @@
 #define PARAM_ID_MAX_VEL   11
 #define PARAM_SIZE_MAX_VEL 1
 
+// part : ID and SIZE definition
+#define PARAM_ID_PART     12
+#define PARAM_SIZE_PART    1
+
 #endif

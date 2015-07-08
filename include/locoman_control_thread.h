@@ -40,7 +40,7 @@ private:
     yarp::sig::Vector torso_configuration;
     
     double max_vel;
-    
+    double part ;
     std::ofstream err_cl;
 public:
     double mg =  340 ; // simulator : 295  [N]   ; robot =    340 [N];  350 

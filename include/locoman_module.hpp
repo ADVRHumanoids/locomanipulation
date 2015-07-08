@@ -81,6 +81,13 @@ public:
                                                                             paramHelp::PARAM_IN_OUT, 
                                                                             NULL, 
                                                                             "maximum velocity in [rad/second]" ) );      
+	// insert part param
+        custom_params.push_back( new paramHelp::ParamProxyBasic<double>(    "part", 
+                                                                            PARAM_ID_PART, 
+                                                                            PARAM_SIZE_PART, 
+                                                                            paramHelp::PARAM_IN_OUT, 
+                                                                            NULL, 
+                                                                            "PART" ) );    
         return custom_params;
     }
 };
