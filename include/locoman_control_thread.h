@@ -45,9 +45,12 @@ public:
     int FC_size ;  
     bool flag_robot = 0 ;
     bool flag_simulator = 1-flag_robot ;
+    double part_hand ;
+    double part_foot_left ;
     yarp::sig::Vector FC_DES ;  //     yarp::sig::Vector FC_DES( FC_size   ) ;
     yarp::sig::Vector FC_DES_LEFT_sensor ;
     yarp::sig::Vector FC_DES_RIGHT_sensor ;
+    yarp::sig::Vector FC_DES_RIGHT_HAND_sensor ;
     yarp::sig::Vector FC_SUM ;
     yarp::sig::Vector FC_FILTERED ;
     yarp::sig::Matrix FC_WINDOW ;  //    yarp::sig::Matrix FC_WINDOW(FC_size, WINDOW_filter ) ;
