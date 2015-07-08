@@ -19,11 +19,12 @@ locoman_control_thread::locoman_control_thread( std::string module_prefix,
     control_thread( module_prefix, rf, ph ),
     command_interface(module_prefix), 
     loop_counter(0) ,
-    FC_size(24)  ,
-    WINDOW_size(15) ,  //20,  15
+    FC_size(36)  ,
+WINDOW_size(15) ,  //20,  15
     FC_DES(FC_size, 0.0) , 
     FC_DES_LEFT_sensor(6, 0.0) ,
     FC_DES_RIGHT_sensor(6,0.0),
+    FC_DES_RIGHT_HAND_sensor(6,0.0),
     FC_FILTERED(FC_size),
     FC_WINDOW(FC_size, WINDOW_size ) ,
     FC_BIAS_LEFT_SENS(6, 0.0)  ,
@@ -61,18 +62,23 @@ locoman_control_thread::locoman_control_thread( std::string module_prefix,
     FC_DES[20] = - mg/8  ;
     FC_DES[23] = - mg/8  ;  */
     //
-   // double part =     7.0/10.0 ;
+   part_hand = 3.0/10.0 ;
+    part_foot_left = (6.0/10.0)*( 1.0 - part_hand ) ;
     // link the part parameter (single value linking
     ph->linkParam( PARAM_ID_PART, &part );
     // On the left foot
-    FC_DES[2] = - (mg/8.0 + part*(mg/8.0) ) ;
-    FC_DES[5] = - (mg/8.0 + part*(mg/8.0) )   ;
-    FC_DES[8] = - (mg/8.0 + part*(mg/8.0) )   ;
-    FC_DES[11] = - (mg/8.0 + part*(mg/8.0) )   ;
-    FC_DES[14] = - (mg/8.0 - part*(mg/8.0) )  ;
-    FC_DES[17] = - (mg/8.0 - part*(mg/8.0) )   ;
-    FC_DES[20] = - (mg/8.0 - part*(mg/8.0) )   ;
-    FC_DES[23] = - (mg/8.0 - part*(mg/8.0) )   ; 
+    FC_DES[2]  = - (mg/12.0 - part_hand*(mg/12.0) + part_foot_left*(mg/12.0) )   ;
+    FC_DES[5]  = - (mg/12.0 - part_hand*(mg/12.0) + part_foot_left*(mg/12.0) )   ;
+    FC_DES[8]  = - (mg/12.0 - part_hand*(mg/12.0) + part_foot_left*(mg/12.0) )   ;
+    FC_DES[11] = - (mg/12.0 - part_hand*(mg/12.0) + part_foot_left*(mg/12.0) )   ;
+    FC_DES[14] = - (mg/12.0 - part_hand*(mg/12.0) - part_foot_left*(mg/12.0) )   ;
+    FC_DES[17] = - (mg/12.0 - part_hand*(mg/12.0) - part_foot_left*(mg/12.0) )   ;
+    FC_DES[20] = - (mg/12.0 - part_hand*(mg/12.0) - part_foot_left*(mg/12.0) )   ;
+    FC_DES[23] = - (mg/12.0 - part_hand*(mg/12.0) - part_foot_left*(mg/12.0) )   ; 
+    FC_DES[26] = - (mg/12.0 + part_hand*(mg/12.0) )   ;
+    FC_DES[29] = - (mg/12.0 + part_hand*(mg/12.0) )   ;
+    FC_DES[32] = - (mg/12.0 + part_hand*(mg/12.0) )   ;
+    FC_DES[35] = - (mg/12.0 + part_hand*(mg/12.0) )   ; 
     //     
     FC_FILTERED = FC_DES ;
     //                       FC_WINDOW(FC_size, WINDOW_size ) ;
@@ -181,17 +187,16 @@ bool locoman_control_thread::custom_init()
     q_right_arm_des = right_arm_configuration  ; 			    
     q_left_arm_des  = left_arm_configuration   ;
     q_torso_des     = torso_configuration      ;
-    q_left_leg_des  = left_leg_configuration ;
-    q_right_leg_des = right_leg_configuration ;
+    q_left_leg_des  = left_leg_configuration   ;
+    q_right_leg_des = right_leg_configuration  ;
     
     robot.fromRobotToIdyn( q_right_arm_des ,
                            q_left_arm_des  ,
                            q_torso_des     ,
                            q_right_leg_des ,
                            q_left_leg_des  ,
-                           q_des            );     
-       
-    
+                           q_des           );     
+     
     yarp::sig::Vector q_motor_act(robot.getNumberOfJoints() ) ;		    
     yarp::sig::Vector q_motor_right_arm_act(robot.right_arm.getNumberOfJoints()) ; 
     yarp::sig::Vector q_motor_left_arm_act(robot.left_arm.getNumberOfJoints()) ;
@@ -1005,7 +1010,6 @@ void locoman_control_thread::run()
     yarp::sig::Vector q_motor_side(robot.getNumberOfJoints() ) ;		    
     q_motor_side = senseMotorPosition() ;
 
-    
     //--------------------------------------------------------------------------//
     // Getting Contact Forces
     RobotUtils::ftPtrMap fts = robot.getftSensors();
@@ -1014,17 +1018,17 @@ void locoman_control_thread::run()
     //assert(fts.size() > 0 && "no ft found!");
     
     //Printing Sensor Names
-    RobotUtils::ftPtrMap::iterator i = fts.begin() ;    
-    //::cout << i->second->getReferenceFrame() << std::endl;
+ /*   RobotUtils::ftPtrMap::iterator i = fts.begin() ;    
+   std::cout << i->second->getReferenceFrame() << std::endl;
 
     for(RobotUtils::ftPtrMap::iterator i = fts.begin() ;  i != fts.end(); i++)
     {
- //     std::cout << i->first << std::endl;
+      std::cout << i->first << std::endl;
 // Alternative formulations for the iterators      
-// std::cout << i->second->getReferenceFrame() << std::endl;     
-//      (*i).second->getReferenceFrame();
-//      fts[i->first]->getReferenceFrame(); 
-    }
+ std::cout << i->second->getReferenceFrame() << std::endl;     
+      (*i).second->getReferenceFrame();
+      fts[i->first]->getReferenceFrame(); 
+    }  */
   
   //--------------------------------------------------------------------//
     //Getting Sensor Measures
@@ -1033,8 +1037,10 @@ void locoman_control_thread::run()
     if(!robot.senseftSensor("r_ankle", ft_r_ankle)) std::cout << "ERROR READING SENSOR r_ankle" << std::endl;     
     yarp::sig::Vector ft_l_ankle(6,0.0);
     if(!robot.senseftSensor("l_ankle", ft_l_ankle)) std::cout << "ERROR READING SENSOR l_ankle" << std::endl; 
-
     
+    yarp::sig::Vector ft_r_wrist(6,0.0);
+    if(!robot.senseftSensor("r_wrist", ft_r_wrist)) std::cout << "ERROR READING SENSOR l_ankle" << std::endl; 
+
     //  NO DELETE
 //---------------------------------------------------------------------------------------------------------//  
     //  NO DELETE
@@ -1065,7 +1071,19 @@ void locoman_control_thread::run()
     int r_foot_lower_left_link_index   = model.iDyn3_model.getLinkIndex("r_foot_lower_left_link");
     int r_foot_lower_right_link_index  = model.iDyn3_model.getLinkIndex("r_foot_lower_right_link");
 
+    int r_wrist_index = model.iDyn3_model.getLinkIndex("r_wrist") ;
+    int RSoftHand_index = model.iDyn3_model.getLinkIndex("RSoftHand") ;
+
+    int rh_c1_index = model.iDyn3_model.getLinkIndex("r_hand_upper_right_link") ;
+    int rh_c2_index = model.iDyn3_model.getLinkIndex("r_hand_lower_right_link") ;
+    int rh_c3_index = model.iDyn3_model.getLinkIndex("r_hand_upper_left_link") ;
+    int rh_c4_index = model.iDyn3_model.getLinkIndex("r_hand_lower_left_link") ;
+    
+ 
+    
+    
 //-------------------------------------------------------------------------------------------------------------// 
+
 
     int l_c1_index = l_foot_upper_left_link_index  ;
     int l_c2_index = l_foot_upper_right_link_index ;
@@ -1090,7 +1108,8 @@ void locoman_control_thread::run()
     
     int size_q = robot.getNumberOfJoints() ;
     int size_u = 6 ;
-    int size_fc = 24 ;
+    int size_fc = 36 ; //24 ;
+    int n_contacts = 12 ;
     
     yarp::sig::Matrix Kq = getKq() ;
     yarp::sig::Matrix Kc(size_fc, size_fc) ;
@@ -1150,27 +1169,52 @@ void locoman_control_thread::run()
 						      r_c2_index,
 						      r_c3_index, 
 						      r_c4_index ) ;	
-						      
-    yarp::sig::Matrix G_pinv_Kc_l = Kc_l*map_l_fcToSens.transposed()* ( luinv( map_l_fcToSens*Kc_l*map_l_fcToSens.transposed()) );						      
-    yarp::sig::Matrix G_pinv_Kc_r = Kc_r*map_r_fcToSens.transposed()* ( luinv( map_r_fcToSens*Kc_r*map_r_fcToSens.transposed()) );
+
+     yarp::sig::Matrix map_rh_fcToSens = fConToSens( r_wrist_index, 
+					              rh_c1_index, 
+						      rh_c2_index,
+						      rh_c3_index, 
+						      rh_c4_index ) ;						      
+ 
+
+
+// yarp::sig::Matrix G_pinv_Kc_l = Kc_l*map_l_fcToSens.transposed()* ( luinv( map_l_fcToSens*Kc_l*map_l_fcToSens.transposed()) );						      
+//    yarp::sig::Matrix G_pinv_Kc_r = Kc_r*map_r_fcToSens.transposed()* ( luinv( map_r_fcToSens*Kc_r*map_r_fcToSens.transposed()) );
     
-    yarp::sig::Vector fc_l_c_to_robot = G_pinv_Kc_l*( ft_l_ankle - (1.0/1.0)*FC_BIAS_LEFT_SENS )  ; //yarp::math::pinv( map_l_fcToSens, 1E-6)  *  ft_l_ankle     ;
-    yarp::sig::Vector fc_r_c_to_robot = G_pinv_Kc_r*( ft_r_ankle - (1.0/1.0)*FC_BIAS_RIGHT_SENS )  ;// yarp::math::pinv( map_r_fcToSens, 1E-6)  *  ft_r_ankle     ;
-    yarp::sig::Vector fc_l_c_to_world = ( - 1.0 * fc_l_c_to_robot ) ;//  ;
-    yarp::sig::Vector fc_r_c_to_world = ( - 1.0 * fc_r_c_to_robot ) ;// ;
+//    yarp::sig::Vector fc_l_c_to_robot = G_pinv_Kc_l*( ft_l_ankle - (1.0/1.0)*FC_BIAS_LEFT_SENS )  ; //yarp::math::pinv( map_l_fcToSens, 1E-6)  *  ft_l_ankle     ;
+//    yarp::sig::Vector fc_r_c_to_robot = G_pinv_Kc_r*( ft_r_ankle - (1.0/1.0)*FC_BIAS_RIGHT_SENS )  ;// yarp::math::pinv( map_r_fcToSens, 1E-6)  *  ft_r_ankle     ;
+//    yarp::sig::Vector fc_l_c_to_world = ( - 1.0 * fc_l_c_to_robot ) ;//  ;
+//    yarp::sig::Vector fc_r_c_to_world = ( - 1.0 * fc_r_c_to_robot ) ;// ;
+    
+
+
+						      
+    yarp::sig::Vector fc_l_c_to_robot  =  yarp::math::pinv( map_l_fcToSens, 1E-6)  *  ft_l_ankle  ;
+    yarp::sig::Vector fc_r_c_to_robot  =  yarp::math::pinv( map_r_fcToSens, 1E-6)  *  ft_r_ankle  ; 
+    yarp::sig::Vector fc_rh_c_to_robot =  yarp::math::pinv( map_rh_fcToSens, 1E-6) * ft_r_wrist  ;
+    //
+    yarp::sig::Vector fc_l_c_to_world  = - 1.0 * fc_l_c_to_robot   ;
+    yarp::sig::Vector fc_r_c_to_world  = - 1.0 * fc_r_c_to_robot   ;
+    yarp::sig::Vector fc_rh_c_to_world = - 1.0 * fc_rh_c_to_robot  ;
 
     yarp::sig::Vector fc_to_world_0(size_fc) ;
     fc_to_world_0.setSubvector(0, fc_l_c_to_world ) ;
     fc_to_world_0.setSubvector(fc_l_c_to_world.length(), fc_r_c_to_world ) ;    
+    fc_to_world_0.setSubvector(fc_l_c_to_world.length() + fc_r_c_to_world.length(), fc_rh_c_to_world ) ;    
+
+   // std::cout << " fc_rh_c_to_world  =  "  << std::endl << fc_rh_c_to_world.toString() << std::endl  ;     
+   // std::cout << " fc_to_world_0  =  "  << std::endl << fc_to_world_0.toString() << std::endl  ;     
     
     //------------------------------------------------------------------------
         //
-    FC_DES_LEFT_sensor = map_l_fcToSens * FC_DES.subVector(0, 11)  ; // G_pinv_Kc_l* FC_DES.subVector(0, 11)  ;//
+    FC_DES_LEFT_sensor = map_l_fcToSens * FC_DES.subVector(0, 11)  ;
     //
-    FC_DES_RIGHT_sensor =  map_l_fcToSens* FC_DES.subVector(12,23)  ; // G_pinv_Kc_r * FC_DES.subVector(12,23); // 
+    FC_DES_RIGHT_sensor = map_l_fcToSens* FC_DES.subVector(12,23)  ;
+    //
+    FC_DES_RIGHT_HAND_sensor = map_l_fcToSens* FC_DES.subVector(24,35)  ;    
     //
     // Fc filtering
-    
+    //
     int counter_window = loop_counter% WINDOW_size ;
     //  
     FC_WINDOW.setCol( counter_window , fc_to_world_0 ) ;
@@ -1180,13 +1224,13 @@ void locoman_control_thread::run()
     }
     FC_FILTERED = FC_SUM / WINDOW_size ;
     //
-    yarp::sig:: Vector FC_FILTERED_LEFT_sensor =   map_l_fcToSens * FC_FILTERED.subVector(0,11) ;  
+    yarp::sig:: Vector FC_FILTERED_LEFT_sensor = map_l_fcToSens * FC_FILTERED.subVector(0,11) ;
     //
-    yarp::sig:: Vector FC_FILTERED_RIGHT_sensor =  map_l_fcToSens* FC_FILTERED.subVector(12,23) ;  
-     
+    yarp::sig:: Vector FC_FILTERED_RIGHT_sensor = map_l_fcToSens* FC_FILTERED.subVector(12,23) ;
+    yarp::sig:: Vector FC_FILTERED_RIGHT_HAND_sensor = map_l_fcToSens* FC_FILTERED.subVector(24,35) ;    
 
-    std::cout << " loop_counter = " <<  loop_counter << std::endl; 
-//   std::cout << " counter_window = " <<  counter_window << std::endl; 
+   std::cout << " loop_counter = " <<  loop_counter << std::endl; 
+   std::cout << " counter_window = " <<  counter_window << std::endl; 
  /*  std::cout << " FC_WINDOW[0][counter_window+ 1] = " <<  FC_WINDOW[0][(counter_window+ 1)%WINDOW_size]  << std::endl;  */
    std::cout << " FC_WINDOW = " <<  std::endl << (FC_WINDOW.submatrix(0,FC_WINDOW.rows()-1,(FC_WINDOW.cols()-5),(FC_WINDOW.cols()-1) )).toString() << std::endl;
    std::cout << " FC_DES = " <<  std::endl << FC_DES.toString() << std::endl; 
@@ -1194,12 +1238,15 @@ void locoman_control_thread::run()
    std::cout << " FC_DES_RIGHT_sensor = " <<  std::endl << FC_DES_RIGHT_sensor.toString() << std::endl; 
    std::cout << " FC_FILTERED_LEFT_sensor  =  "  << std::endl << FC_FILTERED_LEFT_sensor.toString() << std::endl  ; 
    std::cout << " FC_FILTERED_RIGHT_sensor  =  "  << std::endl << FC_FILTERED_RIGHT_sensor.toString() << std::endl  ;     
- 
- //  std::cout << " FC_FILTERED = " <<  std::endl << FC_FILTERED.toString() << std::endl; 
+   std::cout << " FC_FILTERED_RIGHT_HAND_sensor  =  "  << std::endl << FC_FILTERED_RIGHT_HAND_sensor.toString() << std::endl  ;     
+
+   std::cout << " FC_FILTERED = " <<  std::endl << FC_FILTERED.toString() << std::endl; 
    
    
-   //std::cout << " norm(FC_DES_sens - FC_sens)  =  "  << std::endl <<   
-  // norm(FC_DES_LEFT_sensor- FC_FILTERED_LEFT_sensor) + norm(FC_DES_RIGHT_sensor- FC_FILTERED_RIGHT_sensor) << std::endl  ; 
+   std::cout << " norm(FC_DES_sens - FC_sens)  =  "  << std::endl <<   
+   norm(FC_DES_LEFT_sensor- FC_FILTERED_LEFT_sensor) + 
+   norm(FC_DES_RIGHT_sensor- FC_FILTERED_RIGHT_sensor)+
+   norm(FC_DES_RIGHT_HAND_sensor - FC_FILTERED_RIGHT_HAND_sensor)  << std::endl  ; 
    
    loop_counter++ ;
 
@@ -1223,7 +1270,24 @@ void locoman_control_thread::run()
     yarp::sig::Vector fc_r_c2 = fc_r_c_to_world.subVector(3,5)  ; 
     yarp::sig::Vector fc_r_c3 = fc_r_c_to_world.subVector(6,8)  ; 
     yarp::sig::Vector fc_r_c4 = fc_r_c_to_world.subVector(9,11)  ; 
+
+    yarp::sig::Matrix R_Hand_RSoftHand(3,3) ;
+    R_Hand_RSoftHand(0,0) = 0   ;
+    R_Hand_RSoftHand(1,0) = 1   ;
+    R_Hand_RSoftHand(2,0) = 0   ;
+    R_Hand_RSoftHand(0,1) = 0   ;
+    R_Hand_RSoftHand(1,1) = 0   ;
+    R_Hand_RSoftHand(2,1) = 1   ;
+    R_Hand_RSoftHand(0,2) =-1   ;
+    R_Hand_RSoftHand(1,2) = 0   ;
+    R_Hand_RSoftHand(2,2) = 0   ;
+
+    yarp::sig::Vector fc_rh_c1 = R_Hand_RSoftHand*fc_rh_c_to_world.subVector(0,2)  ; 
+    yarp::sig::Vector fc_rh_c2 = R_Hand_RSoftHand*fc_rh_c_to_world.subVector(3,5)  ; 
+    yarp::sig::Vector fc_rh_c3 = R_Hand_RSoftHand*fc_rh_c_to_world.subVector(6,8)  ; 
+    yarp::sig::Vector fc_rh_c4 = R_Hand_RSoftHand*fc_rh_c_to_world.subVector(9,11)  ;         
     
+    //------------------------------------------------------------------------------------------
     int imu_link_index = model.iDyn3_model.getLinkIndex("imu_link") ; 
     yarp::sig::Matrix T_w_imu_0 = model.iDyn3_model.getPosition( imu_link_index) ;    
     yarp::sig::Matrix T_imu_w_0 = iHomogeneous(T_w_imu_0) ; 
@@ -1304,15 +1368,61 @@ void locoman_control_thread::run()
     yarp::sig::Matrix T_aw_waist_0 = iHomogeneous(T_waist_aw_0) ;
 //----------------------------------------------
     
-    yarp::sig::Matrix T_waist_l_c1_0 = T_waist_w_0 * T_w_l_c1_0 ;  // the waist is the floating base ?
-    yarp::sig::Matrix T_waist_l_c2_0 = T_waist_w_0 * T_w_l_c2_0 ;  // {AW} has to be the floating base
+    yarp::sig::Matrix T_w_l_ankle_0 = model.iDyn3_model.getPosition(l_ankle_index) ;
+    yarp::sig::Matrix T_w_l_c1_0    = model.iDyn3_model.getPosition(l_c1_index)    ;    
+    yarp::sig::Matrix T_w_l_c2_0    = model.iDyn3_model.getPosition(l_c2_index)    ;  
+    yarp::sig::Matrix T_w_l_c3_0    = model.iDyn3_model.getPosition(l_c3_index)    ;
+    yarp::sig::Matrix T_w_l_c4_0    = model.iDyn3_model.getPosition(l_c4_index)    ;    
+    
+    yarp::sig::Matrix T_w_r_ankle_0 = model.iDyn3_model.getPosition(r_ankle_index) ;
+    yarp::sig::Matrix T_w_r_c1_0    = model.iDyn3_model.getPosition(r_c1_index)    ;    
+    yarp::sig::Matrix T_w_r_c2_0    = model.iDyn3_model.getPosition(r_c2_index)    ;  
+    yarp::sig::Matrix T_w_r_c3_0    = model.iDyn3_model.getPosition(r_c3_index)    ;
+    yarp::sig::Matrix T_w_r_c4_0    = model.iDyn3_model.getPosition(r_c4_index)    ; 
+    
+    yarp::sig::Matrix T_w_r_wrist_0  = model.iDyn3_model.getPosition(r_wrist_index) ;
+    yarp::sig::Matrix T_w_rh_c1_0    = model.iDyn3_model.getPosition(rh_c1_index)    ;    
+    yarp::sig::Matrix T_w_rh_c2_0    = model.iDyn3_model.getPosition(rh_c2_index)    ;  
+    yarp::sig::Matrix T_w_rh_c3_0    = model.iDyn3_model.getPosition(rh_c3_index)    ;
+    yarp::sig::Matrix T_w_rh_c4_0    = model.iDyn3_model.getPosition(rh_c4_index)    ;    
+  
+    yarp::sig::Matrix T_l_ankle_w_0 = iHomogeneous(T_w_l_ankle_0) ;
+    yarp::sig::Matrix T_l_c1_w_0    = iHomogeneous(T_w_l_c1_0) ;    
+    yarp::sig::Matrix T_l_c2_w_0    = iHomogeneous(T_w_l_c2_0) ;  
+    yarp::sig::Matrix T_l_c3_w_0    = iHomogeneous(T_w_l_c3_0) ;
+    yarp::sig::Matrix T_l_c4_w_0    = iHomogeneous(T_w_l_c4_0) ;    
+    
+    yarp::sig::Matrix T_r_ankle_w_0 = iHomogeneous(T_w_r_ankle_0) ;
+    yarp::sig::Matrix T_r_c1_w_0    = iHomogeneous(T_w_r_c1_0) ;    
+    yarp::sig::Matrix T_r_c2_w_0    = iHomogeneous(T_w_r_c2_0) ;  
+    yarp::sig::Matrix T_r_c3_w_0    = iHomogeneous(T_w_r_c3_0) ;
+    yarp::sig::Matrix T_r_c4_w_0    = iHomogeneous(T_w_r_c4_0) ;  
+    
+    yarp::sig::Matrix T_r_wrist_w_0  = iHomogeneous(T_w_r_wrist_0) ;
+    yarp::sig::Matrix T_rh_c1_w_0    = iHomogeneous(T_w_rh_c1_0) ;    
+    yarp::sig::Matrix T_rh_c2_w_0    = iHomogeneous(T_w_rh_c2_0) ;  
+    yarp::sig::Matrix T_rh_c3_w_0    = iHomogeneous(T_w_rh_c3_0) ;
+    yarp::sig::Matrix T_rh_c4_w_0    = iHomogeneous(T_w_rh_c4_0) ;      
+    
+    //----------------------------------------------------------------------------------
+    
+    yarp::sig::Matrix T_waist_l_c1_0 = T_waist_w_0 * T_w_l_c1_0 ;  // the waist is the floating base
+    yarp::sig::Matrix T_waist_l_c2_0 = T_waist_w_0 * T_w_l_c2_0 ;
     yarp::sig::Matrix T_waist_l_c3_0 = T_waist_w_0 * T_w_l_c3_0 ;
     yarp::sig::Matrix T_waist_l_c4_0 = T_waist_w_0 * T_w_l_c4_0 ;
+    
+      //  yarp::sig::Matrix test_matrix_c1_c2 = iHomogeneous( T_w_l_c1_0) *T_w_l_c2_0 ;
+     //  std::cout << " test_matrix_c1_c2 = " <<  std::endl << test_matrix_c1_c2.toString() << std::endl;
 
     yarp::sig::Matrix T_waist_r_c1_0 = T_waist_w_0 * T_w_r_c1_0 ;
     yarp::sig::Matrix T_waist_r_c2_0 = T_waist_w_0 * T_w_r_c2_0 ;
     yarp::sig::Matrix T_waist_r_c3_0 = T_waist_w_0 * T_w_r_c3_0 ;
     yarp::sig::Matrix T_waist_r_c4_0 = T_waist_w_0 * T_w_r_c4_0 ;
+        
+    yarp::sig::Matrix T_waist_rh_c1_0 = T_waist_w_0 * T_w_rh_c1_0 ;
+    yarp::sig::Matrix T_waist_rh_c2_0 = T_waist_w_0 * T_w_rh_c2_0 ;
+    yarp::sig::Matrix T_waist_rh_c3_0 = T_waist_w_0 * T_w_rh_c3_0 ;
+    yarp::sig::Matrix T_waist_rh_c4_0 = T_waist_w_0 * T_w_rh_c4_0 ;
 
     yarp::sig::Matrix T_b_l_c1_0 = T_waist_l_c1_0 ;  // the waist is the floating base {Waist} = {B}
     yarp::sig::Matrix T_b_l_c2_0 = T_waist_l_c2_0 ; 
@@ -1325,15 +1435,20 @@ void locoman_control_thread::run()
     yarp::sig::Matrix T_b_r_c4_0 = T_waist_r_c4_0 ; 
  
     //---------------------------------------------------------------------------------------
-    yarp::sig::Matrix J_l_c1_mix_0(  robot.getNumberOfJoints(), ( robot.getNumberOfJoints() + 6 ) ) ; 
+    yarp::sig::Matrix J_l_c1_mix_0( robot.getNumberOfJoints(), ( robot.getNumberOfJoints() + 6 ) ) ; 
     yarp::sig::Matrix J_l_c2_mix_0( robot.getNumberOfJoints(), ( robot.getNumberOfJoints() + 6 ) ) ; 
-    yarp::sig::Matrix J_l_c3_mix_0(  robot.getNumberOfJoints(), ( robot.getNumberOfJoints() + 6 ) ) ; 
+    yarp::sig::Matrix J_l_c3_mix_0( robot.getNumberOfJoints(), ( robot.getNumberOfJoints() + 6 ) ) ; 
     yarp::sig::Matrix J_l_c4_mix_0( robot.getNumberOfJoints(), ( robot.getNumberOfJoints() + 6 ) ) ;
 
-    yarp::sig::Matrix J_r_c1_mix_0(  robot.getNumberOfJoints(), ( robot.getNumberOfJoints() + 6 ) ) ; 
+    yarp::sig::Matrix J_r_c1_mix_0( robot.getNumberOfJoints(), ( robot.getNumberOfJoints() + 6 ) ) ; 
     yarp::sig::Matrix J_r_c2_mix_0( robot.getNumberOfJoints(), ( robot.getNumberOfJoints() + 6 ) ) ; 
-    yarp::sig::Matrix J_r_c3_mix_0(  robot.getNumberOfJoints(), ( robot.getNumberOfJoints() + 6 ) ) ; 
+    yarp::sig::Matrix J_r_c3_mix_0( robot.getNumberOfJoints(), ( robot.getNumberOfJoints() + 6 ) ) ; 
     yarp::sig::Matrix J_r_c4_mix_0( robot.getNumberOfJoints(), ( robot.getNumberOfJoints() + 6 ) ) ;
+
+    yarp::sig::Matrix J_rh_c1_mix_0( robot.getNumberOfJoints(), ( robot.getNumberOfJoints() + 6 ) ) ; 
+    yarp::sig::Matrix J_rh_c2_mix_0( robot.getNumberOfJoints(), ( robot.getNumberOfJoints() + 6 ) ) ; 
+    yarp::sig::Matrix J_rh_c3_mix_0( robot.getNumberOfJoints(), ( robot.getNumberOfJoints() + 6 ) ) ; 
+    yarp::sig::Matrix J_rh_c4_mix_0( robot.getNumberOfJoints(), ( robot.getNumberOfJoints() + 6 ) ) ;
     
     model.iDyn3_model.getJacobian( l_c1_index, J_l_c1_mix_0, false  ) ; //false= mixed version jacobian //true= body jacobian
     model.iDyn3_model.getJacobian( l_c2_index, J_l_c2_mix_0, false  ) ; //false= mixed version jacobian //true= body jacobian
@@ -1345,6 +1460,11 @@ void locoman_control_thread::run()
     model.iDyn3_model.getJacobian( r_c3_index, J_r_c3_mix_0, false  ) ; //false= mixed version jacobian //true= body jacobian
     model.iDyn3_model.getJacobian( r_c4_index, J_r_c4_mix_0, false  ) ; //false= mixed version jacobian //true= body jacobian
    
+    model.iDyn3_model.getJacobian( rh_c1_index, J_r_c1_mix_0, false  ) ; //false= mixed version jacobian //true= body jacobian
+    model.iDyn3_model.getJacobian( rh_c2_index, J_r_c2_mix_0, false  ) ; //false= mixed version jacobian //true= body jacobian
+    model.iDyn3_model.getJacobian( rh_c3_index, J_r_c3_mix_0, false  ) ; //false= mixed version jacobian //true= body jacobian
+    model.iDyn3_model.getJacobian( rh_c4_index, J_r_c4_mix_0, false  ) ; //false= mixed version jacobian //true= body jacobian    
+    
     yarp::sig::Matrix J_l_c1_body_0 = Adjoint( Homogeneous(getRot(T_l_c1_w_0), zero_3 ))* J_l_c1_mix_0 ;
     yarp::sig::Matrix J_l_c2_body_0 = Adjoint( Homogeneous(getRot(T_l_c2_w_0), zero_3 ))* J_l_c2_mix_0 ;
     yarp::sig::Matrix J_l_c3_body_0 = Adjoint( Homogeneous(getRot(T_l_c3_w_0), zero_3 ))* J_l_c3_mix_0 ;
@@ -1354,8 +1474,13 @@ void locoman_control_thread::run()
     yarp::sig::Matrix J_r_c2_body_0 = Adjoint( Homogeneous(getRot(T_r_c2_w_0), zero_3 ))* J_r_c2_mix_0 ;
     yarp::sig::Matrix J_r_c3_body_0 = Adjoint( Homogeneous(getRot(T_r_c3_w_0), zero_3 ))* J_r_c3_mix_0 ;
     yarp::sig::Matrix J_r_c4_body_0 = Adjoint( Homogeneous(getRot(T_r_c4_w_0), zero_3 ))* J_r_c4_mix_0 ;
+    
+    yarp::sig::Matrix J_rh_c1_body_0 = Adjoint( Homogeneous(getRot(T_rh_c1_w_0), zero_3 ))* J_rh_c1_mix_0 ;
+    yarp::sig::Matrix J_rh_c2_body_0 = Adjoint( Homogeneous(getRot(T_rh_c2_w_0), zero_3 ))* J_rh_c2_mix_0 ;
+    yarp::sig::Matrix J_rh_c3_body_0 = Adjoint( Homogeneous(getRot(T_rh_c3_w_0), zero_3 ))* J_rh_c3_mix_0 ;
+    yarp::sig::Matrix J_rh_c4_body_0 = Adjoint( Homogeneous(getRot(T_rh_c4_w_0), zero_3 ))* J_rh_c4_mix_0 ;
 
-    yarp::sig::Matrix J_waist_l_c1_spa_0 = Adjoint( T_waist_l_c1_0 )* J_l_c1_body_0 ;
+    yarp::sig::Matrix J_waist_l_c1_spa_0 = Adjoint( T_waist_l_c1_0 )* J_l_c1_body_0 ; 
     yarp::sig::Matrix J_waist_l_c2_spa_0 = Adjoint( T_waist_l_c2_0 )* J_l_c2_body_0 ;
     yarp::sig::Matrix J_waist_l_c3_spa_0 = Adjoint( T_waist_l_c3_0 )* J_l_c3_body_0 ;
     yarp::sig::Matrix J_waist_l_c4_spa_0 = Adjoint( T_waist_l_c4_0 )* J_l_c4_body_0 ;
@@ -1364,8 +1489,13 @@ void locoman_control_thread::run()
     yarp::sig::Matrix J_waist_r_c2_spa_0 = Adjoint( T_waist_r_c2_0 )* J_r_c2_body_0 ;
     yarp::sig::Matrix J_waist_r_c3_spa_0 = Adjoint( T_waist_r_c3_0 )* J_r_c3_body_0 ;
     yarp::sig::Matrix J_waist_r_c4_spa_0 = Adjoint( T_waist_r_c4_0 )* J_r_c4_body_0 ;
-        
-    J_waist_l_c1_spa_0.setSubmatrix(Eye_6, 0 , 0 )  ;
+
+    yarp::sig::Matrix J_waist_rh_c1_spa_0 = Adjoint( T_waist_rh_c1_0 )* J_rh_c1_body_0 ;
+    yarp::sig::Matrix J_waist_rh_c2_spa_0 = Adjoint( T_waist_rh_c2_0 )* J_rh_c2_body_0 ;
+    yarp::sig::Matrix J_waist_rh_c3_spa_0 = Adjoint( T_waist_rh_c3_0 )* J_rh_c3_body_0 ;
+    yarp::sig::Matrix J_waist_rh_c4_spa_0 = Adjoint( T_waist_rh_c4_0 )* J_rh_c4_body_0 ;
+    
+    J_waist_l_c1_spa_0.setSubmatrix(Eye_6, 0 , 0 )  ;  // Spatial Jacobian (Waist Frame)
     J_waist_l_c2_spa_0.setSubmatrix(Eye_6, 0 , 0 )  ;
     J_waist_l_c3_spa_0.setSubmatrix(Eye_6, 0 , 0 )  ;
     J_waist_l_c4_spa_0.setSubmatrix(Eye_6, 0 , 0 )  ;
@@ -1374,11 +1504,15 @@ void locoman_control_thread::run()
     J_waist_r_c2_spa_0.setSubmatrix(Eye_6, 0 , 0 )  ;
     J_waist_r_c3_spa_0.setSubmatrix(Eye_6, 0 , 0 )  ;
     J_waist_r_c4_spa_0.setSubmatrix(Eye_6, 0 , 0 )  ;
- 
+
+    J_waist_rh_c1_spa_0.setSubmatrix(Eye_6, 0 , 0 )  ;
+    J_waist_rh_c2_spa_0.setSubmatrix(Eye_6, 0 , 0 )  ;
+    J_waist_rh_c3_spa_0.setSubmatrix(Eye_6, 0 , 0 )  ;
+    J_waist_rh_c4_spa_0.setSubmatrix(Eye_6, 0 , 0 )  ;
 //------------------------------------------------------------------------------------------------------------
 // Stance and Jacobian Matrices
     
-    yarp::sig::Matrix Complete_Jac( 8*B.cols() , size_q + 6) ;
+    yarp::sig::Matrix Complete_Jac( n_contacts*B.cols() , size_q + 6) ;
     Complete_Jac.setSubmatrix( B.transposed()*J_l_c1_body_0 , 0 ,0 )  ;
     Complete_Jac.setSubmatrix( B.transposed()*J_l_c2_body_0 , B.cols() ,0 )  ;
     Complete_Jac.setSubmatrix( B.transposed()*J_l_c3_body_0 , 2*B.cols() ,0 )  ;
@@ -1389,6 +1523,11 @@ void locoman_control_thread::run()
     Complete_Jac.setSubmatrix( B.transposed()*J_r_c3_body_0 , 6*B.cols() ,0 )  ;
     Complete_Jac.setSubmatrix( B.transposed()*J_r_c4_body_0 , 7*B.cols() ,0 )  ;
 
+    Complete_Jac.setSubmatrix( B.transposed()*J_rh_c1_body_0 , 8*B.cols() ,0 )  ;
+    Complete_Jac.setSubmatrix( B.transposed()*J_rh_c2_body_0 , 9*B.cols() ,0 )  ;
+    Complete_Jac.setSubmatrix( B.transposed()*J_rh_c3_body_0 , 10*B.cols() ,0 )  ;
+    Complete_Jac.setSubmatrix( B.transposed()*J_rh_c4_body_0 , 11*B.cols() ,0 )  ;    
+    
     yarp::sig::Matrix J_c = Complete_Jac.submatrix(0,  Complete_Jac.rows()-1 , 6, Complete_Jac.cols()-1 ) ;
     yarp::sig::Matrix S_trasp = Complete_Jac.submatrix(0,  Complete_Jac.rows()-1 , 0,5 ) ;
     yarp::sig::Matrix S_c = S_trasp.transposed() ;
@@ -1409,6 +1548,11 @@ void locoman_control_thread::run()
     yarp::sig::Matrix Q_r_c2(size_q+6, size_q+6 ) ;
     yarp::sig::Matrix Q_r_c3(size_q+6, size_q+6 ) ;
     yarp::sig::Matrix Q_r_c4(size_q+6, size_q+6 ) ;
+    
+    yarp::sig::Matrix Q_rh_c1(size_q+6, size_q+6 ) ;
+    yarp::sig::Matrix Q_rh_c2(size_q+6, size_q+6 ) ;
+    yarp::sig::Matrix Q_rh_c3(size_q+6, size_q+6 ) ;
+    yarp::sig::Matrix Q_rh_c4(size_q+6, size_q+6 ) ;
     
     yarp::sig::Matrix U_j( size_q , 6 ) ;
     yarp::sig::Matrix U_s( 6 , 6) ;  
@@ -1440,16 +1584,11 @@ void locoman_control_thread::run()
    yarp::sig::Vector d_q_motor_no_deriv_1 = -1.0*  Pinv_trunc_SVD(R_f_no_deriv , 1E-1) * d_fc_des_to_world;
    yarp::sig::Vector d_q_motor_no_deriv_2 = -1.0*  Pinv_trunc_SVD(R_f_no_deriv , 1E-2) * d_fc_des_to_world;
 
-   std::cout << " d_q_motor_no_deriv_1 = " <<  std::endl << d_q_motor_no_deriv_1.toString() << std::endl;
-   std::cout << " d_q_motor_no_deriv_2 = " <<  std::endl << d_q_motor_no_deriv_2.toString() << std::endl;  */
-
-
-
    
    //---------------------------------------------------------------------------------------------------------
    
    
- /*  yarp::sig::Matrix F_z(d_fc_des_to_world.length(), d_fc_des_to_world.length() )  ;
+   yarp::sig::Matrix F_z(d_fc_des_to_world.length(), d_fc_des_to_world.length() )  ;
    F_z.zero(); 
    F_z[2][2] = 1 ;
    F_z[5][5] = 1 ;
@@ -1460,9 +1599,9 @@ void locoman_control_thread::run()
    F_z[20][20] = 1 ;
    F_z[23][23] = 1 ; 
    
-   yarp::sig::Vector d_q_motor_no_deriv_2_1 = -1.0*  Pinv_trunc_SVD(F_z*R_f_no_deriv , 1E-1) * (F_z* d_fc_des_to_world) ;
+ //  yarp::sig::Vector d_q_motor_no_deriv_2_1 = -1.0*  Pinv_trunc_SVD(F_z*R_f_no_deriv , 1E-1) * (F_z* d_fc_des_to_world) ;
    yarp::sig::Vector d_q_motor_no_deriv_2_2 = -1.0*  Pinv_trunc_SVD(F_z*R_f_no_deriv , 1E-2) * (F_z* d_fc_des_to_world) ;
-   yarp::sig::Vector d_q_motor_no_deriv_2_3 = -1.0*  Pinv_trunc_SVD(F_z*R_f_no_deriv , 1E-3) * (F_z* d_fc_des_to_world) ;  */
+ //  yarp::sig::Vector d_q_motor_no_deriv_2_3 = -1.0*  Pinv_trunc_SVD(F_z*R_f_no_deriv , 1E-3) * (F_z* d_fc_des_to_world) ;
 
 //   std::cout << " d_q_motor_no_deriv_2_1 = " <<  std::endl << d_q_motor_no_deriv_2_1.toString() << std::endl;
  //  std::cout << " d_q_motor_no_deriv_2_2 = " <<  std::endl << d_q_motor_no_deriv_2_2.toString() << std::endl;
@@ -1478,7 +1617,7 @@ void locoman_control_thread::run()
 
  //  std::cout << " norm(d_q_motor_no_deriv) = " <<  std::endl << norm(d_q_motor_no_deriv )<< std::endl;
    std::cout << " norm( d_fc_des_to_world ) = " <<  std::endl << norm( d_fc_des_to_world ) << std::endl; 
-    // std::cout << " norm( F_z*d_fc_des_to_world ) = " <<  std::endl << norm(F_z* d_fc_des_to_world ) << std::endl; 
+   std::cout << " norm( F_z*d_fc_des_to_world ) = " <<  std::endl << norm(F_z* d_fc_des_to_world ) << std::endl; 
    
    std::cout << "---------------------------------------------------------------------------" <<  std::endl ; 
      // std::cout << " norm(d_q_motor_no_deriv_2_3) = " <<  std::endl << norm(d_q_motor_no_deriv_2 )<< std::endl;
@@ -1496,22 +1635,26 @@ void locoman_control_thread::run()
     Q_r_c2 = Q_ci(J_waist_r_c2_spa_0, T_waist_r_c2_0, fc_r_c2 ) ; //(size_q+ 6, size_q + 6) ;
     Q_r_c3 = Q_ci(J_waist_r_c3_spa_0, T_waist_r_c3_0, fc_r_c3 ) ; //(size_q+ 6, size_q + 6) ; 
     Q_r_c4 = Q_ci(J_waist_r_c4_spa_0, T_waist_r_c4_0, fc_r_c4 ) ; //(size_q+ 6, size_q + 6) ;
+
+    Q_rh_c1 = Q_ci(J_waist_rh_c1_spa_0, T_waist_rh_c1_0, fc_rh_c1 ) ; //(size_q+ 6, size_q + 6) ;
+    Q_rh_c2 = Q_ci(J_waist_rh_c2_spa_0, T_waist_rh_c2_0, fc_rh_c2 ) ; //(size_q+ 6, size_q + 6) ;
+    Q_rh_c3 = Q_ci(J_waist_rh_c3_spa_0, T_waist_rh_c3_0, fc_rh_c3 ) ; //(size_q+ 6, size_q + 6) ; 
+    Q_rh_c4 = Q_ci(J_waist_rh_c4_spa_0, T_waist_rh_c4_0, fc_rh_c4 ) ; //(size_q+ 6, size_q + 6) ;
     
     yarp::sig::Matrix Q_l_tot = Q_l_c1 + Q_l_c2 + Q_l_c3 + Q_l_c4;
     yarp::sig::Matrix Q_r_tot = Q_r_c1 + Q_r_c2 + Q_r_c3 + Q_r_c4;
-    yarp::sig::Matrix Q_c =  Q_l_tot + Q_r_tot ;  
+    yarp::sig::Matrix Q_rh_tot = Q_rh_c1 + Q_rh_c2 + Q_rh_c3 + Q_rh_c4;
+    yarp::sig::Matrix Q_c =  Q_l_tot + Q_r_tot + Q_rh_tot ;
 
    yarp::sig::Matrix U_s_cont = Q_c.submatrix( 0 ,        5 ,        0, 5) ;
    yarp::sig::Matrix U_j_cont = Q_c.submatrix( 6 , (Q_c.rows()-1)  , 0, 5 )  ;  */ //U_j ;
   // U_j_der.zero(); //Q_c.submatrix(6, (Q_c.rows()-1) , 0, 5) ;
      
- //  yarp::sig::Matrix Q_s_cont = Q_c.submatrix( 0  ,       5,          6,  (Q_c.cols()-1)  ) ;
- //  yarp::sig::Matrix Q_j_cont = Q_c.submatrix( 6 , (Q_c.rows()-1)  ,  6,  (Q_c.cols()-1)  ) ;
-//-----------------------------------------------------------------------------------------------------
-   
+   yarp::sig::Matrix Q_s_der = Q_c.submatrix(0,5,  6, (Q_c.cols()-1)  ) ;
+   yarp::sig::Matrix Q_j_der = Q_c.submatrix( 6 , (Q_c.rows()-1)  ,  6, (Q_c.cols()-1)  ) ;
 
  //  yarp::sig::Matrix Rf_ext_der = Rf_ext( J_c , S_c ,Q_j_der, Q_s_der,  U_j_der,  U_s_der,  Kc, Kq)  ;
-//   yarp::sig::Matrix Rf_redu_der = Rf_redu( J_c,  S_c,  Q_s_cont,  U_s_cont, Kc) ;
+   yarp::sig::Matrix Rf_redu_der = Rf_redu( J_c,  S_c,  Q_s_der,  U_s_der, Kc) ;
  //  yarp::sig::Vector d_q_trunc_1 = -1.0*  Pinv_trunc_SVD(Rf_ext_der , 1E-1) * d_fc_des_to_world ; 
 //   yarp::sig::Vector d_q_der_ext = -1.0*  Pinv_trunc_SVD(Rf_ext_der , 1E-1) * d_fc_des_to_world ; 
   // yarp::sig::Vector d_q_der_redu_1 = -1.0*  Pinv_trunc_SVD(Rf_redu_der , 1E-1) * d_fc_des_to_world ; 
@@ -1608,7 +1751,7 @@ void locoman_control_thread::run()
  
  
    
-  
+   
    
  //----------------------------------------------------------------------------     
    // Computing derivatives of the COM part
@@ -1633,26 +1776,17 @@ void locoman_control_thread::run()
      yarp::sig::Matrix T_aw_COM_0(4,4)  ;
      yarp::sig::Matrix T_waist_COM_0(4,4);
      yarp::sig::Matrix T_COM_waist_0(4,4) ;
-
      
-     
-     
+    
      model.iDyn3_model.getCOMJacobian( Jac_w_COM_0_temp ) ;  
      d_w_COM_0 = model.iDyn3_model.getCOM()  ;  
      T_w_COM_0_temp = Homogeneous(Eye_3, d_w_COM_0 ) ;
      T_aw_COM_0 =  T_aw_w_0  *T_w_COM_0_temp ;   
      T_aw_COM_0.setSubmatrix(Eye_3,0,0) ;
- //   std::cout << " T_aw_COM_0 = " <<  std::endl << T_aw_COM_0.toString() << std::endl;  
-
-     T_waist_COM_0 =  T_waist_aw_0  *T_aw_COM_0 ;
- //   std::cout << " T_waist_COM_0 = " <<  std::endl << T_waist_COM_0.toString() << std::endl;  
-
-     
-     
+     T_waist_COM_0 =  T_waist_w_0 * T_w_aw_0*T_aw_COM_0 ;
      T_COM_waist_0 = iHomogeneous(T_waist_COM_0)   ;
      T_w_COM_0 = T_w_waist_0*  T_waist_COM_0;
      T_COM_w_0 = iHomogeneous(T_w_COM_0 ) ;
-     
      R_w_COM_0 = getRot( T_w_COM_0 ) ;
      R_COM_w_0 = getRot( T_COM_w_0 ) ;
      
@@ -1723,6 +1857,8 @@ void locoman_control_thread::run()
      
    
    
+ //----------------------------------------------------------------------------     
+   // Computing derivatives of the COM part
    
    
   //----------------------------------------------------------------------------------------------------------------------      
@@ -1736,6 +1872,8 @@ void locoman_control_thread::run()
      yarp::sig::Matrix Jac_COM_waist_0 = Adjoint( Homogeneous( Eye_3, getTrasl(T_COM_waist_0) )  ) *  Jac_COM_spa_0 ;
      //
      yarp::sig::Matrix Jac_COM_waist_0_trasl = Jac_COM_waist_0.submatrix(0,2, 0, (Jac_COM_waist_0.cols()-1)  )  ;
+     yarp::sig::Vector mg_COM_0(3, 0.0) ;
+     mg_COM_0[2] =  mg ; // positive because is exterted from the robot to the environment
      yarp::sig::Vector mg_waist_0= getRot( T_waist_COM_0 )*mg_COM_0 ;
      yarp::sig::Matrix D_mg_rot = (-1.0*crossProductMatrix(mg_waist_0))*Jac_COM_waist_0_trasl  ;
  
@@ -1748,7 +1886,6 @@ void locoman_control_thread::run()
     U_mg.setSubmatrix( D_mg_rot,  3 , 0 )  ; 
     U_s_mg = U_mg.submatrix(0,5 , 0, 5) ;
     Q_s_mg = U_mg.submatrix(0,5,  6, (U_mg.cols()-1)  ) ;
-   
 
   //  yarp::sig::Matrix U_s_der_mg = U_s_der + U_s_mg ;             
   //  yarp::sig::Matrix Q_s_der_mg = Q_s_der + Q_s_mg ;
@@ -1758,6 +1895,7 @@ void locoman_control_thread::run()
  
    yarp::sig::Matrix Rf_redu_mg = Rf_redu( J_c,  S_c,  Q_s_mg ,  U_s_mg , Kc) ;
    
+   //
    yarp::sig::Vector d_q_mg_1_1 = -1.0*  Pinv_trunc_SVD(Rf_redu_mg , 1E-1) * d_fc_des_to_world ; 
    yarp::sig::Vector d_q_mg_1_2 = -1.0*  Pinv_trunc_SVD(Rf_redu_mg , 1E-2) * d_fc_des_to_world ; 
    yarp::sig::Vector d_q_mg_1_3 = -1.0*  Pinv_trunc_SVD(Rf_redu_mg , 1E-3) * d_fc_des_to_world ; 
@@ -1922,6 +2060,9 @@ void locoman_control_thread::run()
 
    
    
+   
+
+   
    //----------------------------------------------------------------------------------------------------------------
    // Filtering d_q_motor
    /* yarp::sig::Vector d_q_motor_filter(size_q) ;
@@ -1939,6 +2080,7 @@ void locoman_control_thread::run()
     if(max>d_q_max)  { d_q_motor_filter =  (d_q_motor_filter/max)*d_q_max ; } //(d_q_motor_filter/max)  *d_q_max  */
 
     //------------------------------------------------------------------------
+    // Projection of the Initial Configuration 
    
    // Initializing the vector of the initial configuration
     yarp::sig::Vector q_motor_init(robot.getNumberOfJoints() ) ;		       
@@ -1985,11 +2127,13 @@ void locoman_control_thread::run()
     // norm( d_fc_des_to_world )   ;  // d_fc_des_to_world    norm( d_fc_des_to_world ) norm( F_z*d_fc_des_to_world ) 
     
     if( err_cl.is_open() )
-      err_cl <<  err << std::endl;  
-   // std::cout << " FC_FILTERED = "  << FC_FILTERED.toString() << std::endl; 
-   // std::cout << "  F_z* FC_FILTERED = "  <<  (F_z* FC_FILTERED).toString() << std::endl; 
-    std::cout << "  err = "  <<  err<< std::endl; 
-
+    err_cl <<  err << std::endl;  
+ 
+    
+    
+    
+    
+    
     
     //----------------------------------------------------------------------------------//
     yarp::sig::Vector q_ref_ToMove_f(robot.right_arm.getNumberOfJoints()) ; 
@@ -2035,7 +2179,7 @@ void locoman_control_thread::run()
     if(alpha<0.001 ){ alpha = 0.0 ; } 
     if(alpha>0.999 ){ alpha = 1.0 ; }   
     std::cout << " alpha = "  << alpha << std::endl; 
-    //alpha = 0.0 ;
+   
 
      yarp::sig::Vector d_q_ref_ToMove =  (1.0/1.0 )*alpha* d_q_aw_2_6 ;//d_q_mg_3_2_4  +  //d_q_mg_3_2 + //d_q_mg_5_2 +   // d_q_mg_3_2  +
                                 //  (0.0/1.0 )*alpha*d_q_motor_no_deriv_2 ;
@@ -2093,6 +2237,8 @@ void locoman_control_thread::run()
     d_q_orth_3  =  d_q_orth_3.subVector( 6,  d_q_orth_3.length()-1 ) ;
     d_q_orth_4  =  d_q_orth_4.subVector( 6,  d_q_orth_4.length()-1 ) ;
     
+ //   std::cout << " d_q_redu_1 = " <<  std::endl << d_q_redu_1.toString() << std::endl; 
+
     
   /*  std::cout << " d_q_orth_1 = " << std::endl << d_q_orth_1.toString()  << std::endl   ;    
     std::cout << " d_q_orth_2 = " << std::endl << d_q_orth_2.toString()  << std::endl   ;    
@@ -2208,7 +2354,65 @@ void locoman_control_thread::run()
     if(max>d_q_max)  { d_q_motor_filter =  (d_q_motor_filter/max)*d_q_max ; } //(d_q_motor_filter/max)  *d_q_max  */
 
 
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
   
+     
+   
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+     
+  
+     
+     
+     
+     
+     
+     
+ 
+          
        
  //---------------------------------------------------------------------------------------------------------//  
 //   writing data on a file
@@ -2257,8 +2461,4 @@ bool locoman_control_thread::custom_resume()
 
 }
 
-void locoman_control_thread::custom_release()
-{
-    err_cl.close();
-}
 
