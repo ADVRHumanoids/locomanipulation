@@ -1,2 +1,0 @@
-/home/lucamuratore/walkman/drc/locomanipulation/build/app/CMakeFiles/copy_conf_files_to_build.dir
-/home/lucamuratore/walkman/drc/locomanipulation/build/CMakeFiles/locomanipulation.dir
