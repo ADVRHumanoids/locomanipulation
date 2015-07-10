@@ -43,7 +43,7 @@ private:
     double part ;
     std::ofstream err_cl;
 public:
-    double mg =  340 ; // simulator : 295  [N]   ; robot =    340 [N];  350 
+    double mg = 1100 ; // COMAN 340 ; // simulator : 295  [N]   ; robot =    340 [N];  350 
     int loop_counter; 
     int WINDOW_size;
     int FC_size ;  
