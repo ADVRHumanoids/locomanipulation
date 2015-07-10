@@ -32,6 +32,9 @@ private:
     unsigned int right_leg_joints;
     unsigned int torso_joints;    
     
+    // imu interface
+    yarp_IMU_interface* imu;
+    
     //Example stuff for parameters setting from outside
     yarp::sig::Vector left_arm_configuration;
     yarp::sig::Vector right_arm_configuration;

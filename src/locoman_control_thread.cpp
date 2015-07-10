@@ -152,6 +152,8 @@ bool locoman_control_thread::custom_init()
     yarp::sig::Vector q_current = robot.sensePosition();
     robot.idynutils.updateiDyn3Model(q_current, true);
     
+    imu = new yarp_IMU_interface(get_module_prefix(), get_robot_name());
+    
     robot.setPositionDirectMode();    
     
     //  robot.setPositionMode() ;
@@ -1299,8 +1301,9 @@ void locoman_control_thread::run()
     int imu_link_index = model.iDyn3_model.getLinkIndex("imu_link") ; 
     yarp::sig::Matrix T_w_imu_0 = model.iDyn3_model.getPosition( imu_link_index) ;    
     yarp::sig::Matrix T_imu_w_0 = iHomogeneous(T_w_imu_0) ; 
-    RobotUtils::IMUPtr IMU_ptr = robot.getIMU()  ;
-    yarp::sig::Vector IMU_sense = IMU_ptr->sense(); ;
+
+    yarp::sig::Vector IMU_sense = imu->sense();
+//     std::cout << IMU_sense.toString() << std::endl;
     yarp::sig::Vector IMU_sense_lin_acc(3) ; 
         
     IMU_sense_lin_acc[0] = IMU_sense[3] ;    
