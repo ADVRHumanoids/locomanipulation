@@ -20,7 +20,7 @@ private:
     // link the locoman optional params
     void link_locoman_params();
     
-    //Example stuff (for sin wave generation)
+    // 
     unsigned int left_arm_joints;
     double omega;
     double phi;
@@ -39,6 +39,7 @@ private:
     
     double max_vel;
 public:
+
     int mg =  290 ; // [N]  295
     int loop_counter;
     int WINDOW_size;
@@ -417,8 +418,8 @@ public:
 			              ) ;  
            
      /**
-     * @brief  filter_SVD computes a "fileters" version of A via the truncated SVD  
-     * @param  A is the matrix of which the filtration effect is needed
+     * @brief  filter_SVD computes a "filtered" version of A via the truncated SVD  
+     * @param  A is the matrix of which the filtered version is needed
      * @param  k is the maximum ratio admitted between the max and min singular values
      * @return filter_SVD is the filtered version of A
      */
@@ -428,7 +429,7 @@ public:
 
 
      /**
-     * @brief  sigma_frict computes the metrics measuring the goodness of the cotnact force with respect to friction limits 
+     * @brief  sigma_frict computes the metrics measuring the goodness of the contact force with respect to friction limits 
      * @param  fc is the contact force. The normal is assumed to be n = [0 0 1]^T 
      * @param  mu is the friction coefficient
      * @return the value of sigma_frict
