@@ -14,6 +14,27 @@ Environment Profile=
 Extra Arguments=
 Install Directory=file:///home/edo/walkman/build/install
 
+[Launch]
+Launch Configurations=Launch Configuration 0
+
+[Launch][Launch Configuration 0]
+Configured Launch Modes=execute
+Configured Launchers=nativeAppLauncher
+Name=New Application Launcher
+Type=Native Application
+
+[Launch][Launch Configuration 0][Data]
+Arguments=
+Dependencies=@Variant(\x00\x00\x00\t\x00\x00\x00\x00\x00)
+Dependency Action=Nothing
+EnvironmentGroup=default
+Executable=file:///home/edo/walkman/build/drc/locomanipulation/locomanipulation
+External Terminal=konsole --noclose --workdir %workdir -e %exe
+Project Target=locomanipulation,locomanipulation
+Use External Terminal=false
+Working Directory=
+isExecutable=true
+
 [MakeBuilder]
 Additional Options=install
 

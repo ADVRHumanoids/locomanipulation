@@ -58,7 +58,9 @@ add_dependencies( ${PROJECT_NAME} GYM )
 target_link_libraries( ${PROJECT_NAME} ${idynutils_LIBRARIES} ${YARP_LIBRARIES} 
 				      ${iDynTree_LIBRARIES}
                                       ${GYM_LIBRARIES}
-				      ${iDynTree_LIBRARIES})
+				      ${iDynTree_LIBRARIES}
+				      boost_system)
+				      
 
 #############
 ## Install ##
