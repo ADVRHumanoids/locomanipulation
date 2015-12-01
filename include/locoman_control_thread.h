@@ -46,6 +46,16 @@ public:
     int FC_size ;  
     bool flag_robot = 0 ;
     bool flag_simulator = 1-flag_robot ;
+    
+    std::string last_command = "pause" ;
+    
+    yarp::sig::Vector CoM_w_cmd ;  // variables registered at command time
+    yarp::sig::Matrix T_l1_r1_up ;
+    yarp::sig::Matrix T_l1_r1_fw ;
+    yarp::sig::Matrix T_l1_r1_dw ;
+    
+    yarp::sig::Matrix T_r1_l1_des ;
+    
     yarp::sig::Vector FC_DES ;  //     yarp::sig::Vector FC_DES( FC_size   ) ;
     yarp::sig::Vector FC_DES_LEFT_sensor ;
     yarp::sig::Vector FC_DES_RIGHT_sensor ;
@@ -268,9 +278,6 @@ public:
     yarp::sig::Matrix RoundMatrix( const yarp::sig::Matrix M, const int k) ;
     
     
-    
-    
-    
      //------------------------------------------------------------------------------------
      /**
      * @brief  FLMM_ext computes the FLMM for a compliant humanoid robot 
@@ -378,7 +385,7 @@ public:
 			              ) ;   // 
 //------------------------------------------------------------------------------------
      /**
-     * @brief  Pinv_Regularized computes the Tikhonov Regularized pseudo-inverse of A 
+     * @brief  Pinv_Regularized computes the Levemberg Regularized pseudo-inverse of A 
      * @param  A is the matrix to pseudo-inverse
      * @param  k is the regularization factor
      * @return Pinv_Regularized is the pseudo-inverse of A
@@ -386,6 +393,16 @@ public:
       yarp::sig::Matrix Pinv_Regularized( const yarp::sig::Matrix A ,
 			                  const double k  
 			                ) ;     
+					
+     /**
+     * @brief  Pinv_Marq computes the Levemberg-Marquard Regularized pseudo-inverse of A 
+     * @param  A is the matrix to pseudo-inverse
+     * @param  k is the regularization factor
+     * @return Pinv_Marq is the pseudo-inverse of A
+     */ 
+      yarp::sig::Matrix Pinv_Marq( const yarp::sig::Matrix A ,
+			                  const double k  
+			                ) ;    
 //------------------------------------------------------------------------------------
      /**
      * @brief  x_Pinv_Iter computes the variable x: Ax=b via the Landweber iteration method
@@ -468,8 +485,106 @@ public:
                    const double toll  = 1E-7
 			              ) ; 
 				      
-      
+     /**
+     * @brief  provide the initial configuration
+     * @return  yarp vector 
+     */
+     yarp::sig::Vector q_init( void ) ; 
+    
+     /**
+     * @brief  provide the desired contact force distribution => 100% on the right
+     * @return  0 if ok 
+     */
+     int FC_DES_right( void ) ;     
+
+     /**
+     * @brief  provide the desired contact force distribution => 100% on the left
+     * @return  0 if ok
+     */
+     int FC_DES_left( void ) ;   
+
+     /**
+     * @brief  provide the desired contact force distribution => 50% on the left/right
+     * @return  0 if ok
+     */
+     int FC_DES_center( void ) ;   
+  
+     /**
+     * @brief  easy way for rotating the right shoulder 
+     * @param alpha rotation angle [rad], angluar step at each loop
+     * @return the uptated joint vector configuration 
+     */
+     yarp::sig::Vector moving_right_arm( const double alpha ) ;  
+       
+     /**
+     * @brief linear function from the values (0,err_min) to (1,err_max)
+     * @param err the point on which the filtering function has to be computed
+     * @param err_min minimum error value (positive)
+     * @param err_max maximum error value (greather than err_min)
+     * @return the filtering value
+     */
+     double alpha_filter( double err, double err_min, double err_max ) ;  
+     
+     /**
+     * @brief The function computes and returns the pose of the frame auxiliary world frame {AW} with 
+     * @return respect to the world
+     */
+     yarp::sig::Matrix AW_world_posture( void  ) ;  
+     
+     
+     
+     
+     
+     /**
+     * @brief linear function from the values (0,err_min) to (1,err_max)
+     * @param err the point on which the filtering function has to be computed
+     * @param err_min minimum error value (positive)
+     * @param err_max maximum error value (greather than err_min)
+     * @return the filtering value 
+     */
+    // double data_on_file( char file_name, double data  ) ;  
+     
+     
+     /**
+     * @brief  Rot2Quat computes the quaterion components given the rotation matrix
+     * @param  Rot is 3 x 3 rotation matrix
+     * @return a vector of 4 elements; the first element is the scalar part of the quaternion
+     */
+    yarp::sig::Vector Rot2Quat( const yarp::sig::Matrix Rot) ;		
+     
+     /**
+     * @brief  Orient_Error computes the orientation error based on the quaternion representation of the rotation matrices
+     * @param  Rot_des is 3 x 3 rotation matrix representing the desired orientation
+     * @param  Rot_cur is 3 x 3 rotation matrix representing the current orientation
+     * @return a vector of 3 elements representing the orientation error
+     */
+    yarp::sig::Vector Orient_Error( const yarp::sig::Matrix Rot_des, const yarp::sig::Matrix Rot_cur) ;		
+
+     /**
+     * @brief  Inv_quaternion computes the inverse of a given quaternion
+     * @param  quat is 4 elements vector describing a quaternion
+     * @return a vector of 4 elements representing the inverse of the input quaternion
+     */
+    yarp::sig::Vector Inv_quaternion( const yarp::sig::Vector quat ) ;	
+
+     /**
+     * @brief  Computes the product of two quaternions
+     * @param  quat_1 and quat_2 are 4 elements vectors describing quaternions
+     * @return a vector of 4 elements representing the product of the two input quaternions
+     */
+    yarp::sig::Vector quat_Product( const yarp::sig::Vector quat_1 , const yarp::sig::Vector quat_2) ;	
+    
+     /**
+     * @brief  Computes the rotation matrix about z axis
+     * @param  psi_z rotation angle
+     * @return a 3x3 yarp Matrix
+     */
+    yarp::sig::Matrix Rot_z( const double psi_z) ;	
+     
+    //----------------------------------------------------------------------
+     
 };
+
 
 
 
