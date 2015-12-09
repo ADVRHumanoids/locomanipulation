@@ -765,9 +765,9 @@ yarp::sig::Matrix locoman_control_thread::Pinv_trunc_SVD(const yarp::sig::Matrix
   yarp::sig::Matrix U( r_A, c_U )  ;
   yarp::sig::Matrix V( c_A, c_U )  ;
   yarp::sig::Vector S( c_U ) ;  
-  
   yarp::sig::Matrix S_1( c_U , c_U ) ;  
   S_1.zero();
+  
   yarp::math::SVD(A, U, S, V );
   
   double k_norm = S(0)*k ;
@@ -789,33 +789,68 @@ yarp::sig::Matrix locoman_control_thread::Pinv_trunc_SVD(const yarp::sig::Matrix
 
 yarp::sig::Matrix locoman_control_thread::Pinv_Regularized(const yarp::sig::Matrix A, const double k)
 {
-    yarp::sig::Matrix At_A = A.transposed()*A ;
-    yarp::sig::Matrix Eye_temp = eye(At_A.rows(), At_A.cols() ) ;
-    yarp::sig::Matrix pinv_A = yarp::math::luinv(At_A + k*Eye_temp ) *A.transposed() ;
-    return pinv_A ;
+  int r_A = A.rows() ;
+  int c_A = A.cols() ;
+  if(c_A< r_A ){    // tall matrix => Defective manipulator
+  yarp::sig::Matrix At_A = A.transposed()*A ;
+  yarp::sig::Matrix Eye_temp_l = eye(At_A.rows(), At_A.cols() ) ;
+  yarp::sig::Matrix pinv_A_l = Pinv_trunc_SVD(At_A + k*Eye_temp_l , 1E-7 ) * A.transposed() ;
+  return pinv_A_l ;
+  }
+  else {    // fat (or square) matrix => Redundant (or square) manipulator
+  yarp::sig::Matrix A_At = A*A.transposed() ;
+  yarp::sig::Matrix Eye_temp_r = eye( A_At.rows(), A_At.cols() ) ;
+  yarp::sig::Matrix pinv_A_r = A.transposed()* Pinv_trunc_SVD(A_At + k*Eye_temp_r , 1E-7 )  ;
+  return pinv_A_r ;
+  }
+//   yarp::sig::Matrix At_A = A.transposed()*A ;
+//   yarp::sig::Matrix Eye_temp = eye(At_A.rows(), At_A.cols() ) ;
+//   yarp::sig::Matrix pinv_A = Pinv_trunc_SVD(At_A + k*Eye_temp , 1E-7 ) *A.transposed() ;
+//   return pinv_A ;
+  
+  
+//   int r_A = A.rows() ;
+//   int c_A = A.cols() ;
+//   if(c_A< r_A ){    // tall matrix => Defective manipulator
+//   yarp::sig::Matrix At_A = A.transposed()*A ;
+//   yarp::sig::Matrix Eye_temp = eye(At_A.rows(), At_A.cols() ) ;
+//   yarp::sig::Matrix pinv_A = yarp::math::luinv( At_A + k*Eye_temp ) *A.transposed() ;
+//   return pinv_A ;
+//   }
+//   
+//   yarp::sig::Matrix At_A = A.transposed()*A ;
+//   yarp::sig::Matrix Eye_temp = eye(At_A.rows(), At_A.cols() ) ;
+//   yarp::sig::Matrix pinv_A = yarp::math::luinv(At_A + k*Eye_temp ) *A.transposed() ;
+//   return pinv_A ;
 }
 
 yarp::sig::Matrix locoman_control_thread::Pinv_Marq(const yarp::sig::Matrix A, const double k)
 {
-    yarp::sig::Matrix At_A = A.transposed()*A ;
-    yarp::sig::Matrix Eye_temp = eye(At_A.rows(), At_A.cols() ) ;
-    int dim = At_A.rows() ;
-    yarp::sig::Matrix Marq_temp(At_A.rows(), At_A.cols() ) ;
-    Marq_temp.eye();
-   // std::cout << "qui" << std::endl ;
-    for(int i=0; i < dim ; i++){
-       //   std::cout << " i = " << i << std::endl ;
-      Marq_temp[i][i] = At_A[i][i] ;
-    }  //k* 
-//     std::cout << "At_A.rows " << At_A.rows() <<std::endl ;
-//     std::cout << "At_A.cols " << At_A.cols() <<std::endl ;
-// 
-//     std::cout << "Marq_temp.rows " << Marq_temp.rows() <<std::endl ;
-//     std::cout << "Marq_temp.cols " << Marq_temp.cols() <<std::endl ; 
-    yarp::sig::Matrix pinv_A = Pinv_trunc_SVD( At_A + k*Marq_temp,  1E-6   ) *A.transposed() ;
-    //    std::cout << "qui" << std::endl ;
+  int r_A = A.rows() ;
+  int c_A = A.cols() ;
+  if(c_A< r_A ){    // tall matrix => Defective manipulator    
+  yarp::sig::Matrix At_A = A.transposed()*A ;
+  int dim_l = At_A.rows() ;
+  yarp::sig::Matrix Marq_temp_l(At_A.rows(), At_A.cols() ) ;
+  Marq_temp_l.eye(); 
+  for(int i=0; i < dim_l ; i++){
+    Marq_temp_l[i][i] = At_A[i][i] ;   
+  }   
+  yarp::sig::Matrix pinv_A_l = Pinv_trunc_SVD( At_A + k*Marq_temp_l,  1E-7   ) *A.transposed() ;
+  return pinv_A_l ;      
+  }
+  else {    // fat (or square) matrix => Redundant (or square) manipulator
+  yarp::sig::Matrix A_At = A*A.transposed() ;
+  int dim_r = A_At.rows() ; 
+  yarp::sig::Matrix Marq_temp_r(A_At.rows(), A_At.cols() ) ;
+  Marq_temp_r.eye(); 
+  for(int i=0; i < dim_r ; i++){
+    Marq_temp_r[i][i] = A_At[i][i] ;   
+  }   
+  yarp::sig::Matrix pinv_A_r = A.transposed()* Pinv_trunc_SVD(A_At + k*Marq_temp_r , 1E-7 )  ;
+  return pinv_A_r ;
+  }
 
-    return pinv_A ;
 }
 
 
@@ -1876,33 +1911,41 @@ void locoman_control_thread::run()
   yarp::sig::Matrix cFLMM = Pinv_trunc_SVD(FLMM.submatrix(0, FLMM.rows()-1 , 0, FLMM.rows()-1), 1E-7 ) * FLMM;
    
   yarp::sig::Matrix Rf_temp_2 = cFLMM.submatrix(0, size_fc-1, cFLMM.cols()-size_q, cFLMM.cols()-1) ;  
-  yarp::sig::Matrix Rf_temp_2_filt = filter_SVD( Rf_temp_2,  1E-4); 
+  yarp::sig::Matrix Rf_temp_2_filt = filter_SVD( Rf_temp_2,  1E-7); 
 
-//  yarp::sig::Vector d_q_dsp_5 = -1.0* Pinv_Regularized( Rf_temp_2_filt, 1E5)* d_fc_des_to_world ;
+  
+//   yarp::sig::Vector d_q_dsp_1 = -1.0* Pinv_Regularized( Rf_temp_2_filt, 1E1)* d_fc_des_to_world ;
+//   yarp::sig::Vector d_q_dsp_2 = -1.0* Pinv_Regularized( Rf_temp_2_filt, 1E2)* d_fc_des_to_world ;
+//   yarp::sig::Vector d_q_dsp_3 = -1.0* Pinv_Regularized( Rf_temp_2_filt, 1E3)* d_fc_des_to_world ;
+//   yarp::sig::Vector d_q_dsp_4 = -1.0* Pinv_Regularized( Rf_temp_2_filt, 1E4)* d_fc_des_to_world ;
+//   yarp::sig::Vector d_q_dsp_5 = -1.0* Pinv_Regularized( Rf_temp_2_filt, 1E5)* d_fc_des_to_world ;
   yarp::sig::Vector d_q_dsp_6 = -1.0* Pinv_Regularized( Rf_temp_2_filt, 1E6)* d_fc_des_to_world ;
+ // yarp::sig::Vector d_q_dsp_5_m = -1.0* Pinv_Marq( Rf_temp_2_filt, 1E-5)* d_fc_des_to_world ;
+
+  
+  
 //  yarp::sig::Vector d_q_dsp_7 = -1.0* Pinv_Regularized( Rf_temp_2_filt, 1E7)* d_fc_des_to_world ;
- 
-  //
- // std::cout << " d_q_dsp_5 = " <<  std::endl << d_q_dsp_5.toString()  << std::endl;  
-
+//   std::cout << " d_q_dsp_1 = " <<  std::endl << d_q_dsp_1.toString()  << std::endl;  
+//   std::cout << " d_q_dsp_2 = " <<  std::endl << d_q_dsp_2.toString()  << std::endl;   
+//   std::cout << " d_q_dsp_3 = " <<  std::endl << d_q_dsp_3.toString()  << std::endl;  
+//   std::cout << " d_q_dsp_4 = " <<  std::endl << d_q_dsp_4.toString()  << std::endl;  
+//   std::cout << " d_q_dsp_5 = " <<  std::endl << d_q_dsp_5.toString()  << std::endl;  
   std::cout << " d_q_dsp_6 = " <<  std::endl << d_q_dsp_6.toString()  << std::endl;  
-//  std::cout << " d_q_dsp_7 = " <<  std::endl << d_q_dsp_7.toString()  << std::endl;  
+ //  std::cout << " d_q_dsp_5_m = " <<  std::endl << d_q_dsp_5_m.toString()  << std::endl;  
 
+//  std::cout << " d_q_dsp_7 = " <<  std::endl << d_q_dsp_7.toString()  << std::endl;  
 
 //  std::cout << " norm(d_q_dsp_5) = " <<  std::endl << norm(d_q_dsp_5)  << std::endl;  
   
   std::cout << " norm(d_q_dsp_6) = " <<  std::endl << norm(d_q_dsp_6)  << std::endl;  
 //  std::cout << " norm(d_q_dsp_7) = " <<  std::endl << norm(d_q_dsp_7)  << std::endl;   
   
-  
-  
+
+  yarp::sig::Vector d_q_move = d_q_dsp_6 ; // d_q_dsp_5_m   ; // d_q_dsp_6 ; //
 
   
-  yarp::sig::Vector d_q_move = d_q_dsp_6 ; // d_q_dsp_6_marq   ; // d_q_dsp_6 ; //
- // if( last_command =="to_rg"){d_q_move = d_q_dsp_5 ;}
   
-  
-  if(norm(d_q_move)>0.009){d_q_move =  0.009 *d_q_move/ norm(d_q_move) ; //d_q_dsp_7 ; //0.012 *d_q_move/ norm(d_q_move) ;
+  if(norm(d_q_move)>0.008){d_q_move =  0.008 *d_q_move/ norm(d_q_move) ; //d_q_dsp_7 ; //0.012 *d_q_move/ norm(d_q_move) ;
   }
   if(norm(d_q_move)<0.002){d_q_move =  0.002 *d_q_move/ norm(d_q_move) ;
   }
