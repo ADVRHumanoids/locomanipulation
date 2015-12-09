@@ -49,12 +49,32 @@ public:
     
     std::string last_command = "pause" ;
     
+    //--------------
+    yarp::sig::Vector CoM_waist_cmd  ;  
+    yarp::sig::Matrix T_waist_l1_foot_cmd ; 
+    yarp::sig::Matrix T_waist_r1_foot_cmd ; 
+    yarp::sig::Matrix T_waist_l_hand_cmd ; 
+    yarp::sig::Matrix T_waist_r_hand_cmd ; 
+    yarp::sig::Matrix R_waist_aw_cmd ;     
+    
+    //----------------
+    
+    
     yarp::sig::Vector CoM_w_cmd ;  // variables registered at command time
+    yarp::sig::Vector CoM_w_up ;
+    yarp::sig::Vector CoM_w_dw ;
+    
+    
+    yarp::sig::Matrix T_w_l1_cmd ; 
+    yarp::sig::Matrix T_w_r1_cmd ; 
+    
     yarp::sig::Matrix T_l1_r1_up ;
     yarp::sig::Matrix T_l1_r1_fw ;
     yarp::sig::Matrix T_l1_r1_dw ;
     
-    yarp::sig::Matrix T_r1_l1_des ;
+    yarp::sig::Matrix T_r1_l1_up ;
+    yarp::sig::Matrix T_r1_l1_fw ;
+    yarp::sig::Matrix T_r1_l1_dw ;
     
     yarp::sig::Vector FC_DES ;  //     yarp::sig::Vector FC_DES( FC_size   ) ;
     yarp::sig::Vector FC_DES_LEFT_sensor ;
@@ -583,6 +603,36 @@ public:
      
     //----------------------------------------------------------------------
      
+     /**
+     * @brief  WB_Cartesian_Tasks computes the whole-body displacement for achieving the 
+     *         desired configurations of the End Effectors and of the CoM (all together)
+     * @param  T_l1_foot_des desired pose of the left foot (first contact) in local frame
+     * @param  T_r1_foot_des desired pose of the right foot (first contact) in local frame
+     * @param  T_l_hand_des  desired pose of the left hand in local frame
+     * @param  T_r_hand_des  desired pose of the right hand in local frame
+     * @param  CoM_waist_cmd desired position of the CoM w.r.t the wrist frame
+     * 
+     * @param  J_l1_foot_body is a (6 x (joints+6)) body Jacobian of the left  foot (first contact) 
+     * @param  J_r1_foot_body is a (6 x (joints+6)) body Jacobian of the right foot (first contact) 
+     * @param  J_l_hand_body  is a (6 x (joints+6)) body Jacobian of the left  hand
+     * @param  J_r_hand_body  is a (6 x (joints+6)) body Jacobian of the right hand 
+     * @param  J_waist_CoM    is a (3 x (joints+6)) Jacobian of the CoM expressed in {Waist} frame
+     * @return the desired delta_q vector 
+     */
+    yarp::sig::Vector WB_Cartesian_Tasks( 
+			    const yarp::sig::Matrix T_l_hand_des,
+			    const yarp::sig::Matrix T_r_hand_des,
+                            const yarp::sig::Matrix T_l1_foot_des ,
+			    const yarp::sig::Matrix T_r1_foot_des ,
+			    const yarp::sig::Vector CoM_waist_cmd ,
+			    const yarp::sig::Matrix J_l_hand_body ,
+			    const yarp::sig::Matrix J_r_hand_body ,
+			    const yarp::sig::Matrix J_l1_foot_body ,
+			    const yarp::sig::Matrix J_r1_foot_body ,
+			    const yarp::sig::Matrix J_waist_CoM 
+					) ;  		
+    
+    
 };
 
 

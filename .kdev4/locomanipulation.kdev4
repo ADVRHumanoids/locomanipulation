@@ -37,6 +37,7 @@ isExecutable=true
 
 [MakeBuilder]
 Additional Options=install
+Number Of Jobs=3
 
 [Project]
 VersionControlSupport=kdevgit

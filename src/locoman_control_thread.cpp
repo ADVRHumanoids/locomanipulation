@@ -20,6 +20,8 @@ locoman_control_thread::locoman_control_thread( std::string module_prefix,
     command_interface(module_prefix), 
     loop_counter(0) ,
     CoM_w_cmd(3, 0.0) ,
+    CoM_w_up(3, 0.0) ,
+    CoM_w_dw(3, 0.0) ,
     FC_size(24)  ,
     WINDOW_size(15) , //30 //50  // 15
     FC_DES(FC_size, 0.0) , 
@@ -28,16 +30,38 @@ locoman_control_thread::locoman_control_thread( std::string module_prefix,
     FC_FILTERED(FC_size),
     FC_WINDOW(FC_size, WINDOW_size ) 
 {
+    //------------ 
+    CoM_waist_cmd = getRot( iHomogeneous(model.iDyn3_model.getPosition( model.iDyn3_model.getLinkIndex("Waist"))))*
+                    model.iDyn3_model.getCOM() ;
+    T_waist_l1_foot_cmd = iHomogeneous(model.iDyn3_model.getPosition( model.iDyn3_model.getLinkIndex("Waist")))*
+                    model.iDyn3_model.getPosition( (model.iDyn3_model.getLinkIndex("l_foot_upper_left_link"))) ; 
+    T_waist_r1_foot_cmd = iHomogeneous(model.iDyn3_model.getPosition( model.iDyn3_model.getLinkIndex("Waist")))*
+                    model.iDyn3_model.getPosition( (model.iDyn3_model.getLinkIndex("r_foot_upper_left_link"))) ; 
+    T_waist_l_hand_cmd = iHomogeneous(model.iDyn3_model.getPosition( model.iDyn3_model.getLinkIndex("Waist")))*
+                    model.iDyn3_model.getPosition( (model.iDyn3_model.getLinkIndex("LSoftHand")))  ;    
+    T_waist_r_hand_cmd = iHomogeneous(model.iDyn3_model.getPosition( model.iDyn3_model.getLinkIndex("Waist"))) *
+                    model.iDyn3_model.getPosition( (model.iDyn3_model.getLinkIndex("RSoftHand")))  ;      
+    R_waist_aw_cmd = getRot( iHomogeneous(model.iDyn3_model.getPosition( model.iDyn3_model.getLinkIndex("Waist")))) ; //just initialization
+    //------------ 
     CoM_w_cmd  = model.iDyn3_model.getCOM()  ;
+    CoM_w_up = CoM_w_cmd ;
+    CoM_w_dw = CoM_w_cmd ;
     T_l1_r1_up = iHomogeneous(model.iDyn3_model.getPosition( (model.iDyn3_model.getLinkIndex("l_foot_upper_left_link")))) *
-                     model.iDyn3_model.getPosition( (model.iDyn3_model.getLinkIndex("r_foot_upper_left_link"))) ;  
+                     model.iDyn3_model.getPosition( (model.iDyn3_model.getLinkIndex("r_foot_upper_left_link")) ) ;  
     T_l1_r1_fw = iHomogeneous(model.iDyn3_model.getPosition( (model.iDyn3_model.getLinkIndex("l_foot_upper_left_link")))) *
                      model.iDyn3_model.getPosition( (model.iDyn3_model.getLinkIndex("r_foot_upper_left_link"))) ;       
     T_l1_r1_dw = iHomogeneous(model.iDyn3_model.getPosition( (model.iDyn3_model.getLinkIndex("l_foot_upper_left_link")))) *
                      model.iDyn3_model.getPosition( (model.iDyn3_model.getLinkIndex("r_foot_upper_left_link"))) ;       
-    
-    T_r1_l1_des = iHomogeneous( model.iDyn3_model.getPosition( (model.iDyn3_model.getLinkIndex("r_foot_upper_left_link"))) ) *
+ 
+    T_w_l1_cmd = model.iDyn3_model.getPosition( (model.iDyn3_model.getLinkIndex("l_foot_upper_left_link"))) ;     
+    T_w_r1_cmd = model.iDyn3_model.getPosition( (model.iDyn3_model.getLinkIndex("r_foot_upper_left_link"))) ;    
+     
+    T_r1_l1_up = iHomogeneous( model.iDyn3_model.getPosition( (model.iDyn3_model.getLinkIndex("r_foot_upper_left_link"))) ) *
                      model.iDyn3_model.getPosition( (model.iDyn3_model.getLinkIndex("l_foot_upper_left_link")))   ;
+    T_r1_l1_fw = iHomogeneous( model.iDyn3_model.getPosition( (model.iDyn3_model.getLinkIndex("r_foot_upper_left_link"))) ) *
+                     model.iDyn3_model.getPosition( (model.iDyn3_model.getLinkIndex("l_foot_upper_left_link")))   ;
+    T_r1_l1_dw = iHomogeneous( model.iDyn3_model.getPosition( (model.iDyn3_model.getLinkIndex("r_foot_upper_left_link"))) ) *
+                     model.iDyn3_model.getPosition( (model.iDyn3_model.getLinkIndex("l_foot_upper_left_link")))   ;     
     left_arm_joints = robot.left_arm.getNumberOfJoints();
     omega = 0.1;
     phi = 10;
@@ -1084,14 +1108,12 @@ double locoman_control_thread::alpha_filter(double err, double err_min, double e
   double tol = 0.00001 ;
   if(err_min <tol){ err_min = tol;}
   if(err_max<=(err_min+tol)){err_max = err_min + tol; }
-  double alpha = (err/(err_max - err_min))  ; 
-  // std::cout << " err = "  << err << std::endl; 
-  //  std::cout << " (err_max - err_min) = "  << (err_max - err_min) << std::endl; 
-  // std::cout << " alpha = "  << alpha << std::endl; 
-  if(alpha<tol )    { alpha = tol ; } 
+  double m = 1/(err_max-err_min );
+  double q = -m*err_min ;
+  double alpha = m*err + q ;
+  if(alpha<tol )    { alpha = 0.0 ; } 
   if(alpha>(1.0-tol)) { alpha = 1.0 ; }   
   return alpha ;
-  //std::cout << " alpha = "  << alpha << std::endl; 
 }
 
 
@@ -1183,6 +1205,7 @@ yarp::sig::Matrix locoman_control_thread::AW_world_posture(void)
 
 yarp::sig::Vector locoman_control_thread::Rot2Quat(const yarp::sig::Matrix Rot)
 {
+  double tol = 0.001 ;
  double r_11 = Rot[0][0] ;
  double r_12 = Rot[0][1] ;
  double r_13 = Rot[0][2] ;
@@ -1200,9 +1223,22 @@ yarp::sig::Vector locoman_control_thread::Rot2Quat(const yarp::sig::Matrix Rot)
  if(a1==0){a1 = 1 ;};
  if(a2==0){a2 = 1 ;};
  if(a3==0){a3 = 1 ;}; 
- quat[1] = (1.0/2.0)*a1*sqrt(r_11- r_22- r_33 + 1) ; 
- quat[2] = (1.0/2.0)*a2*sqrt(r_22- r_33- r_11 + 1) ; 
- quat[3] = (1.0/2.0)*a3*sqrt(r_33- r_11- r_22 + 1) ; 
+ //--
+ double to_sq_1 = r_11- r_22- r_33 + 1 ;
+ double to_sq_2 = r_22- r_33- r_11 + 1 ;
+ double to_sq_3 = r_33- r_11- r_22 + 1;
+ double sq_1 ;
+ double sq_2 ;
+ double sq_3 ;
+ if(to_sq_1>tol){sq_1 = sqrt(to_sq_1) ; }
+ else {sq_1 = 0 ;}
+ if(to_sq_2>tol){sq_2 = sqrt(to_sq_2) ; }
+ else {sq_2 = 0 ;}
+  if(to_sq_3>tol){sq_3 = sqrt(to_sq_3) ; }
+ else {sq_3 = 0 ;}
+ quat[1] = (1.0/2.0)*a1*sq_1 ; // sqrt(r_11- r_22- r_33 + 1) ; 
+ quat[2] = (1.0/2.0)*a2*sq_2 ; // sqrt(r_22- r_33- r_11 + 1) ; 
+ quat[3] = (1.0/2.0)*a3*sq_3 ; // sqrt(r_33- r_11- r_22 + 1) ; 
  //  std::cout << "  a1 = " <<  std::endl << a1  << std::endl;   
  return quat ;
 }
@@ -1251,6 +1287,44 @@ yarp::sig::Matrix locoman_control_thread::Rot_z(const double psi_z)
  Rotz[0][1] =-sin(psi_z) ;
  Rotz[1][1] = cos(psi_z) ;
  return Rotz ;
+}
+
+yarp::sig::Vector locoman_control_thread::WB_Cartesian_Tasks(
+  			    const yarp::sig::Matrix T_l_hand_des,
+			    const yarp::sig::Matrix T_r_hand_des,
+                            const yarp::sig::Matrix T_l1_foot_des ,
+			    const yarp::sig::Matrix T_r1_foot_des ,
+			    const yarp::sig::Vector CoM_waist_cmd ,
+			    const yarp::sig::Matrix J_l_hand_body ,
+			    const yarp::sig::Matrix J_r_hand_body ,
+			    const yarp::sig::Matrix J_l1_foot_body ,
+			    const yarp::sig::Matrix J_r1_foot_body ,
+			    const yarp::sig::Matrix J_waist_CoM )
+{
+  yarp::sig::Matrix Eye_3(3,3); Eye_3.eye() ;
+  // filtering the error
+  double  max_disp = 0.001  ;  // maximum displacement allowed in a loop
+  double  max_rot = 0.01    ;  // maximum rotation allowed in a loop
+  double  min_disp = 0.0008 ;  // minimum displacement, otherwise is approximated to zero
+  double  min_rot = 0.001   ;  // minimum rotation, otherwise is approximated to zero
+  
+  // Error Vector
+  yarp::sig::Vector d_C(27, 0.0) ;
+  d_C.setSubvector(0 , getTrasl(T_l_hand_des)                          ) ;
+  d_C.setSubvector(3 , Orient_Error( getRot(T_l_hand_des ) , Eye_3 )   ) ; 
+  d_C.setSubvector(6 , getTrasl(T_r_hand_des)                          ) ;
+  d_C.setSubvector(9 , Orient_Error( getRot(T_r_hand_des ) , Eye_3 )   ) ;
+  d_C.setSubvector(12, getTrasl(T_l1_foot_des)                         ) ;
+  d_C.setSubvector(15, Orient_Error( getRot(T_l1_foot_des) , Eye_3 )  ) ;
+  d_C.setSubvector(18, getTrasl(T_r1_foot_des)                         ) ;
+  d_C.setSubvector(21,Orient_Error( getRot(T_r1_foot_des ) , Eye_3 )   ) ;
+  d_C.setSubvector(24,CoM_waist_cmd) ;
+  // Whole Jacobian 
+  
+  
+  //pseudoinverse
+  
+  //selections
 }
 
 
@@ -1312,6 +1386,8 @@ void locoman_control_thread::run()
 
 //---------------------------------------------------------------------------------------------------------//  
     // 
+    int waist_index   = model.iDyn3_model.getLinkIndex("Waist");
+    
     int l_ankle_index = model.iDyn3_model.getLinkIndex("l_ankle") ; // sensors are placed in *_ankle in the model
     int l_c1_index    = model.iDyn3_model.getLinkIndex("l_foot_upper_left_link");
     int l_c2_index    = model.iDyn3_model.getLinkIndex("l_foot_upper_right_link");
@@ -1323,6 +1399,10 @@ void locoman_control_thread::run()
     int r_c2_index    = model.iDyn3_model.getLinkIndex("r_foot_upper_right_link");
     int r_c3_index    = model.iDyn3_model.getLinkIndex("r_foot_lower_left_link");
     int r_c4_index    = model.iDyn3_model.getLinkIndex("r_foot_lower_right_link");
+
+    int l_hand_index  = model.iDyn3_model.getLinkIndex("LSoftHand");
+    int r_hand_index  = model.iDyn3_model.getLinkIndex("RSoftHand");    
+    
     
     yarp::sig::Matrix map_l_fcToSens =   fConToSens( l_ankle_index, 
 						      l_c1_index  , 
@@ -1380,7 +1460,7 @@ void locoman_control_thread::run()
     
   //-------------------------------------------------------------------------------------------------------------    
   // Defining Useful Transformations
-    
+  yarp::sig::Matrix T_w_waist_0   = model.iDyn3_model.getPosition(waist_index) ;  
   yarp::sig::Matrix T_w_l_ankle_0 = model.iDyn3_model.getPosition(l_ankle_index) ;
   yarp::sig::Matrix T_w_l_c1_0    = model.iDyn3_model.getPosition(l_c1_index)    ;    
   yarp::sig::Matrix T_w_l_c2_0    = model.iDyn3_model.getPosition(l_c2_index)    ;  
@@ -1393,6 +1473,10 @@ void locoman_control_thread::run()
   yarp::sig::Matrix T_w_r_c3_0    = model.iDyn3_model.getPosition(r_c3_index)    ;
   yarp::sig::Matrix T_w_r_c4_0    = model.iDyn3_model.getPosition(r_c4_index)    ;   
     
+  yarp::sig::Matrix T_w_l_hand_0  = model.iDyn3_model.getPosition( l_hand_index ) ;
+  yarp::sig::Matrix T_w_r_hand_0  = model.iDyn3_model.getPosition( r_hand_index ) ;   
+  
+  yarp::sig::Matrix T_waist_w_0   = iHomogeneous(T_w_waist_0)  ;
   yarp::sig::Matrix T_l_ankle_w_0 = iHomogeneous(T_w_l_ankle_0) ;
   yarp::sig::Matrix T_l_c1_w_0    = iHomogeneous(T_w_l_c1_0) ;    
   yarp::sig::Matrix T_l_c2_w_0    = iHomogeneous(T_w_l_c2_0) ;  
@@ -1415,6 +1499,7 @@ void locoman_control_thread::run()
   yarp::sig::Matrix T_aw_r_c3_0 = T_aw_w_0 * T_w_r_c3_0 ;
   yarp::sig::Matrix T_aw_r_c4_0 = T_aw_w_0 * T_w_r_c4_0 ; 
 
+  
   //---------------------------------------------------------------------------------------
   // Jacobian Matrices 
   yarp::sig::Matrix J_l_c1_mix_0( 6, ( robot.getNumberOfJoints() + 6 ) ) ; 
@@ -1574,12 +1659,17 @@ void locoman_control_thread::run()
   //--------------------------------------------------
   // Definitions
   yarp::sig::Vector d_EE_r_des(6,0.0) ;
+  yarp::sig::Vector d_EE_l_des(6,0.0) ;
   yarp::sig::Matrix T_l_c1_r_c1_loop(4,4) ;
-  T_l_c1_r_c1_loop.zero();
+  T_l_c1_r_c1_loop.zero() ;
+  yarp::sig::Matrix T_r_c1_l_c1_loop(4,4) ;
+  T_r_c1_l_c1_loop.zero() ;  
   yarp::sig::Matrix J_com_w( 6, ( robot.getNumberOfJoints() + 6 ) ) ;
   yarp::sig::Matrix J_com_w_redu( 3,  ( robot.getNumberOfJoints() + 6 ))   ;
   yarp::sig::Matrix J_com_aw( 3,  ( robot.getNumberOfJoints() + 6 ))   ;
   yarp::sig::Matrix J_r_c1_aw( 6, ( robot.getNumberOfJoints() + 6 ) ) ;
+  yarp::sig::Matrix J_l_c1_aw( 6, ( robot.getNumberOfJoints() + 6 ) ) ;
+
   yarp::sig::Vector q_ref_ToMove( robot.getNumberOfJoints() + 6 , 0.0) ;
   
   
@@ -1592,23 +1682,56 @@ void locoman_control_thread::run()
   if(bool ifCommand = command_interface.getCommand(command) ){
        //  if(command!=last_command){
   std::cout << " ifCommand  =  "<< std::endl << ifCommand << std::endl  ; 
-  CoM_w_cmd  = model.iDyn3_model.getCOM()  ;
+  CoM_w_cmd = model.iDyn3_model.getCOM()  ;  //   ...cmd is for "@ command time"
+  //-------------------------------------------------------------------------------
+  CoM_waist_cmd       = getRot( T_waist_w_0 ) * CoM_w_cmd ;
+  T_waist_l1_foot_cmd = T_waist_w_0 * T_w_l_c1_0 ; 
+  T_waist_r1_foot_cmd = T_waist_w_0 * T_w_r_c1_0 ; 
+  T_waist_l_hand_cmd  = T_waist_w_0 * T_w_l_hand_0  ;    
+  T_waist_r_hand_cmd  = T_waist_w_0 * T_w_r_hand_0  ;    
+  R_waist_aw_cmd      = getRot(T_waist_w_0 *T_w_aw_0) ; 
+  //------------------------------------------------------------------------------_
   // std::cout << " CoM_w_cmd  =  "<< std::endl << CoM_w_cmd.toString() << std::endl  ; 
   
+  yarp::sig::Vector CoM_aw_cmd = getRot(T_aw_w_0)*CoM_w_cmd ;
+  yarp::sig::Vector CoM_aw_up = CoM_aw_cmd ; 
+  yarp::sig::Vector CoM_aw_dw = CoM_aw_cmd ; 
+  double com_z_var = 0.02 ;
+  CoM_aw_up[2] += com_z_var ;
+  CoM_aw_dw[2] -= com_z_var ;  
   
-  yarp::sig::Matrix Rot_des = Rot_z(-0.2) ;
-  //-----------------------------------------------------------------------------------
+  CoM_w_up = getRot(T_w_aw_0)*CoM_aw_up ;
+  CoM_w_dw = getRot(T_w_aw_0)*CoM_aw_dw ;
+    
+  T_w_r1_cmd = T_w_r_c1_0 ;
+  T_w_l1_cmd = T_w_l_c1_0 ;
+  
+  
+  //-------------------------------------------------------------------------------------
+  yarp::sig::Matrix Rot_des_r = Rot_z(-0.2) ;
+  yarp::sig::Matrix Rot_des_l = Rot_z( 0.2) ;
+  
+  //----------------------------------------------------------------------------------- 
   //    T_l1_r1_up  
   T_l1_r1_up = iHomogeneous(T_aw_l_c1_0 )* T_aw_r_c1_0 ;
-  double z_r1_up = 0.04 ;
+  double z_r1_up = 0.14 ;
   yarp::sig::Matrix T_aw_r1_up = Homogeneous(getRot(T_aw_l_c1_0),zero_3)* T_l1_r1_up ;
   T_aw_r1_up[2][3] += z_r1_up;
   T_l1_r1_up = Homogeneous(getRot(iHomogeneous(T_aw_l_c1_0)),zero_3)*T_aw_r1_up  ;
+  T_l1_r1_up.setSubmatrix( Rot_des_r,0,0 );
+  //std::cout << " T_l1_r1_up  =  "<< std::endl << T_l1_r1_up.toString() << std::endl  ; 
   //std::cout << " T_l1_r1_up  =  "<< std::endl << T_l1_r1_up.toString() << std::endl  ; 
 
-  T_l1_r1_up.setSubmatrix( Rot_des,0,0 );
-  std::cout << " T_l1_r1_up  =  "<< std::endl << T_l1_r1_up.toString() << std::endl  ; 
- 
+  //    T_r1_l1_up  
+  T_r1_l1_up = iHomogeneous(T_aw_r_c1_0 )* T_aw_l_c1_0;
+  double z_l1_up = 0.04 ;
+  yarp::sig::Matrix T_aw_l1_up = Homogeneous(getRot(T_aw_r_c1_0),zero_3)* T_r1_l1_up ;
+  T_aw_l1_up[2][3] += z_l1_up;
+  T_r1_l1_up = Homogeneous(getRot(iHomogeneous(T_aw_r_c1_0)),zero_3)*T_aw_l1_up  ;
+  T_r1_l1_up.setSubmatrix( Rot_des_l,0,0 );
+  //std::cout << " T_r1_l1_up  =  "<< std::endl << T_r1_l1_up.toString() << std::endl  ; 
+  //std::cout << " T_r1_l1_up  =  "<< std::endl << T_r1_l1_up.toString() << std::endl  ;   
+  
   //-----------------------------------------------------------------------------------
   //    T_l1_r1_fw  
   T_l1_r1_fw = iHomogeneous(T_aw_l_c1_0 )* T_aw_r_c1_0 ;
@@ -1631,25 +1754,60 @@ void locoman_control_thread::run()
   x_fw[1] = alpha_left*x_l1[1] + alpha_right*x_l1_r1[1];
   x_fw[2] = alpha_left*x_l1[2] + alpha_right*x_l1_r1[2];
   x_fw = x_fw/(norm(x_fw)) ;
-  double x_r1_fw = 0.08 ;
+  double x_r1_fw = 0.04 ;
   T_l1_r1_fw[0][3] += x_r1_fw*x_fw[0] ;
   T_l1_r1_fw[1][3] += x_r1_fw*x_fw[1] ;
   T_l1_r1_fw[2][3] += x_r1_fw*x_fw[2] ;
-  T_l1_r1_fw.setSubmatrix( Rot_des,0,0 );
+  T_l1_r1_fw.setSubmatrix( Rot_des_r,0,0 );
   std::cout << " T_l1_r1_fw  =  "<< std::endl << T_l1_r1_fw.toString() << std::endl  ; 
-    
+
+   //    T_r1_l1_fw  
+  T_r1_l1_fw = iHomogeneous(T_aw_r_c1_0 )* T_aw_l_c1_0 ;
+  yarp::sig::Vector x_r1_l1(3,0.0) ;
+  x_r1_l1[0]=  T_r1_l1_fw[0][0];
+  x_r1_l1[1]=  T_r1_l1_fw[1][0];
+  x_r1_l1[2]=  T_r1_l1_fw[2][0];
+  //--------------------------
+  yarp::sig::Vector x_r1(3,0.0) ;
+  x_r1[0]=  1.0 ;
+  x_r1[1]= -0.3 ;
+  x_r1[2]=  0.0 ;
+  x_r1 = x_r1/(norm(x_r1)) ;
+  
+  yarp::sig::Vector x_fw_l(3,0.0) ;
+  double alpha_left_l = 0.5 ;
+  double alpha_right_l = 1.0 - alpha_left ;
+  x_fw_l[0] = alpha_left_l*x_r1[0] + alpha_right_l*x_r1_l1[0] ;
+  x_fw_l[1] = alpha_left_l*x_r1[1] + alpha_right_l*x_r1_l1[1];
+  x_fw_l[2] = alpha_left_l*x_r1[2] + alpha_right_l*x_r1_l1[2];
+  x_fw_l = x_fw_l/(norm(x_fw_l)) ;
+  double x_l1_fw = 0.04 ;
+  T_r1_l1_fw[0][3] += x_l1_fw*x_fw_l[0] ;
+  T_r1_l1_fw[1][3] += x_l1_fw*x_fw_l[1] ;
+  T_r1_l1_fw[2][3] += x_l1_fw*x_fw_l[2] ;
+  T_r1_l1_fw.setSubmatrix( Rot_des_l,0,0 );
+  std::cout << " T_r1_l1_fw  =  "<< std::endl << T_r1_l1_fw.toString() << std::endl  ; 
   
   //-----------------------------------------------------------------------------------
  //    T_l1_r1_dw  
   T_l1_r1_dw = iHomogeneous(T_aw_l_c1_0 )* T_aw_r_c1_0 ;
-  double z_r1_dw = -z_r1_up ;
+  double z_r1_dw = -10.0*z_r1_up ;
   yarp::sig::Matrix T_aw_r1_dw = Homogeneous(getRot(T_aw_l_c1_0),zero_3)* T_l1_r1_dw ;
   T_aw_r1_dw[2][3] += z_r1_dw ;
   T_l1_r1_dw = Homogeneous(getRot(iHomogeneous(T_aw_l_c1_0)),zero_3)*T_aw_r1_dw  ;
-  T_l1_r1_dw.setSubmatrix( Rot_des,0,0 );  
+  T_l1_r1_dw.setSubmatrix( Rot_des_r,0,0 );  
   std::cout << " T_l1_r1_dw  =  "<< std::endl << T_l1_r1_dw.toString() << std::endl  ; 
 //  
-//   
+//    T_r1_l1_dw  
+  T_r1_l1_dw = iHomogeneous(T_aw_r_c1_0 )* T_aw_l_c1_0 ;
+  double z_l1_dw = -10.0*z_l1_up ;
+  yarp::sig::Matrix T_aw_l1_dw = Homogeneous(getRot(T_aw_r_c1_0),zero_3)* T_r1_l1_dw ;
+  T_aw_l1_dw[2][3] += z_l1_dw ;
+  T_r1_l1_dw = Homogeneous(getRot(iHomogeneous(T_aw_r_c1_0)),zero_3)*T_aw_l1_dw  ;
+  T_r1_l1_dw.setSubmatrix( Rot_des_l,0,0 );  
+  std::cout << " T_r1_l1_dw  =  "<< std::endl << T_r1_l1_dw.toString() << std::endl  ; 
+//  
+  //   
 
     
     
@@ -1665,7 +1823,7 @@ void locoman_control_thread::run()
   if (last_command=="pause")
   {  }
   else if (last_command =="start" || last_command =="resume" ||
-           last_command =="to_rg" || last_command =="to_lf" || last_command =="to_cr" || last_command =="center"   )
+           last_command =="to_rg" || last_command =="to_lf" || last_command =="to_cr" || last_command =="center"  )
   {  // Double Stance Phase  
 
     if (last_command =="to_rg")
@@ -1720,103 +1878,40 @@ void locoman_control_thread::run()
   yarp::sig::Matrix Rf_temp_2 = cFLMM.submatrix(0, size_fc-1, cFLMM.cols()-size_q, cFLMM.cols()-1) ;  
   yarp::sig::Matrix Rf_temp_2_filt = filter_SVD( Rf_temp_2,  1E-4); 
 
-//   yarp::sig::Vector d_q_dsp = -1.0 * pinv(Rf_temp_2_filt)  * d_fc_des_to_world  ;
-//   yarp::sig::Vector d_q_dsp_0 = -1.0* Pinv_Regularized( Rf_temp_2_filt, 1E0)* d_fc_des_to_world ;
-//   yarp::sig::Vector d_q_dsp_1 = -1.0* Pinv_Regularized( Rf_temp_2_filt, 1E1)* d_fc_des_to_world ;
-//   yarp::sig::Vector d_q_dsp_2 = -1.0* Pinv_Regularized( Rf_temp_2_filt, 1E2)* d_fc_des_to_world ;
-// 
-//   yarp::sig::Vector d_q_dsp_3 = -1.0* Pinv_Regularized( Rf_temp_2_filt, 1E3)* d_fc_des_to_world ;
-//   yarp::sig::Vector d_q_dsp_4 = -1.0* Pinv_Regularized( Rf_temp_2_filt, 1E4)* d_fc_des_to_world ;
- 
-  yarp::sig::Vector d_q_dsp_5 = -1.0* Pinv_Regularized( Rf_temp_2_filt, 1E5)* d_fc_des_to_world ;
+//  yarp::sig::Vector d_q_dsp_5 = -1.0* Pinv_Regularized( Rf_temp_2_filt, 1E5)* d_fc_des_to_world ;
   yarp::sig::Vector d_q_dsp_6 = -1.0* Pinv_Regularized( Rf_temp_2_filt, 1E6)* d_fc_des_to_world ;
-  yarp::sig::Vector d_q_dsp_7 = -1.0* Pinv_Regularized( Rf_temp_2_filt, 1E7)* d_fc_des_to_world ;
+//  yarp::sig::Vector d_q_dsp_7 = -1.0* Pinv_Regularized( Rf_temp_2_filt, 1E7)* d_fc_des_to_world ;
  
-/*
-  yarp::sig::Vector d_q_dsp_6_marq__6 = -1.0* Pinv_Marq( Rf_temp_2_filt, 1E-6)* d_fc_des_to_world ;
-  yarp::sig::Vector d_q_dsp_6_marq__5 = -1.0* Pinv_Marq( Rf_temp_2_filt, 1E-5)* d_fc_des_to_world ;
-  yarp::sig::Vector d_q_dsp_6_marq__4 = -1.0* Pinv_Marq( Rf_temp_2_filt, 1E-4)* d_fc_des_to_world ;
-  
-  yarp::sig::Vector d_q_dsp_6_marq__3 = -1.0* Pinv_Marq( Rf_temp_2_filt, 1E-3)* d_fc_des_to_world ;
-  yarp::sig::Vector d_q_dsp_6_marq__2 = -1.0* Pinv_Marq( Rf_temp_2_filt, 1E-2)* d_fc_des_to_world ;
-  yarp::sig::Vector d_q_dsp_6_marq__1 = -1.0* Pinv_Marq( Rf_temp_2_filt, 1E-1)* d_fc_des_to_world ;
-  
-  yarp::sig::Vector d_q_dsp_6_marq_0 = -1.0* Pinv_Marq( Rf_temp_2_filt, 1E0)* d_fc_des_to_world ;
-  yarp::sig::Vector d_q_dsp_6_marq_1 = -1.0* Pinv_Marq( Rf_temp_2_filt, 1E1)* d_fc_des_to_world ;
-  yarp::sig::Vector d_q_dsp_6_marq_2 = -1.0* Pinv_Marq( Rf_temp_2_filt, 1E2)* d_fc_des_to_world ;
-  
-  yarp::sig::Vector d_q_dsp_6_marq_3 = -1.0* Pinv_Marq( Rf_temp_2_filt, 1E3)* d_fc_des_to_world ;
-  yarp::sig::Vector d_q_dsp_6_marq_4 = -1.0* Pinv_Marq( Rf_temp_2_filt, 1E4)* d_fc_des_to_world ;
-  yarp::sig::Vector d_q_dsp_6_marq_5 = -1.0* Pinv_Marq( Rf_temp_2_filt, 1E5)* d_fc_des_to_world ;
-  yarp::sig::Vector d_q_dsp_6_marq_6 = -1.0* Pinv_Marq( Rf_temp_2_filt, 1E6)* d_fc_des_to_world ;
-  yarp::sig::Vector d_q_dsp_6_marq_7 = -1.0* Pinv_Marq( Rf_temp_2_filt, 1E7)* d_fc_des_to_world ;
-  */
-  std::cout << " d_q_dsp_5 = " <<  std::endl << d_q_dsp_5.toString()  << std::endl;  
+  //
+ // std::cout << " d_q_dsp_5 = " <<  std::endl << d_q_dsp_5.toString()  << std::endl;  
 
   std::cout << " d_q_dsp_6 = " <<  std::endl << d_q_dsp_6.toString()  << std::endl;  
-  std::cout << " d_q_dsp_7 = " <<  std::endl << d_q_dsp_7.toString()  << std::endl;  
+//  std::cout << " d_q_dsp_7 = " <<  std::endl << d_q_dsp_7.toString()  << std::endl;  
 
 
-//   std::cout << " d_q_dsp_6_marq__6 = " <<  std::endl << d_q_dsp_6_marq__6.toString()  << std::endl;   
-//  std::cout << " d_q_dsp_6_marq__5 = " <<  std::endl << d_q_dsp_6_marq__5.toString()  << std::endl;   
-//  std::cout << " d_q_dsp_6_marq__4 = " <<  std::endl << d_q_dsp_6_marq__4.toString()  << std::endl;   //
-//   
-//   std::cout << " d_q_dsp_6_marq__3 = " <<  std::endl << d_q_dsp_6_marq__3.toString()  << std::endl;   
-//   std::cout << " d_q_dsp_6_marq__2 = " <<  std::endl << d_q_dsp_6_marq__2.toString()  << std::endl;   
-//   std::cout << " d_q_dsp_6_marq__1 = " <<  std::endl << d_q_dsp_6_marq__1.toString()  << std::endl;   //
-//   std::cout << " d_q_dsp_6_marq_0 = " <<  std::endl << d_q_dsp_6_marq_0.toString()  << std::endl;   
-//   std::cout << " d_q_dsp_6_marq_1 = " <<  std::endl << d_q_dsp_6_marq_1.toString()  << std::endl;  
-//   std::cout << " d_q_dsp_6_marq_2 = " <<  std::endl << d_q_dsp_6_marq_2.toString()  << std::endl;  
-//   
-//   std::cout << " d_q_dsp_6_marq_3 = " <<  std::endl << d_q_dsp_6_marq_3.toString()  << std::endl;   
-//   std::cout << " d_q_dsp_6_marq_4 = " <<  std::endl << d_q_dsp_6_marq_4.toString()  << std::endl;   
-//   std::cout << " d_q_dsp_6_marq_5 = " <<  std::endl << d_q_dsp_6_marq_5.toString()  << std::endl;   
-//   std::cout << " d_q_dsp_6_marq_6 = " <<  std::endl << d_q_dsp_6_marq_6.toString()  << std::endl;   
-//   std::cout << " d_q_dsp_6_marq_7 = " <<  std::endl << d_q_dsp_6_marq_7.toString()  << std::endl;   
-
-  std::cout << " norm(d_q_dsp_5) = " <<  std::endl << norm(d_q_dsp_5)  << std::endl;  
+//  std::cout << " norm(d_q_dsp_5) = " <<  std::endl << norm(d_q_dsp_5)  << std::endl;  
   
   std::cout << " norm(d_q_dsp_6) = " <<  std::endl << norm(d_q_dsp_6)  << std::endl;  
-  std::cout << " norm(d_q_dsp_7) = " <<  std::endl << norm(d_q_dsp_7)  << std::endl;   
+//  std::cout << " norm(d_q_dsp_7) = " <<  std::endl << norm(d_q_dsp_7)  << std::endl;   
   
   
   
-//   std::cout << " norm(d_q_dsp_6_marq_3) = " <<  std::endl << norm(d_q_dsp_6_marq_3)  << std::endl; 
-//   std::cout << " norm(d_q_dsp_6_marq_4) = " <<  std::endl << norm(d_q_dsp_6_marq_4)  << std::endl; 
-//   std::cout << " norm(d_q_dsp_6_marq_5) = " <<  std::endl << norm(d_q_dsp_6_marq_5)  << std::endl; 
-//   std::cout << " norm(d_q_dsp_6_marq_6) = " <<  std::endl << norm(d_q_dsp_6_marq_6)  << std::endl; 
-//   std::cout << " norm(d_q_dsp_6_marq_7) = " <<  std::endl << norm(d_q_dsp_6_marq_7)  << std::endl; 
-//   
-  
-  
-  
-//   yarp::sig::Vector d_q_dsp_7 = -1.0* Pinv_Regularized( Rf_temp_2_filt, 1E7)* d_fc_des_to_world ;
-//   yarp::sig::Vector d_q_dsp_8 = -1.0* Pinv_Regularized( Rf_temp_2_filt, 1E8)* d_fc_des_to_world ;
-//   yarp::sig::Vector d_q_dsp_9 = -1.0* Pinv_Regularized( Rf_temp_2_filt, 1E9)* d_fc_des_to_world ; 
- 
-//   std::cout << " d_q_dsp_7 = " <<  std::endl << d_q_dsp_7.toString()  << std::endl;   
-//   std::cout << " norm(d_q_dsp_7) = " <<  std::endl << norm(d_q_dsp_7)  << std::endl;  
-//   std::cout << " d_q_dsp_8 = " <<  std::endl << d_q_dsp_8.toString()  << std::endl;   
-//   std::cout << " norm(d_q_dsp_8) = " <<  std::endl << norm(d_q_dsp_8)  << std::endl;  
-//   std::cout << " d_q_dsp_9 = " <<  std::endl << d_q_dsp_9.toString()  << std::endl;   
-//   std::cout << " norm(d_q_dsp_9) = " <<  std::endl << norm(d_q_dsp_9)  << std::endl;
+
   
   yarp::sig::Vector d_q_move = d_q_dsp_6 ; // d_q_dsp_6_marq   ; // d_q_dsp_6 ; //
-  if( last_command =="to_rg"){d_q_move = d_q_dsp_5 ;}
+ // if( last_command =="to_rg"){d_q_move = d_q_dsp_5 ;}
   
   
-  if(norm(d_q_move)>0.005){d_q_move =  0.005 *d_q_move/ norm(d_q_move) ; //d_q_dsp_7 ; //0.012 *d_q_move/ norm(d_q_move) ;
-    std::cout << "set 7" << std::endl ;  
+  if(norm(d_q_move)>0.009){d_q_move =  0.009 *d_q_move/ norm(d_q_move) ; //d_q_dsp_7 ; //0.012 *d_q_move/ norm(d_q_move) ;
   }
-  if(norm(d_q_move)<0.004){d_q_move =  0.004 *d_q_move/ norm(d_q_move) ;
-    std::cout << "set 5" << std::endl ;
+  if(norm(d_q_move)<0.002){d_q_move =  0.002 *d_q_move/ norm(d_q_move) ;
   }
   std::cout << " d_q_move = " <<  std::endl << d_q_move.toString()  << std::endl;   
    
   //   
   double err = norm( d_fc_des_to_world )  ;  // d_fc_des_to_world
-  double err_min = 20.0 ; //10.0 ;
-  double err_max = 70.0 ;  //40.0 ; 
+  double err_min = 25.0 ; //10.0 ;
+  double err_max = 50.0 ;  //40.0 ; 
     
   char file_name[] = "err.m";
   std::ofstream err_cl ( file_name, std::ios::app );
@@ -1858,7 +1953,9 @@ void locoman_control_thread::run()
 
 
 //------------------------------------------------------------------------------------
-else if (last_command == "sw_rg_up" || last_command == "sw_rg_fw" || last_command == "sw_rg_dw" || last_command =="sw_lf"  ) { // Single Stance Phase  
+else if (last_command == "sw_rg_up" || last_command == "sw_rg_fw" || last_command == "sw_rg_dw" || 
+         last_command == "sw_lf_up" || last_command == "sw_lf_fw" || last_command == "sw_lf_dw" || 
+	 last_command == "com_up"   || last_command == "com_dw"   ) { // Single Stance Phase  
   
   if (last_command =="sw_rg_up")
      {
@@ -1866,13 +1963,13 @@ else if (last_command == "sw_rg_up" || last_command == "sw_rg_fw" || last_comman
 
   T_l_c1_r_c1_loop = (iHomogeneous(T_aw_l_c1_0 )* T_aw_r_c1_0) ; // where r1 is with respect to l1
   
-  yarp::sig::Matrix D_T_up = T_l1_r1_up - T_l_c1_r_c1_loop ; // toward the desired displacement
+  yarp::sig::Matrix D_T_r_up = T_l1_r1_up - T_l_c1_r_c1_loop ; // toward the desired displacement
   yarp::sig::Vector d_l1_r1_up(3, 0.0);
-  d_l1_r1_up[0] = D_T_up[0][3] ;
-  d_l1_r1_up[1] = D_T_up[1][3];
-  d_l1_r1_up[2] = D_T_up[2][3]; // toward the desired displacement
-  if(norm( d_l1_r1_up)>0.002){ d_l1_r1_up = 0.002*d_l1_r1_up/(norm( d_l1_r1_up)) ;  }
-  if(norm( d_l1_r1_up)<0.0005){ d_l1_r1_up = 0.0*d_l1_r1_up  ;  }  // desired displacement
+  d_l1_r1_up[0] = D_T_r_up[0][3] ;
+  d_l1_r1_up[1] = D_T_r_up[1][3];
+  d_l1_r1_up[2] = D_T_r_up[2][3]; // toward the desired displacement
+  if(norm( d_l1_r1_up)>0.001){ d_l1_r1_up = 0.001*d_l1_r1_up/(norm( d_l1_r1_up)) ;  }
+  if(norm( d_l1_r1_up)<0.0008){ d_l1_r1_up = 0.0*d_l1_r1_up  ;  }  // desired displacement
   
   yarp::sig::Vector e_o = Orient_Error( getRot(T_l1_r1_up ) , getRot(T_l_c1_r_c1_loop ) ) ; 
   if(norm( e_o)>0.01){ e_o = 0.01*e_o/(norm( e_o)) ; }
@@ -1906,22 +2003,21 @@ else if (last_command == "sw_rg_up" || last_command == "sw_rg_fw" || last_comman
   q_ref_ToMove = q_motor_side + (1.0/1.0) * d_q_sw_rg_up  ;//  +   (1.0/1.0) *  nullspaceProjection(J_com_l1)*d_q_task  ; // + (100.0/1.0)*d_q_ssp_l_6;// + d_q_ssp_6 ; //d_q_dsp_5_left ;// +  (1.0/1.0)*d_q_temp ; // d_q_sw_rg_2_6 ;  // +  (1.0/5.0)*d_q_0_project ;        
 
   robot.move( q_ref_ToMove );           
-      
      }
      
-  else   if (last_command =="sw_rg_fw")
+  else if (last_command =="sw_rg_fw")
      {
   std::cout << "swinging the right foot forward"<< std::endl ;
       
   T_l_c1_r_c1_loop = (iHomogeneous(T_aw_l_c1_0 )* T_aw_r_c1_0) ; // where r1 is with respect to l1
   
-  yarp::sig::Matrix D_T_fw = T_l1_r1_fw - T_l_c1_r_c1_loop ; // toward the desired displacement
+  yarp::sig::Matrix D_T_r_fw = T_l1_r1_fw - T_l_c1_r_c1_loop ; // toward the desired displacement
   yarp::sig::Vector d_l1_r1_fw(3, 0.0);
-  d_l1_r1_fw[0] = D_T_fw[0][3] ;
-  d_l1_r1_fw[1] = D_T_fw[1][3];
-  d_l1_r1_fw[2] = D_T_fw[2][3]; // toward the desired displacement
-  if(norm( d_l1_r1_fw)>0.002){ d_l1_r1_fw = 0.002*d_l1_r1_fw/(norm( d_l1_r1_fw)) ;  }
-  if(norm( d_l1_r1_fw)<0.0005){ d_l1_r1_fw = 0.0*d_l1_r1_fw  ;  }  // desired displacement
+  d_l1_r1_fw[0] = D_T_r_fw[0][3] ;
+  d_l1_r1_fw[1] = D_T_r_fw[1][3];
+  d_l1_r1_fw[2] = D_T_r_fw[2][3]; // toward the desired displacement
+  if(norm( d_l1_r1_fw)>0.001){ d_l1_r1_fw = 0.001*d_l1_r1_fw/(norm( d_l1_r1_fw)) ;  }
+  if(norm( d_l1_r1_fw)<0.0008){ d_l1_r1_fw = 0.0*d_l1_r1_fw  ;  }  // desired displacement
   
   yarp::sig::Vector e_o = Orient_Error( getRot(T_l1_r1_fw ) , getRot(T_l_c1_r_c1_loop ) ) ; 
   if(norm( e_o)>0.01){ e_o = 0.01*e_o/(norm( e_o)) ; }
@@ -1956,7 +2052,6 @@ else if (last_command == "sw_rg_up" || last_command == "sw_rg_fw" || last_comman
 
   robot.move( q_ref_ToMove );   
   
-
      }
      
   else if (last_command =="sw_rg_dw")
@@ -1965,13 +2060,15 @@ else if (last_command == "sw_rg_up" || last_command == "sw_rg_fw" || last_comman
   
   T_l_c1_r_c1_loop = (iHomogeneous(T_aw_l_c1_0 )* T_aw_r_c1_0) ; // where r1 is with respect to l1
   
-  yarp::sig::Matrix D_T_dw = T_l1_r1_dw - T_l_c1_r_c1_loop ; // toward the desired displacement
+  yarp::sig::Matrix D_T_r_dw = T_l1_r1_dw - T_l_c1_r_c1_loop ; // toward the desired displacement
   yarp::sig::Vector d_l1_r1_dw(3, 0.0);
-  d_l1_r1_dw[0] = D_T_dw[0][3] ;
-  d_l1_r1_dw[1] = D_T_dw[1][3] ;
-  d_l1_r1_dw[2] = D_T_dw[2][3] ; // toward the desired displacement
-  if(norm( d_l1_r1_dw)>0.002){ d_l1_r1_dw = 0.002*d_l1_r1_dw/(norm( d_l1_r1_dw)) ;  }
-  if(norm( d_l1_r1_dw)<0.0005){ d_l1_r1_dw = 0.0*d_l1_r1_dw  ;  }  // desired displacement
+  d_l1_r1_dw[0] = D_T_r_dw[0][3] ;
+  d_l1_r1_dw[1] = D_T_r_dw[1][3] ;
+  d_l1_r1_dw[2] = D_T_r_dw[2][3] ; // toward the desired displacement
+  if(norm( d_l1_r1_dw)>0.001){ d_l1_r1_dw = 0.001*d_l1_r1_dw/(norm( d_l1_r1_dw)) ;  }
+  if(norm( d_l1_r1_dw)<0.0008){ d_l1_r1_dw = 0.0*d_l1_r1_dw  ;  }  // desired displacement
+  if(FC_FILTERED_RIGHT_sensor[2]<-5.0){ d_l1_r1_dw = 0.0*d_l1_r1_dw  ;  }
+  
   
   yarp::sig::Vector e_o = Orient_Error( getRot(T_l1_r1_dw ) , getRot(T_l_c1_r_c1_loop ) ) ; 
   if(norm( e_o)>0.01){ e_o = 0.01*e_o/(norm( e_o)) ; }
@@ -2009,14 +2106,233 @@ else if (last_command == "sw_rg_up" || last_command == "sw_rg_fw" || last_comman
      }
      
      
-    else if (last_command =="sw_lf")
-     { 
-      std::cout << "swinging the left foot"<< std::endl ; // FC_DES_left() ; // here we should place the desired final configuration of the left foot
-      FC_DES_right() ; //
-        yarp::sig::Matrix Rf_temp_r = Rf_redu(J_c_r, S_c_r , Q_aw_r_s_cont, U_aw_r_s_cont, Kc_r ) ; 
+    else if (last_command =="sw_lf_up")
+     {
+  std::cout << "swinging the left foot up"<< std::endl ; 
 
+  T_r_c1_l_c1_loop = (iHomogeneous(T_aw_r_c1_0 )*   T_aw_l_c1_0) ; // where l1 is with respect to r1
+  yarp::sig::Matrix D_T_l_up = T_r1_l1_up - T_r_c1_l_c1_loop ; // toward the desired displacement
+  yarp::sig::Vector d_r1_l1_up(3, 0.0);
+  d_r1_l1_up[0] = D_T_l_up[0][3] ;
+  d_r1_l1_up[1] = D_T_l_up[1][3];
+  d_r1_l1_up[2] = D_T_l_up[2][3]; // toward the desired displacement
+  if(norm( d_r1_l1_up)>0.001){ d_r1_l1_up = 0.001*d_r1_l1_up/(norm( d_r1_l1_up)) ;  }
+  if(norm( d_r1_l1_up)<0.0008){ d_r1_l1_up = 0.0*d_r1_l1_up  ;  }  // desired displacement
+  yarp::sig::Vector e_o_l_up = Orient_Error( getRot(T_r1_l1_up ) , getRot(T_r_c1_l_c1_loop ) ) ; 
+  if(norm( e_o_l_up)>0.01){ e_o_l_up = 0.01*e_o_l_up/(norm( e_o_l_up)) ; }
+  if(norm( e_o_l_up)<0.001){ e_o_l_up = 0.0*e_o_l_up  ; }     // desired orientation variation
+  d_EE_l_des.setSubvector(0, (1.0/1.0)*d_r1_l1_up ) ;  
+  d_EE_l_des.setSubvector(3, (1.0/1.0)*e_o_l_up ) ;        // Delta_Configuration Vector for the frame
+  std::cout << "  d_EE_l_des  = " <<  std::endl << d_EE_l_des.toString()   << std::endl;   
+  
+  model.iDyn3_model.getCOMJacobian(J_com_w) ;
+  J_com_w_redu = J_com_w.submatrix(0,2 , 0 , J_com_w.cols()-1 ) ;  
+  J_com_aw = getRot(T_aw_w_0) *J_com_w_redu; 
+  J_l_c1_aw =  Adjoint(Homogeneous(getRot(  T_r_c1_l_c1_loop), zero_3) )* J_l_c1_body_0 ;
+  yarp::sig::Matrix J_sw_lf_up( 15 , ( robot.getNumberOfJoints() + 6 ));
+  J_sw_lf_up.setSubmatrix( J_com_aw      , 0,0) ;
+  J_sw_lf_up.setSubmatrix( J_r_c1_body_0 , 3,0) ;
+  J_sw_lf_up.setSubmatrix( J_l_c1_aw     , 9,0) ;   
+  yarp::sig::Vector Task_sw_lf_up(15,0.0) ;   
+  Task_sw_lf_up.setSubvector( 9 , (1.0/1.0)* d_EE_l_des  ) ;
+ // std::cout << " Task_sw_lf_up = " <<  std::endl << Task_sw_lf_up.toString()  << std::endl;   
+  yarp::sig::Vector d_u_q_sw_lf_up = Pinv_trunc_SVD(J_sw_lf_up)* Task_sw_lf_up ;     
+  yarp::sig::Vector d_q_sw_lf_up = d_u_q_sw_lf_up.subVector( 6, d_u_q_sw_lf_up.length()-1) ;
+  
+  q_ref_ToMove = q_motor_side + (1.0/1.0) * d_q_sw_lf_up  ;  
+
+  robot.move( q_ref_ToMove );           
      }
+     
+else if (last_command =="sw_lf_fw")
+     {
+  std::cout << "swinging the left foot forward"<< std::endl ;
+      
+  T_r_c1_l_c1_loop = (iHomogeneous(T_aw_r_c1_0 )*  T_aw_l_c1_0) ; // where r1 is with respect to l1
+  yarp::sig::Matrix D_T_l_fw = T_r1_l1_fw - T_r_c1_l_c1_loop ; // toward the desired displacement
+  yarp::sig::Vector d_r1_l1_fw(3, 0.0);
+  d_r1_l1_fw[0] = D_T_l_fw[0][3] ;
+  d_r1_l1_fw[1] = D_T_l_fw[1][3];
+  d_r1_l1_fw[2] = D_T_l_fw[2][3]; // toward the desired displacement
+  if(norm( d_r1_l1_fw)>0.001 ){ d_r1_l1_fw = 0.001*d_r1_l1_fw/(norm( d_r1_l1_fw)) ;  }
+  if(norm( d_r1_l1_fw)<0.0008){ d_r1_l1_fw = 0.0*d_r1_l1_fw  ;  }  // desired displacement
+  yarp::sig::Vector e_o_l_fw = Orient_Error( getRot(T_r1_l1_fw ) , getRot( T_r_c1_l_c1_loop ) ) ; 
+  if(norm( e_o_l_fw)>0.01){ e_o_l_fw = 0.01*e_o_l_fw/(norm( e_o_l_fw )) ; }
+  if(norm( e_o_l_fw)<0.001){ e_o_l_fw = 0.0*e_o_l_fw  ; }     // desired orientation variation
+  d_EE_l_des.setSubvector(0, (1.0/1.0)*d_r1_l1_fw ) ;  
+  d_EE_l_des.setSubvector(3, (1.0/1.0)*e_o_l_fw ) ;        // Delta_Configuration Vector for the frame
+  std::cout << "  d_EE_l_des  = " <<  std::endl << d_EE_l_des.toString()   << std::endl;   
+  
+  model.iDyn3_model.getCOMJacobian(J_com_w) ;
+  J_com_w_redu = J_com_w.submatrix(0,2 , 0 , J_com_w.cols()-1 ) ;  
+  J_com_aw = getRot(T_aw_w_0) *J_com_w_redu; 
+  J_l_c1_aw =  Adjoint(Homogeneous(getRot(  T_r_c1_l_c1_loop), zero_3) )* J_l_c1_body_0 ;
+  yarp::sig::Matrix J_sw_lf_up( 15 , ( robot.getNumberOfJoints() + 6 ));
+  J_sw_lf_up.setSubmatrix(J_com_aw,0,0) ;
+  J_sw_lf_up.setSubmatrix(J_r_c1_body_0,3,0) ;
+  J_sw_lf_up.setSubmatrix(J_l_c1_aw,9,0) ;
+  yarp::sig::Vector Task_sw_lf_fw(15,0.0) ;   
+  Task_sw_lf_fw.setSubvector( 9 , (1.0/1.0)* d_EE_l_des  ) ;
+ // std::cout << " Task_sw_lf_fw = " <<  std::endl << Task_sw_lf_fw.toString()  << std::endl;   
+  yarp::sig::Vector d_u_q_sw_lf_fw = Pinv_trunc_SVD(J_sw_lf_up)* Task_sw_lf_fw ;     
+  yarp::sig::Vector d_q_sw_lf_fw = d_u_q_sw_lf_fw.subVector( 6, d_u_q_sw_lf_fw.length()-1) ;
+  
+  q_ref_ToMove = q_motor_side + (1.0/1.0) * d_q_sw_lf_fw  ;  
+
+  robot.move( q_ref_ToMove );   
+  
+     }     
+     
+     
+     
+   else if (last_command =="sw_lf_dw")
+     {
+  std::cout << "swinging the left foot down"<< std::endl ;
+  
+  T_r_c1_l_c1_loop = (iHomogeneous(T_aw_r_c1_0 )* T_aw_l_c1_0) ; // where r1 is with respect to l1
+  
+  yarp::sig::Matrix D_T_l_dw = T_r1_l1_dw - T_r_c1_l_c1_loop ; // toward the desired displacement
+  yarp::sig::Vector d_r1_l1_dw(3, 0.0);
+  d_r1_l1_dw[0] = D_T_l_dw[0][3] ;
+  d_r1_l1_dw[1] = D_T_l_dw[1][3] ;
+  d_r1_l1_dw[2] = D_T_l_dw[2][3] ; // toward the desired displacement
+  if(norm( d_r1_l1_dw)>0.001){ d_r1_l1_dw = 0.001*d_r1_l1_dw/(norm( d_r1_l1_dw)) ;  }
+  if(norm( d_r1_l1_dw)<0.0008){ d_r1_l1_dw = 0.0*d_r1_l1_dw  ;  }  // desired displacement
+  if(FC_FILTERED_LEFT_sensor[2]<-5.0){ d_r1_l1_dw = 0.0*d_r1_l1_dw  ;  }
+  yarp::sig::Vector e_o_l_dw = Orient_Error( getRot(T_r1_l1_dw ) , getRot(T_r_c1_l_c1_loop ) ) ; 
+  if(norm( e_o_l_dw)>0.01){ e_o_l_dw = 0.01*e_o_l_dw/(norm( e_o_l_dw )) ; }
+  if(norm( e_o_l_dw)<0.001){ e_o_l_dw = 0.0*e_o_l_dw  ; }     // desired orientation variation
+  
+  d_EE_l_des.setSubvector(0, (1.0/1.0)*d_r1_l1_dw ) ;  
+  d_EE_l_des.setSubvector(3, (1.0/1.0)*e_o_l_dw ) ;        // Delta_Configuration Vector for the frame
+  std::cout << "  d_EE_l_des  = " <<  std::endl << d_EE_l_des.toString()   << std::endl;   
+
+  
+  model.iDyn3_model.getCOMJacobian(J_com_w) ;
+  J_com_w_redu = J_com_w.submatrix(0,2 , 0 , J_com_w.cols()-1 ) ;  
+  J_com_aw = getRot(T_aw_w_0) *J_com_w_redu; 
+  J_l_c1_aw =  Adjoint(Homogeneous(getRot(  T_r_c1_l_c1_loop), zero_3) )* J_l_c1_body_0 ;
+  
+  yarp::sig::Matrix J_sw_lf_dw( 15 , ( robot.getNumberOfJoints() + 6 ));
+  J_sw_lf_dw.setSubmatrix(J_com_aw,0,0) ;
+  J_sw_lf_dw.setSubmatrix(J_r_c1_body_0,3,0) ;
+  J_sw_lf_dw.setSubmatrix(J_l_c1_aw,9,0) ;
+   
+  yarp::sig::Vector Task_sw_lf_dw(15,0.0) ;   
+  Task_sw_lf_dw.setSubvector( 9 , (1.0/1.0)* d_EE_l_des  ) ;
+ // std::cout << " Task_sw_lf_dw = " <<  std::endl << Task_sw_lf_dw.toString()  << std::endl;   
+    
+  yarp::sig::Vector d_u_q_sw_lf_dw = Pinv_trunc_SVD(J_sw_lf_dw)* Task_sw_lf_dw ;     
+  yarp::sig::Vector d_q_sw_lf_dw = d_u_q_sw_lf_dw.subVector( 6, d_u_q_sw_lf_dw.length()-1) ;
+  
+  q_ref_ToMove = q_motor_side + (1.0/1.0) * d_q_sw_lf_dw  ; 
+
+  robot.move( q_ref_ToMove );   
+  
+     }  
+     
+  
+     
+  else if (last_command == "com_up")
+  { 
+  std::cout << "Moving CoM up"<< std::endl ;
+  
+  // CoM error
+  yarp::sig::Vector CoM_w_loop = model.iDyn3_model.getCOM()  ; 
+  yarp::sig::Vector d_CoM_up = CoM_w_up - CoM_w_loop ; 
+  if(norm( d_CoM_up)>0.001 ) { d_CoM_up = 0.001*d_CoM_up/(norm( d_CoM_up)) ;  }
+  if(norm( d_CoM_up)<0.0008) { d_CoM_up = 0.0*d_CoM_up  ;  }            // desired displacement
+  // L1 error (posistion and orientation)
+  yarp::sig::Vector D_l1_com_up =getTrasl( T_w_l1_cmd - T_w_l_c1_0) ;
+  if(norm( D_l1_com_up)>0.002 ) { D_l1_com_up = 0.002*D_l1_com_up/(norm( D_l1_com_up)) ;  }
+  if(norm( D_l1_com_up)<0.0008) { D_l1_com_up = 0.0*D_l1_com_up  ;  }  // desired displacement
+  yarp::sig::Vector e_o_l1_com_up = Orient_Error( getRot(T_w_l1_cmd ) , getRot( T_w_l_c1_0 ) ) ; 
+  if(norm( e_o_l1_com_up)>0.01 ) { e_o_l1_com_up = 0.01*e_o_l1_com_up/(norm( e_o_l1_com_up )) ; }
+  if(norm( e_o_l1_com_up)<0.001) { e_o_l1_com_up = 0.0*e_o_l1_com_up  ; }     // desired orientation variation
+  // R1 error (posistion and orientation)
+  yarp::sig::Vector D_r1_com_up =getTrasl( T_w_r1_cmd - T_w_r_c1_0) ;
+  if(norm( D_r1_com_up)>0.002 ) { D_r1_com_up = 0.002*D_r1_com_up/(norm( D_r1_com_up)) ;  }
+  if(norm( D_r1_com_up)<0.0008) { D_r1_com_up = 0.0*D_r1_com_up  ;  }  // desired displacement
+  yarp::sig::Vector e_o_r1_com_up = Orient_Error( getRot(T_w_r1_cmd ) , getRot( T_w_r_c1_0 ) ) ; 
+  if(norm( e_o_r1_com_up)>0.01 ) { e_o_r1_com_up = 0.01*e_o_r1_com_up/(norm( e_o_r1_com_up )) ; }
+  if(norm( e_o_r1_com_up)<0.001) { e_o_r1_com_up = 0.0*e_o_r1_com_up  ; }     // desired orientation variation
+  //---------------------------------------------------------------------------------------------------
+  // Task Error Vector
+  yarp::sig::Vector Task_com_up(15,0.0) ;   
+  Task_com_up.setSubvector( 0 , (1.0/1.0)* d_CoM_up       ) ;
+  Task_com_up.setSubvector( 3 , (1.0/1.0)* D_l1_com_up    ) ;
+  Task_com_up.setSubvector( 6 , (1.0/1.0)* e_o_l1_com_up  ) ;
+  Task_com_up.setSubvector( 9 , (1.0/1.0)* D_r1_com_up    ) ;
+  Task_com_up.setSubvector( 12, (1.0/1.0)* e_o_r1_com_up  ) ;  
+  std::cout << " Task_com_up = " <<  std::endl << Task_com_up.toString()  << std::endl;   
+  //-----------------------------------------------------------------------------------------------------------------
+  // Jacobian
+  model.iDyn3_model.getCOMJacobian(J_com_w) ;
+  J_com_w_redu = J_com_w.submatrix(0,2 , 0 , J_com_w.cols()-1 ) ;  
+  // J_l_c1_mix_0
+  // J_r_c1_mix_0
+  yarp::sig::Matrix J_com_up( 15 , ( robot.getNumberOfJoints() + 6 ) );
+  J_com_up.setSubmatrix( J_com_w_redu , 0 , 0 ) ;
+  J_com_up.setSubmatrix( J_l_c1_mix_0 , 3 , 0 ) ;
+  J_com_up.setSubmatrix( J_r_c1_mix_0 , 9 , 0 ) ;
+//--------------------------------------------------------------------------------------------    
+  yarp::sig::Vector d_u_q_com_up = Pinv_trunc_SVD( J_com_up )* Task_com_up ;     
+  yarp::sig::Vector d_q_com_up   = d_u_q_com_up.subVector( 6, d_u_q_com_up.length()-1 ) ;
+  q_ref_ToMove = q_motor_side + (1.0/1.0) * d_q_com_up  ;// 
+  robot.move( q_ref_ToMove );   
+  }
+  else if (last_command == "com_dw")
+  { 
+  std::cout << "Moving CoM dw"<< std::endl ; //
+  
+  // CoM error
+  yarp::sig::Vector CoM_w_loop = model.iDyn3_model.getCOM()  ; 
+  yarp::sig::Vector d_CoM_dw = CoM_w_dw - CoM_w_loop ; 
+  if(norm( d_CoM_dw)>0.001 ) { d_CoM_dw = 0.001*d_CoM_dw/(norm( d_CoM_dw)) ;  }
+  if(norm( d_CoM_dw)<0.0008) { d_CoM_dw = 0.0*d_CoM_dw  ;  }            // desired displacement
+  // L1 error (posistion and orientation)
+  yarp::sig::Vector D_l1_com_dw =getTrasl( T_w_l1_cmd - T_w_l_c1_0) ;
+  if(norm( D_l1_com_dw)>0.002 ) { D_l1_com_dw = 0.002*D_l1_com_dw/(norm( D_l1_com_dw)) ;  }
+  if(norm( D_l1_com_dw)<0.0008) { D_l1_com_dw = 0.0*D_l1_com_dw  ;  }  // desired displacement
+  yarp::sig::Vector e_o_l1_com_dw = Orient_Error( getRot(T_w_l1_cmd ) , getRot( T_w_l_c1_0 ) ) ; 
+  if(norm( e_o_l1_com_dw)>0.01 ) { e_o_l1_com_dw = 0.01*e_o_l1_com_dw/(norm( e_o_l1_com_dw )) ; }
+  if(norm( e_o_l1_com_dw)<0.001) { e_o_l1_com_dw = 0.0*e_o_l1_com_dw  ; }     // desired orientation variation
+  // R1 error (posistion and orientation)
+  yarp::sig::Vector D_r1_com_dw =getTrasl( T_w_r1_cmd - T_w_r_c1_0) ;
+  if(norm( D_r1_com_dw)>0.002 ) { D_r1_com_dw = 0.002*D_r1_com_dw/(norm( D_r1_com_dw)) ;  }
+  if(norm( D_r1_com_dw)<0.0008) { D_r1_com_dw = 0.0*D_r1_com_dw  ;  }  // desired displacement
+  yarp::sig::Vector e_o_r1_com_dw = Orient_Error( getRot(T_w_r1_cmd ) , getRot( T_w_r_c1_0 ) ) ; 
+  if(norm( e_o_r1_com_dw)>0.01 ) { e_o_r1_com_dw = 0.01*e_o_r1_com_dw/(norm( e_o_r1_com_dw )) ; }
+  if(norm( e_o_r1_com_dw)<0.001) { e_o_r1_com_dw = 0.0*e_o_r1_com_dw  ; }     // desired orientation variation
+  //---------------------------------------------------------------------------------------------------
+  // Task Error Vector
+  yarp::sig::Vector Task_com_up(15,0.0) ;   
+  Task_com_up.setSubvector( 0 , (1.0/1.0)* d_CoM_dw       ) ;
+  Task_com_up.setSubvector( 3 , (1.0/1.0)* D_l1_com_dw    ) ;
+  Task_com_up.setSubvector( 6 , (1.0/1.0)* e_o_l1_com_dw  ) ;
+  Task_com_up.setSubvector( 9 , (1.0/1.0)* D_r1_com_dw    ) ;
+  Task_com_up.setSubvector( 12, (1.0/1.0)* e_o_r1_com_dw  ) ;  
+  std::cout << " Task_com_up = " <<  std::endl << Task_com_up.toString()  << std::endl;   
+  //-----------------------------------------------------------------------------------------------------------------
+  // Jacobian
+  model.iDyn3_model.getCOMJacobian(J_com_w) ;
+  J_com_w_redu = J_com_w.submatrix(0,2 , 0 , J_com_w.cols()-1 ) ;  
+  // J_l_c1_mix_0
+  // J_r_c1_mix_0
+  yarp::sig::Matrix J_com_dw( 15 , ( robot.getNumberOfJoints() + 6 ) );
+  J_com_dw.setSubmatrix( J_com_w_redu , 0 , 0 ) ;
+  J_com_dw.setSubmatrix( J_l_c1_mix_0 , 3 , 0 ) ;
+  J_com_dw.setSubmatrix( J_r_c1_mix_0 , 9 , 0 ) ;
+//--------------------------------------------------------------------------------------------    
+  yarp::sig::Vector d_u_q_com_dw = Pinv_trunc_SVD( J_com_dw )* Task_com_up ;     
+  yarp::sig::Vector d_q_com_dw   = d_u_q_com_dw.subVector( 6, d_u_q_com_dw.length()-1 ) ;
+  q_ref_ToMove = q_motor_side + (1.0/1.0) * d_q_com_dw  ;// 
+  robot.move( q_ref_ToMove );   
+  } 
 } // closing Single Stance Phase
+  
+  
+  
   
  // desired contact force definition
  //   yarp::sig::Vector fc_des_to_world( size_fc, 0.0)  ;   
