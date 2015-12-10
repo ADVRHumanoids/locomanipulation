@@ -594,6 +594,20 @@ public:
      */
     yarp::sig::Vector quat_Product( const yarp::sig::Vector quat_1 , const yarp::sig::Vector quat_2) ;	
     
+    /**
+     * @brief  Computes the rotation matrix about x axis
+     * @param  phi_x rotation angle
+     * @return a 3x3 yarp Matrix
+     */
+    yarp::sig::Matrix Rot_x( const double phi_x ) ;	
+        
+    /**
+     * @brief  Computes the rotation matrix about y axis
+     * @param  theta_y rotation angle
+     * @return a 3x3 yarp Matrix
+     */   
+    yarp::sig::Matrix Rot_y( const double theta_y ) ;
+    
      /**
      * @brief  Computes the rotation matrix about z axis
      * @param  psi_z rotation angle
@@ -601,6 +615,7 @@ public:
      */
     yarp::sig::Matrix Rot_z( const double psi_z) ;	
      
+
     //----------------------------------------------------------------------
      
      /**

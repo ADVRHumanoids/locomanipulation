@@ -1312,6 +1312,29 @@ yarp::sig::Vector locoman_control_thread::quat_Product(const yarp::sig::Vector q
   return quat_prod ; 
 }
 
+yarp::sig::Matrix locoman_control_thread::Rot_x(const double phi_x)
+{
+ yarp::sig::Matrix Rotx(3,3) ;
+ Rotx.eye() ;
+ Rotx[1][1] = cos(phi_x) ;
+ Rotx[2][1] = sin(phi_x) ;
+ Rotx[1][2] =-sin(phi_x) ;
+ Rotx[2][2] = cos(phi_x) ;
+ return Rotx ;
+}
+
+yarp::sig::Matrix locoman_control_thread::Rot_y(const double theta_y)
+{
+ yarp::sig::Matrix Roty(3,3) ;
+ Roty.eye() ;
+ Roty[0][0] = cos(theta_y) ;
+ Roty[0][2] = sin(theta_y) ;
+ Roty[2][0] =-sin(theta_y) ;
+ Roty[2][2] = cos(theta_y) ;
+ return Roty ;
+}
+
+
 yarp::sig::Matrix locoman_control_thread::Rot_z(const double psi_z)
 {
  yarp::sig::Matrix Rotz(3,3) ;
@@ -1322,6 +1345,10 @@ yarp::sig::Matrix locoman_control_thread::Rot_z(const double psi_z)
  Rotz[1][1] = cos(psi_z) ;
  return Rotz ;
 }
+
+
+
+
 
 yarp::sig::Vector locoman_control_thread::WB_Cartesian_Tasks(
   			    const yarp::sig::Matrix T_l_hand_des,
@@ -1337,8 +1364,8 @@ yarp::sig::Vector locoman_control_thread::WB_Cartesian_Tasks(
 {
   yarp::sig::Matrix Eye_3(3,3); Eye_3.eye() ;
   // filtering the error
-//   double  max_trasl_err  = 0.001  ;  // maximum displacement allowed in a loop
-//   double  max_orient_err = 0.01   ;  // maximum rotation allowed in a loop
+  double  max_trasl_err  = 0.001  ;  // maximum displacement allowed in a loop
+  double  max_orient_err = 0.01   ;  // maximum rotation allowed in a loop
   double  min_trasl_err  = 0.0008 ;  // minimum displacement, otherwise is approximated to zero
   double  min_orient_err = 0.001  ;  // minimum rotation, otherwise is approximated to zero
   
@@ -1351,6 +1378,16 @@ yarp::sig::Vector locoman_control_thread::WB_Cartesian_Tasks(
   yarp::sig::Vector trasl_r1_foot_err  = getTrasl(T_r1_foot_des);
   yarp::sig::Vector orient_r1_foot_err = Orient_Error( getRot(T_r1_foot_des ) , Eye_3 ) ;
   yarp::sig::Vector CoM_err = CoM_waist_cmd  ;
+
+  if(norm(trasl_l_hand_err)  > max_trasl_err ) {trasl_l_hand_err   = max_trasl_err  * trasl_l_hand_err/(norm(trasl_l_hand_err)    ) ;}  
+  if(norm(orient_l_hand_err) > max_orient_err) {orient_l_hand_err  = max_orient_err * orient_l_hand_err/(norm(orient_l_hand_err)  ) ;}  
+  if(norm(trasl_r_hand_err)  > max_trasl_err ) {trasl_r_hand_err   = max_trasl_err  * trasl_r_hand_err/(norm(trasl_r_hand_err)    ) ;}
+  if(norm(orient_r_hand_err) > max_orient_err) {orient_r_hand_err  = max_orient_err * orient_r_hand_err/(norm(orient_r_hand_err)  ) ;}
+  if(norm(trasl_l1_foot_err) > max_trasl_err ) {trasl_l1_foot_err  = max_trasl_err  * trasl_l1_foot_err/(norm(trasl_l1_foot_err)  ) ;}
+  if(norm(orient_l1_foot_err)> max_orient_err) {orient_l1_foot_err = max_orient_err * orient_l1_foot_err/(norm(orient_l1_foot_err)) ;}
+  if(norm(trasl_r1_foot_err) > max_trasl_err ) {trasl_r1_foot_err  = max_trasl_err  * trasl_r1_foot_err/(norm(trasl_r1_foot_err)  ) ;}
+  if(norm(orient_r1_foot_err)> max_orient_err) {orient_r1_foot_err = 0.0*orient_r1_foot_err ;}
+  if(norm(CoM_err) > max_trasl_err) {CoM_err = max_trasl_err*CoM_err ;}
   
   if(norm(trasl_l_hand_err)<min_trasl_err) {trasl_l_hand_err = 0.0*trasl_l_hand_err ;}
   if(norm(orient_l_hand_err)<min_orient_err) {orient_l_hand_err = 0.0*orient_l_hand_err ;}  
@@ -1373,6 +1410,9 @@ yarp::sig::Vector locoman_control_thread::WB_Cartesian_Tasks(
   d_C.setSubvector(18, trasl_r1_foot_err   ) ;
   d_C.setSubvector(21, orient_r1_foot_err  ) ;
   d_C.setSubvector(24, CoM_err             ) ;
+  
+  //   std::cout << " d_C = " <<  std::endl << d_C.toString() << std::endl; 
+
   // Whole Jacobian 
   yarp::sig::Matrix Whole_Jac(d_C.length(), J_l_hand_body.cols() ) ; 
   Whole_Jac.zero(); 
@@ -1383,7 +1423,7 @@ yarp::sig::Vector locoman_control_thread::WB_Cartesian_Tasks(
   Whole_Jac.setSubmatrix( J_waist_CoM   , 24 , 0 ) ;
   
   //pseudoinverse
-  yarp::sig::Vector d_q_long = Pinv_trunc_SVD( Whole_Jac , 1E-8 ) * d_C ;
+  yarp::sig::Vector d_q_long = Pinv_trunc_SVD( Whole_Jac , 1E-10 ) * d_C ;
 
   //selections
   yarp::sig::Vector d_q_move = d_q_long.subVector(6, d_q_long.length()-1) ;
@@ -1552,7 +1592,10 @@ void locoman_control_thread::run()
   yarp::sig::Matrix T_r_c2_w_0    = iHomogeneous(T_w_r_c2_0) ;  
   yarp::sig::Matrix T_r_c3_w_0    = iHomogeneous(T_w_r_c3_0) ;
   yarp::sig::Matrix T_r_c4_w_0    = iHomogeneous(T_w_r_c4_0) ;    
-    
+
+  yarp::sig::Matrix T_l_hand_w_0    = iHomogeneous(T_w_l_hand_0) ;
+  yarp::sig::Matrix T_r_hand_w_0    = iHomogeneous(T_w_r_hand_0) ;   
+  
   yarp::sig::Matrix T_aw_l_c1_0 = T_aw_w_0 * T_w_l_c1_0 ;  // {AW} is fixed in a loop
   yarp::sig::Matrix T_aw_l_c2_0 = T_aw_w_0 * T_w_l_c2_0 ;  // in every loop the floating base is re-initialized 
   yarp::sig::Matrix T_aw_l_c3_0 = T_aw_w_0 * T_w_l_c3_0 ;  // coincident with {AW}
@@ -1575,6 +1618,9 @@ void locoman_control_thread::run()
   yarp::sig::Matrix J_r_c2_mix_0( 6, ( robot.getNumberOfJoints() + 6 ) ) ; 
   yarp::sig::Matrix J_r_c3_mix_0( 6, ( robot.getNumberOfJoints() + 6 ) ) ; 
   yarp::sig::Matrix J_r_c4_mix_0( 6, ( robot.getNumberOfJoints() + 6 ) ) ;
+  
+  yarp::sig::Matrix J_l_hand_mix_0( 6, ( robot.getNumberOfJoints() + 6 ) ) ; 
+  yarp::sig::Matrix J_r_hand_mix_0( 6, ( robot.getNumberOfJoints() + 6 ) ) ;
     
   model.iDyn3_model.getJacobian( l_c1_index, J_l_c1_mix_0, false  ) ; //false= mixed version jacobian //true= body jacobian
   model.iDyn3_model.getJacobian( l_c2_index, J_l_c2_mix_0, false  ) ; //false= mixed version jacobian //true= body jacobian
@@ -1586,6 +1632,9 @@ void locoman_control_thread::run()
   model.iDyn3_model.getJacobian( r_c3_index, J_r_c3_mix_0, false  ) ; //false= mixed version jacobian //true= body jacobian
   model.iDyn3_model.getJacobian( r_c4_index, J_r_c4_mix_0, false  ) ; //false= mixed version jacobian //true= body jacobian
    
+  model.iDyn3_model.getJacobian( l_hand_index, J_l_hand_mix_0, false  ) ; //false= mixed version jacobian //true= body jacobian
+  model.iDyn3_model.getJacobian( r_hand_index, J_r_hand_mix_0, false  ) ; //false= mixed version jacobian //true= body jacobian
+
   yarp::sig::Matrix J_l_c1_body_0 = Adjoint( Homogeneous(getRot(T_l_c1_w_0), zero_3 ))* J_l_c1_mix_0 ;
   yarp::sig::Matrix J_l_c2_body_0 = Adjoint( Homogeneous(getRot(T_l_c2_w_0), zero_3 ))* J_l_c2_mix_0 ;
   yarp::sig::Matrix J_l_c3_body_0 = Adjoint( Homogeneous(getRot(T_l_c3_w_0), zero_3 ))* J_l_c3_mix_0 ;
@@ -1596,6 +1645,10 @@ void locoman_control_thread::run()
   yarp::sig::Matrix J_r_c3_body_0 = Adjoint( Homogeneous(getRot(T_r_c3_w_0), zero_3 ))* J_r_c3_mix_0 ;
   yarp::sig::Matrix J_r_c4_body_0 = Adjoint( Homogeneous(getRot(T_r_c4_w_0), zero_3 ))* J_r_c4_mix_0 ;
 
+  yarp::sig::Matrix J_l_hand_body_0 = Adjoint( Homogeneous(getRot(T_l_hand_w_0), zero_3 ))* J_l_hand_mix_0 ;
+  yarp::sig::Matrix J_r_hand_body_0 = Adjoint( Homogeneous(getRot(T_r_hand_w_0), zero_3 ))* J_r_hand_mix_0 ;
+
+  
   //---------------------------------------------------------------------------------------------------------------------------------------------------------------
   // Introducing Spatial Jacobian terms: Fixed base in {AW}
   
@@ -1731,14 +1784,29 @@ void locoman_control_thread::run()
   yarp::sig::Matrix J_com_w( 6, ( robot.getNumberOfJoints() + 6 ) ) ;
   yarp::sig::Matrix J_com_w_redu( 3,  ( robot.getNumberOfJoints() + 6 ))   ;
   yarp::sig::Matrix J_com_aw( 3,  ( robot.getNumberOfJoints() + 6 ))   ;
+  yarp::sig::Matrix J_com_waist( 3,  ( robot.getNumberOfJoints() + 6 ))   ;
+
   yarp::sig::Matrix J_r_c1_aw( 6, ( robot.getNumberOfJoints() + 6 ) ) ;
   yarp::sig::Matrix J_l_c1_aw( 6, ( robot.getNumberOfJoints() + 6 ) ) ;
 
   yarp::sig::Vector q_ref_ToMove( robot.getNumberOfJoints() + 6 , 0.0) ;
+  //
+  model.iDyn3_model.getCOMJacobian(J_com_w) ;
+  J_com_w_redu = J_com_w.submatrix(0,2 , 0 , J_com_w.cols()-1 ) ;  
+  J_com_aw = getRot(T_aw_w_0) *J_com_w_redu; 
+  J_com_waist = getRot(T_waist_w_0)*J_com_w_redu;
+  //-----------------------------------------
   
   
+  yarp::sig::Matrix T_waist_l_hand_0  = T_waist_w_0 * T_w_l_hand_0  ;    
+  yarp::sig::Matrix T_waist_r_hand_0  = T_waist_w_0 * T_w_r_hand_0  ;    
+  yarp::sig::Matrix T_waist_l1_foot_0 = T_waist_w_0 * T_w_l_c1_0 ; 
+  yarp::sig::Matrix T_waist_r1_foot_0 = T_waist_w_0 * T_w_r_c1_0 ; 
+  yarp::sig::Vector CoM_waist_0       = getRot( T_waist_w_0 ) * CoM_w_cmd ;
+  yarp::sig::Matrix R_waist_aw_0      = getRot(T_waist_w_0 *T_w_aw_0) ; 
   
-  
+  yarp::sig::Matrix Eye_4(4,4) ;
+  Eye_4.eye() ;
   //--------------------------------------------------------------------------------------------------------------------------------------------  
   // Input-Guided State Machine => Building the proper FLLM and control in each state
     
@@ -1748,11 +1816,11 @@ void locoman_control_thread::run()
   std::cout << " ifCommand  =  "<< std::endl << ifCommand << std::endl  ; 
   CoM_w_cmd = model.iDyn3_model.getCOM()  ;  //   ...cmd is for "@ command time"
   //-------------------------------------------------------------------------------
-  CoM_waist_cmd       = getRot( T_waist_w_0 ) * CoM_w_cmd ;
-  T_waist_l1_foot_cmd = T_waist_w_0 * T_w_l_c1_0 ; 
-  T_waist_r1_foot_cmd = T_waist_w_0 * T_w_r_c1_0 ; 
   T_waist_l_hand_cmd  = T_waist_w_0 * T_w_l_hand_0  ;    
   T_waist_r_hand_cmd  = T_waist_w_0 * T_w_r_hand_0  ;    
+  T_waist_l1_foot_cmd = T_waist_w_0 * T_w_l_c1_0 ; 
+  T_waist_r1_foot_cmd = T_waist_w_0 * T_w_r_c1_0 ; 
+  CoM_waist_cmd       = getRot( T_waist_w_0 ) * CoM_w_cmd ;
   R_waist_aw_cmd      = getRot(T_waist_w_0 *T_w_aw_0) ; 
   //------------------------------------------------------------------------------_
   // std::cout << " CoM_w_cmd  =  "<< std::endl << CoM_w_cmd.toString() << std::endl  ; 
@@ -2027,7 +2095,14 @@ void locoman_control_thread::run()
 //------------------------------------------------------------------------------------
 else if (last_command == "sw_rg_up" || last_command == "sw_rg_fw" || last_command == "sw_rg_dw" || 
          last_command == "sw_lf_up" || last_command == "sw_lf_fw" || last_command == "sw_lf_dw" || 
-	 last_command == "com_up"   || last_command == "com_dw"   ) { // Single Stance Phase  
+	 last_command == "com_up"   || last_command == "com_dw"   ||
+	 last_command =="r_hand_z_world_fw" || last_command =="r_hand_z_world_bk" || 
+	 last_command =="r_hand_x_world_fw" || last_command =="r_hand_x_world_bk" ||
+	 last_command =="r_hand_z_world_rot_ccw" ||
+	 last_command =="r_hand_z_world_rot_cw"  ||   
+	 last_command =="r_hand_x_world_rot_ccw" ||
+	 last_command =="r_hand_x_world_rot_cw"  ) 
+   { // Single Stance Phase  
   
   if (last_command =="sw_rg_up")
      {
@@ -2401,6 +2476,267 @@ else if (last_command =="sw_lf_fw")
   q_ref_ToMove = q_motor_side + (1.0/1.0) * d_q_com_dw  ;// 
   robot.move( q_ref_ToMove );   
   } 
+  
+  else if (last_command =="r_hand_z_world_fw")
+     {
+  std::cout << "R Hand, Z World, moving forward"<< std::endl ;
+ // ------------------------------------------------------------------
+  // Computing desired configuration for r_hand
+  yarp::sig::Matrix Rot_des_waist   = getRot(   T_waist_r_hand_cmd ) ;
+  yarp::sig::Vector Trasl_des_waist = getTrasl( T_waist_r_hand_cmd ) ;
+  Trasl_des_waist = R_waist_aw_cmd.transposed()*Trasl_des_waist;
+  Trasl_des_waist[2] += 1.0 ;
+  Trasl_des_waist = R_waist_aw_cmd*Trasl_des_waist ;
+  yarp::sig::Matrix T_r_hand_des_waist = Homogeneous(Rot_des_waist, Trasl_des_waist ) ;    
+  yarp::sig::Matrix T_r_hand_des_local = iHomogeneous( T_waist_r_hand_0 )* T_r_hand_des_waist  ;
+  
+ // ------------------------------------------------------------------
+  // Other frames for closed loop control
+//   yarp::sig::Matrix T_l_hand_des_local  = iHomogeneous( T_waist_l_hand_0  )* T_waist_l_hand_cmd ;
+//   yarp::sig::Matrix T_l1_foot_des_local = iHomogeneous( T_waist_l1_foot_0 )* T_waist_l1_foot_cmd;
+//   yarp::sig::Matrix T_r1_foot_des_local = iHomogeneous( T_waist_r1_foot_0 )* T_waist_r1_foot_cmd;
+// 
+//        std::cout << " T_waist_l_hand_cmd = " <<  std::endl << T_waist_l_hand_cmd.toString() << std::endl;
+//        std::cout << " T_l_hand_des_local = " <<  std::endl << T_l_hand_des_local.toString() << std::endl;
+//   
+//        std::cout << " T_waist_r1_foot_cmd = " <<  std::endl << T_waist_r1_foot_cmd.toString() << std::endl;
+//        std::cout << " T_r1_foot_des_local = " <<  std::endl << T_r1_foot_des_local.toString() << std::endl;
+//   
+  
+   // ------------------------------------------------------------------
+  yarp::sig::Vector d_q_r_hand_z_world_fw = WB_Cartesian_Tasks( Eye_4, T_r_hand_des_local, //T_l_hand_des_local, T_r_hand_des_local, 
+								Eye_4,  Eye_4,             //T_l1_foot_des_local, T_r1_foot_des_local , 
+								CoM_waist_cmd , 
+								J_l_hand_body_0, J_r_hand_body_0, 
+								J_l_c1_body_0, J_r_c1_body_0, 
+								J_com_waist) ;
+  
+  q_ref_ToMove = q_motor_side + (1.0/1.0) * d_q_r_hand_z_world_fw  ;  
+  robot.move( q_ref_ToMove );   
+  
+     }     
+      else if (last_command =="r_hand_z_world_bk")
+     {
+  std::cout << "R Hand, Z World, moving backward"<< std::endl ;
+ // ------------------------------------------------------------------
+  // Computing desired configuration for r_hand
+  yarp::sig::Matrix Rot_des_waist   = getRot(   T_waist_r_hand_cmd ) ;
+  yarp::sig::Vector Trasl_des_waist = getTrasl( T_waist_r_hand_cmd ) ;
+  Trasl_des_waist = R_waist_aw_cmd.transposed()*Trasl_des_waist;
+  Trasl_des_waist[2] -= 1.0 ;
+  Trasl_des_waist = R_waist_aw_cmd*Trasl_des_waist ;
+  yarp::sig::Matrix T_r_hand_des_waist = Homogeneous(Rot_des_waist, Trasl_des_waist ) ;    
+  yarp::sig::Matrix T_r_hand_des_local = iHomogeneous( T_waist_r_hand_0 )* T_r_hand_des_waist  ;
+  
+ // ------------------------------------------------------------------
+  // Other frames for closed loop control
+//   yarp::sig::Matrix T_l_hand_des_local  = iHomogeneous( T_waist_l_hand_0  )* T_waist_l_hand_cmd ;
+//   yarp::sig::Matrix T_l1_foot_des_local = iHomogeneous( T_waist_l1_foot_0 )* T_waist_l1_foot_cmd;
+//   yarp::sig::Matrix T_r1_foot_des_local = iHomogeneous( T_waist_r1_foot_0 )* T_waist_r1_foot_cmd;
+// 
+//        std::cout << " T_waist_l_hand_cmd = " <<  std::endl << T_waist_l_hand_cmd.toString() << std::endl;
+//        std::cout << " T_l_hand_des_local = " <<  std::endl << T_l_hand_des_local.toString() << std::endl;
+//   
+//        std::cout << " T_waist_r1_foot_cmd = " <<  std::endl << T_waist_r1_foot_cmd.toString() << std::endl;
+//        std::cout << " T_r1_foot_des_local = " <<  std::endl << T_r1_foot_des_local.toString() << std::endl;
+//   
+  
+   // ------------------------------------------------------------------
+  yarp::sig::Vector d_q_r_hand_z_world_fw = WB_Cartesian_Tasks( Eye_4, T_r_hand_des_local, //T_l_hand_des_local, T_r_hand_des_local, 
+								Eye_4,  Eye_4,             //T_l1_foot_des_local, T_r1_foot_des_local , 
+								CoM_waist_cmd , 
+								J_l_hand_body_0, J_r_hand_body_0, 
+								J_l_c1_body_0, J_r_c1_body_0, 
+								J_com_waist) ;
+  
+  q_ref_ToMove = q_motor_side + (1.0/1.0) * d_q_r_hand_z_world_fw  ;  
+  robot.move( q_ref_ToMove );   
+  
+     }  
+     
+     else if (last_command =="r_hand_x_world_fw")
+     {
+  std::cout << "R Hand, X World, moving forward"<< std::endl ;
+ // ------------------------------------------------------------------
+  // Computing desired configuration for r_hand
+  yarp::sig::Matrix Rot_des_waist   = getRot(   T_waist_r_hand_cmd ) ;
+  yarp::sig::Vector Trasl_des_waist = getTrasl( T_waist_r_hand_cmd ) ;
+  Trasl_des_waist = R_waist_aw_cmd.transposed()*Trasl_des_waist;
+  Trasl_des_waist[0] += 1.0 ;
+  Trasl_des_waist = R_waist_aw_cmd*Trasl_des_waist ;
+  yarp::sig::Matrix T_r_hand_des_waist = Homogeneous(Rot_des_waist, Trasl_des_waist ) ;    
+  yarp::sig::Matrix T_r_hand_des_local = iHomogeneous( T_waist_r_hand_0 )* T_r_hand_des_waist  ;
+  
+ // ------------------------------------------------------------------
+  // Other frames for closed loop control
+//   yarp::sig::Matrix T_l_hand_des_local  = iHomogeneous( T_waist_l_hand_0  )* T_waist_l_hand_cmd ;
+//   yarp::sig::Matrix T_l1_foot_des_local = iHomogeneous( T_waist_l1_foot_0 )* T_waist_l1_foot_cmd;
+//   yarp::sig::Matrix T_r1_foot_des_local = iHomogeneous( T_waist_r1_foot_0 )* T_waist_r1_foot_cmd;
+// 
+//        std::cout << " T_waist_l_hand_cmd = " <<  std::endl << T_waist_l_hand_cmd.toString() << std::endl;
+//        std::cout << " T_l_hand_des_local = " <<  std::endl << T_l_hand_des_local.toString() << std::endl;
+//   
+//        std::cout << " T_waist_r1_foot_cmd = " <<  std::endl << T_waist_r1_foot_cmd.toString() << std::endl;
+//        std::cout << " T_r1_foot_des_local = " <<  std::endl << T_r1_foot_des_local.toString() << std::endl;
+//   
+  
+   // ------------------------------------------------------------------
+  yarp::sig::Vector d_q_r_hand_z_world_fw = WB_Cartesian_Tasks( Eye_4, T_r_hand_des_local, //T_l_hand_des_local, T_r_hand_des_local, 
+								Eye_4,  Eye_4,             //T_l1_foot_des_local, T_r1_foot_des_local , 
+								CoM_waist_cmd , 
+								J_l_hand_body_0, J_r_hand_body_0, 
+								J_l_c1_body_0, J_r_c1_body_0, 
+								J_com_waist) ;
+  
+  q_ref_ToMove = q_motor_side + (1.0/1.0) * d_q_r_hand_z_world_fw  ;  
+  robot.move( q_ref_ToMove );   
+  
+     }     
+      else if (last_command =="r_hand_x_world_bk")
+     {
+  std::cout << "R Hand, X World, moving backward"<< std::endl ;
+ // ------------------------------------------------------------------
+  // Computing desired configuration for r_hand
+  yarp::sig::Matrix Rot_des_waist   = getRot(   T_waist_r_hand_cmd ) ;
+  yarp::sig::Vector Trasl_des_waist = getTrasl( T_waist_r_hand_cmd ) ;
+  Trasl_des_waist = R_waist_aw_cmd.transposed()*Trasl_des_waist;
+  Trasl_des_waist[0] -= 1.0 ;
+  Trasl_des_waist = R_waist_aw_cmd*Trasl_des_waist ;
+  yarp::sig::Matrix T_r_hand_des_waist = Homogeneous(Rot_des_waist, Trasl_des_waist ) ;    
+  yarp::sig::Matrix T_r_hand_des_local = iHomogeneous( T_waist_r_hand_0 )* T_r_hand_des_waist  ;
+  
+ // ------------------------------------------------------------------
+  // Other frames for closed loop control
+//   yarp::sig::Matrix T_l_hand_des_local  = iHomogeneous( T_waist_l_hand_0  )* T_waist_l_hand_cmd ;
+//   yarp::sig::Matrix T_l1_foot_des_local = iHomogeneous( T_waist_l1_foot_0 )* T_waist_l1_foot_cmd;
+//   yarp::sig::Matrix T_r1_foot_des_local = iHomogeneous( T_waist_r1_foot_0 )* T_waist_r1_foot_cmd;
+// 
+//        std::cout << " T_waist_l_hand_cmd = " <<  std::endl << T_waist_l_hand_cmd.toString() << std::endl;
+//        std::cout << " T_l_hand_des_local = " <<  std::endl << T_l_hand_des_local.toString() << std::endl;
+//   
+//        std::cout << " T_waist_r1_foot_cmd = " <<  std::endl << T_waist_r1_foot_cmd.toString() << std::endl;
+//        std::cout << " T_r1_foot_des_local = " <<  std::endl << T_r1_foot_des_local.toString() << std::endl;
+//   
+  
+   // ------------------------------------------------------------------
+  yarp::sig::Vector d_q_r_hand_z_world_fw = WB_Cartesian_Tasks( Eye_4, T_r_hand_des_local, //T_l_hand_des_local, T_r_hand_des_local, 
+								Eye_4,  Eye_4,             //T_l1_foot_des_local, T_r1_foot_des_local , 
+								CoM_waist_cmd , 
+								J_l_hand_body_0, J_r_hand_body_0, 
+								J_l_c1_body_0, J_r_c1_body_0, 
+								J_com_waist) ;
+  
+  q_ref_ToMove = q_motor_side + (1.0/1.0) * d_q_r_hand_z_world_fw  ;  
+  robot.move( q_ref_ToMove );   
+  
+     }  
+  else if (last_command =="r_hand_z_world_rot_ccw")
+     {
+  std::cout << "R Hand, Z World, Rotating counterclockwise "<< std::endl ;
+ // ------------------------------------------------------------------
+  // Computing desired configuration for r_hand
+  yarp::sig::Matrix Rot_des_waist   = getRot(   T_waist_r_hand_cmd ) ;
+  yarp::sig::Vector Trasl_des_waist = getTrasl( T_waist_r_hand_cmd ) ;
+//   Trasl_des_waist = R_waist_aw_cmd.transposed()*Trasl_des_waist;
+//   Trasl_des_waist[2] += 1.0 ;
+//   Trasl_des_waist = R_waist_aw_cmd*Trasl_des_waist ;
+  Rot_des_waist = Rot_z(1.0)*R_waist_aw_cmd.transposed()*Rot_des_waist ;
+  
+  yarp::sig::Matrix T_r_hand_des_waist = Homogeneous(Rot_des_waist, Trasl_des_waist ) ;    
+ 
+  
+  yarp::sig::Matrix T_r_hand_des_local = iHomogeneous( T_waist_r_hand_0 )* T_r_hand_des_waist  ; 
+  // ------------------------------------------------------------------
+  yarp::sig::Vector d_q_r_hand_z_world_fw = WB_Cartesian_Tasks( Eye_4, T_r_hand_des_local, //T_l_hand_des_local, T_r_hand_des_local, 
+								Eye_4,  Eye_4,             //T_l1_foot_des_local, T_r1_foot_des_local , 
+								CoM_waist_cmd , 
+								J_l_hand_body_0, J_r_hand_body_0, 
+								J_l_c1_body_0, J_r_c1_body_0, 
+								J_com_waist) ;
+  
+  q_ref_ToMove = q_motor_side + (1.0/1.0) * d_q_r_hand_z_world_fw  ;  
+  robot.move( q_ref_ToMove );   
+  
+     }        
+   else if (last_command =="r_hand_z_world_rot_cw")
+     {
+  std::cout << "R Hand, Z World, Rotating clockwise "<< std::endl ;
+ // ------------------------------------------------------------------
+  // Computing desired configuration for r_hand
+  yarp::sig::Matrix Rot_des_waist   = getRot(   T_waist_r_hand_cmd ) ;
+  yarp::sig::Vector Trasl_des_waist = getTrasl( T_waist_r_hand_cmd ) ;
+//   Trasl_des_waist = R_waist_aw_cmd.transposed()*Trasl_des_waist;
+//   Trasl_des_waist[2] += 1.0 ;
+//   Trasl_des_waist = R_waist_aw_cmd*Trasl_des_waist ;
+  Rot_des_waist = Rot_z(-1.0)*R_waist_aw_cmd.transposed()*Rot_des_waist ;
+  
+  yarp::sig::Matrix T_r_hand_des_waist = Homogeneous(Rot_des_waist, Trasl_des_waist ) ;    
+ 
+  
+  yarp::sig::Matrix T_r_hand_des_local = iHomogeneous( T_waist_r_hand_0 )* T_r_hand_des_waist  ; 
+  // ------------------------------------------------------------------
+  yarp::sig::Vector d_q_r_hand_z_world_fw = WB_Cartesian_Tasks( Eye_4, T_r_hand_des_local, //T_l_hand_des_local, T_r_hand_des_local, 
+								Eye_4,  Eye_4,             //T_l1_foot_des_local, T_r1_foot_des_local , 
+								CoM_waist_cmd , 
+								J_l_hand_body_0, J_r_hand_body_0, 
+								J_l_c1_body_0, J_r_c1_body_0, 
+								J_com_waist) ;
+  
+  q_ref_ToMove = q_motor_side + (1.0/1.0) * d_q_r_hand_z_world_fw  ;  
+  robot.move( q_ref_ToMove );   
+  
+     }        
+  else if (last_command =="r_hand_x_world_rot_ccw")
+     {
+  std::cout << "R Hand, X World, Rotating counterclockwise "<< std::endl ;
+ // ------------------------------------------------------------------
+  // Computing desired configuration for r_hand
+  yarp::sig::Matrix Rot_des_waist   = getRot(   T_waist_r_hand_cmd ) ;
+  yarp::sig::Vector Trasl_des_waist = getTrasl( T_waist_r_hand_cmd ) ;
+  Rot_des_waist = Rot_x(1.0)*R_waist_aw_cmd.transposed()*Rot_des_waist ;
+  
+  yarp::sig::Matrix T_r_hand_des_waist = Homogeneous(Rot_des_waist, Trasl_des_waist ) ;    
+ 
+  
+  yarp::sig::Matrix T_r_hand_des_local = iHomogeneous( T_waist_r_hand_0 )* T_r_hand_des_waist  ; 
+  // ------------------------------------------------------------------
+  yarp::sig::Vector d_q_r_hand_z_world_fw = WB_Cartesian_Tasks( Eye_4, T_r_hand_des_local, //T_l_hand_des_local, T_r_hand_des_local, 
+								Eye_4,  Eye_4,             //T_l1_foot_des_local, T_r1_foot_des_local , 
+								CoM_waist_cmd , 
+								J_l_hand_body_0, J_r_hand_body_0, 
+								J_l_c1_body_0, J_r_c1_body_0, 
+								J_com_waist) ;
+  
+  q_ref_ToMove = q_motor_side + (1.0/1.0) * d_q_r_hand_z_world_fw  ;  
+  robot.move( q_ref_ToMove );   
+  
+     }        
+   else if (last_command =="r_hand_x_world_rot_cw")
+     {
+  std::cout << "R Hand, X World, Rotating clockwise "<< std::endl ;
+ // ------------------------------------------------------------------
+  // Computing desired configuration for r_hand
+  yarp::sig::Matrix Rot_des_waist   = getRot(   T_waist_r_hand_cmd ) ;
+  yarp::sig::Vector Trasl_des_waist = getTrasl( T_waist_r_hand_cmd ) ;
+  Rot_des_waist = Rot_x(-1.0)*R_waist_aw_cmd.transposed()*Rot_des_waist ;
+  
+  yarp::sig::Matrix T_r_hand_des_waist = Homogeneous(Rot_des_waist, Trasl_des_waist ) ;    
+ 
+  
+  yarp::sig::Matrix T_r_hand_des_local = iHomogeneous( T_waist_r_hand_0 )* T_r_hand_des_waist  ; 
+  // ------------------------------------------------------------------
+  yarp::sig::Vector d_q_r_hand_z_world_fw = WB_Cartesian_Tasks( Eye_4, T_r_hand_des_local, //T_l_hand_des_local, T_r_hand_des_local, 
+								Eye_4,  Eye_4,             //T_l1_foot_des_local, T_r1_foot_des_local , 
+								CoM_waist_cmd , 
+								J_l_hand_body_0, J_r_hand_body_0, 
+								J_l_c1_body_0, J_r_c1_body_0, 
+								J_com_waist) ;
+  
+  q_ref_ToMove = q_motor_side + (1.0/1.0) * d_q_r_hand_z_world_fw  ;  
+  robot.move( q_ref_ToMove );   
+  
+     }        
+     
 } // closing Single Stance Phase
   
   
