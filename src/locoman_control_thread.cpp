@@ -808,7 +808,6 @@ yarp::sig::Matrix locoman_control_thread::Pinv_Regularized(const yarp::sig::Matr
 //   yarp::sig::Matrix pinv_A = Pinv_trunc_SVD(At_A + k*Eye_temp , 1E-7 ) *A.transposed() ;
 //   return pinv_A ;
   
-  
 //   int r_A = A.rows() ;
 //   int c_A = A.cols() ;
 //   if(c_A< r_A ){    // tall matrix => Defective manipulator
@@ -1240,7 +1239,7 @@ yarp::sig::Matrix locoman_control_thread::AW_world_posture(void)
 
 yarp::sig::Vector locoman_control_thread::Rot2Quat(const yarp::sig::Matrix Rot)
 {
-  double tol = 0.001 ;
+ double tol = 0.001 ;
  double r_11 = Rot[0][0] ;
  double r_12 = Rot[0][1] ;
  double r_13 = Rot[0][2] ;
@@ -1338,28 +1337,58 @@ yarp::sig::Vector locoman_control_thread::WB_Cartesian_Tasks(
 {
   yarp::sig::Matrix Eye_3(3,3); Eye_3.eye() ;
   // filtering the error
-  double  max_disp = 0.001  ;  // maximum displacement allowed in a loop
-  double  max_rot = 0.01    ;  // maximum rotation allowed in a loop
-  double  min_disp = 0.0008 ;  // minimum displacement, otherwise is approximated to zero
-  double  min_rot = 0.001   ;  // minimum rotation, otherwise is approximated to zero
+//   double  max_trasl_err  = 0.001  ;  // maximum displacement allowed in a loop
+//   double  max_orient_err = 0.01   ;  // maximum rotation allowed in a loop
+  double  min_trasl_err  = 0.0008 ;  // minimum displacement, otherwise is approximated to zero
+  double  min_orient_err = 0.001  ;  // minimum rotation, otherwise is approximated to zero
+  
+  yarp::sig::Vector trasl_l_hand_err   = getTrasl(T_l_hand_des) ;
+  yarp::sig::Vector orient_l_hand_err  = Orient_Error( getRot(T_l_hand_des ) , Eye_3 )  ;
+  yarp::sig::Vector trasl_r_hand_err   = getTrasl(T_r_hand_des) ;
+  yarp::sig::Vector orient_r_hand_err  = Orient_Error( getRot(T_r_hand_des ) , Eye_3 )  ;
+  yarp::sig::Vector trasl_l1_foot_err  = getTrasl(T_l1_foot_des);
+  yarp::sig::Vector orient_l1_foot_err = Orient_Error( getRot(T_l1_foot_des), Eye_3 )   ;
+  yarp::sig::Vector trasl_r1_foot_err  = getTrasl(T_r1_foot_des);
+  yarp::sig::Vector orient_r1_foot_err = Orient_Error( getRot(T_r1_foot_des ) , Eye_3 ) ;
+  yarp::sig::Vector CoM_err = CoM_waist_cmd  ;
+  
+  if(norm(trasl_l_hand_err)<min_trasl_err) {trasl_l_hand_err = 0.0*trasl_l_hand_err ;}
+  if(norm(orient_l_hand_err)<min_orient_err) {orient_l_hand_err = 0.0*orient_l_hand_err ;}  
+  if(norm(trasl_r_hand_err)<min_trasl_err) {trasl_r_hand_err = 0.0*trasl_r_hand_err ;}
+  if(norm(orient_r_hand_err)<min_orient_err) {orient_r_hand_err = 0.0*orient_r_hand_err ;}
+  if(norm(trasl_l1_foot_err)<min_trasl_err) {trasl_l1_foot_err = 0.0*trasl_l1_foot_err ;}
+  if(norm(orient_l1_foot_err)<min_orient_err) {orient_l1_foot_err = 0.0*orient_l1_foot_err ;}
+  if(norm(trasl_r1_foot_err)<min_trasl_err) {trasl_r1_foot_err = 0.0*trasl_r1_foot_err ;}
+  if(norm(orient_r1_foot_err)<min_orient_err) {orient_r1_foot_err = 0.0*orient_r1_foot_err ;}
+  if(norm(CoM_err)<min_trasl_err) {CoM_err = 0.0*CoM_err ;}
   
   // Error Vector
   yarp::sig::Vector d_C(27, 0.0) ;
-  d_C.setSubvector(0 , getTrasl(T_l_hand_des)                          ) ;
-  d_C.setSubvector(3 , Orient_Error( getRot(T_l_hand_des ) , Eye_3 )   ) ; 
-  d_C.setSubvector(6 , getTrasl(T_r_hand_des)                          ) ;
-  d_C.setSubvector(9 , Orient_Error( getRot(T_r_hand_des ) , Eye_3 )   ) ;
-  d_C.setSubvector(12, getTrasl(T_l1_foot_des)                         ) ;
-  d_C.setSubvector(15, Orient_Error( getRot(T_l1_foot_des) , Eye_3 )  ) ;
-  d_C.setSubvector(18, getTrasl(T_r1_foot_des)                         ) ;
-  d_C.setSubvector(21,Orient_Error( getRot(T_r1_foot_des ) , Eye_3 )   ) ;
-  d_C.setSubvector(24,CoM_waist_cmd) ;
+  d_C.setSubvector(0 , trasl_l_hand_err    ) ;
+  d_C.setSubvector(3 , orient_l_hand_err   ) ; 
+  d_C.setSubvector(6 , trasl_r_hand_err    ) ;
+  d_C.setSubvector(9 , orient_r_hand_err   ) ;
+  d_C.setSubvector(12, trasl_l1_foot_err   ) ;
+  d_C.setSubvector(15, orient_l1_foot_err  ) ;
+  d_C.setSubvector(18, trasl_r1_foot_err   ) ;
+  d_C.setSubvector(21, orient_r1_foot_err  ) ;
+  d_C.setSubvector(24, CoM_err             ) ;
   // Whole Jacobian 
-  
+  yarp::sig::Matrix Whole_Jac(d_C.length(), J_l_hand_body.cols() ) ; 
+  Whole_Jac.zero(); 
+  Whole_Jac.setSubmatrix( J_l_hand_body , 0  , 0 ) ;
+  Whole_Jac.setSubmatrix( J_r_hand_body , 6  , 0 ) ;
+  Whole_Jac.setSubmatrix( J_l1_foot_body, 12 , 0 ) ;
+  Whole_Jac.setSubmatrix( J_r1_foot_body, 18 , 0 ) ;
+  Whole_Jac.setSubmatrix( J_waist_CoM   , 24 , 0 ) ;
   
   //pseudoinverse
-  
+  yarp::sig::Vector d_q_long = Pinv_trunc_SVD( Whole_Jac , 1E-8 ) * d_C ;
+
   //selections
+  yarp::sig::Vector d_q_move = d_q_long.subVector(6, d_q_long.length()-1) ;
+  
+  return d_q_move ; 
 }
 
 
@@ -1908,28 +1937,28 @@ void locoman_control_thread::run()
   //-----------------------------------------------------------------------------------------------------
 
   yarp::sig::Matrix FLMM  = FLMM_redu(J_c, S_c, Q_aw_s_cont, U_aw_s_cont, Kc ) ;
-  yarp::sig::Matrix cFLMM = Pinv_trunc_SVD(FLMM.submatrix(0, FLMM.rows()-1 , 0, FLMM.rows()-1), 1E-7 ) * FLMM;
+  yarp::sig::Matrix cFLMM = Pinv_trunc_SVD(FLMM.submatrix(0, FLMM.rows()-1 , 0, FLMM.rows()-1), 1E-10 ) * FLMM;
    
   yarp::sig::Matrix Rf_temp_2 = cFLMM.submatrix(0, size_fc-1, cFLMM.cols()-size_q, cFLMM.cols()-1) ;  
-  yarp::sig::Matrix Rf_temp_2_filt = filter_SVD( Rf_temp_2,  1E-7); 
+  yarp::sig::Matrix Rf_temp_2_filt = filter_SVD( Rf_temp_2,  1E-10); 
 
   
-//   yarp::sig::Vector d_q_dsp_1 = -1.0* Pinv_Regularized( Rf_temp_2_filt, 1E1)* d_fc_des_to_world ;
-//   yarp::sig::Vector d_q_dsp_2 = -1.0* Pinv_Regularized( Rf_temp_2_filt, 1E2)* d_fc_des_to_world ;
-//   yarp::sig::Vector d_q_dsp_3 = -1.0* Pinv_Regularized( Rf_temp_2_filt, 1E3)* d_fc_des_to_world ;
-//   yarp::sig::Vector d_q_dsp_4 = -1.0* Pinv_Regularized( Rf_temp_2_filt, 1E4)* d_fc_des_to_world ;
-//   yarp::sig::Vector d_q_dsp_5 = -1.0* Pinv_Regularized( Rf_temp_2_filt, 1E5)* d_fc_des_to_world ;
+//    yarp::sig::Vector d_q_dsp_1 = -1.0* Pinv_Regularized( Rf_temp_2_filt, 1E1)* d_fc_des_to_world ;
+//    yarp::sig::Vector d_q_dsp_2 = -1.0* Pinv_Regularized( Rf_temp_2_filt, 1E2)* d_fc_des_to_world ;
+//    yarp::sig::Vector d_q_dsp_3 = -1.0* Pinv_Regularized( Rf_temp_2_filt, 1E3)* d_fc_des_to_world ;
+//    yarp::sig::Vector d_q_dsp_4 = -1.0* Pinv_Regularized( Rf_temp_2_filt, 1E4)* d_fc_des_to_world ;
+//    yarp::sig::Vector d_q_dsp_5 = -1.0* Pinv_Regularized( Rf_temp_2_filt, 1E5)* d_fc_des_to_world ;
   yarp::sig::Vector d_q_dsp_6 = -1.0* Pinv_Regularized( Rf_temp_2_filt, 1E6)* d_fc_des_to_world ;
  // yarp::sig::Vector d_q_dsp_5_m = -1.0* Pinv_Marq( Rf_temp_2_filt, 1E-5)* d_fc_des_to_world ;
 
   
   
 //  yarp::sig::Vector d_q_dsp_7 = -1.0* Pinv_Regularized( Rf_temp_2_filt, 1E7)* d_fc_des_to_world ;
-//   std::cout << " d_q_dsp_1 = " <<  std::endl << d_q_dsp_1.toString()  << std::endl;  
-//   std::cout << " d_q_dsp_2 = " <<  std::endl << d_q_dsp_2.toString()  << std::endl;   
-//   std::cout << " d_q_dsp_3 = " <<  std::endl << d_q_dsp_3.toString()  << std::endl;  
-//   std::cout << " d_q_dsp_4 = " <<  std::endl << d_q_dsp_4.toString()  << std::endl;  
-//   std::cout << " d_q_dsp_5 = " <<  std::endl << d_q_dsp_5.toString()  << std::endl;  
+/*   std::cout << " d_q_dsp_1 = "<<  std::endl << d_q_dsp_1.toString()  << std::endl;  
+   std::cout << " d_q_dsp_2 = " <<  std::endl << d_q_dsp_2.toString()  << std::endl;   
+   std::cout << " d_q_dsp_3 = " <<  std::endl << d_q_dsp_3.toString()  << std::endl;  
+   std::cout << " d_q_dsp_4 = " <<  std::endl << d_q_dsp_4.toString()  << std::endl;  
+   std::cout << " d_q_dsp_5 = " <<  std::endl << d_q_dsp_5.toString()  << std::endl; */ 
   std::cout << " d_q_dsp_6 = " <<  std::endl << d_q_dsp_6.toString()  << std::endl;  
  //  std::cout << " d_q_dsp_5_m = " <<  std::endl << d_q_dsp_5_m.toString()  << std::endl;  
 
