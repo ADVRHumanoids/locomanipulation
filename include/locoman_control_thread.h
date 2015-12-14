@@ -47,6 +47,8 @@ public:
     bool flag_robot = 0 ;
     bool flag_simulator = 1-flag_robot ;
     
+    int FC_HANDS_size ;
+    
     std::string last_command = "pause" ;
     
     //--------------
@@ -82,6 +84,14 @@ public:
     yarp::sig::Vector FC_SUM ;
     yarp::sig::Vector FC_FILTERED ;
     yarp::sig::Matrix FC_WINDOW ;  //    yarp::sig::Matrix FC_WINDOW(FC_size, WINDOW_filter ) ;
+    
+    yarp::sig::Vector FC_HANDS_DES ;  //     yarp::sig::Vector FC_DES( FC_size   ) ;
+    yarp::sig::Vector FC_DES_LEFT_HAND_sensor ;
+    yarp::sig::Vector FC_DES_RIGHT_HAND_sensor ;
+    yarp::sig::Vector FC_HANDS_SUM ;
+    yarp::sig::Vector FC_HANDS_FILTERED ;
+    yarp::sig::Matrix FC_HANDS_WINDOW ;  //    yarp::sig::Matrix FC_WINDOW(FC_size, WINDOW_filter ) ;
+    
     
   
     /**
