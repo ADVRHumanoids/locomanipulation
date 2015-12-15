@@ -130,208 +130,54 @@ public:
     //------------------------------------------------------------
 
 
-     /**
-     * @brief getKq returns the joint stiffness matrix (hardcoded for now)
-     * @return a yarp Matrix of dimension =  robot.getNumberOfJoints() x robot.getNumberOfJoints()
-     */
-    yarp::sig::Matrix getKq( ) ;
-
-    
-     /**
-     * @brief senseMotorPosition we use this method to obtain the motor position
-     * @return a yarp vector of dimension equal to robot.getNumberOfJoints() 
-     */
-    yarp::sig::Vector senseMotorPosition( ) ;
-    
-    //-----------------------------------------------------------
-
-     /**
-     * @brief  getRot extracts the rotation matrix from a homogenous matrix
-     * @param  T_ab is a 4x4 yarp matrix describing a homogenous transformation
-     * @return R_ab is a 3x3 yarp matrix
-     */
-    yarp::sig::Matrix getRot( const yarp::sig::Matrix T_ab) ;
-
-    //------------------------------------------------------------
-    
-     /**
-     * @brief  getTrasl extracts the translation vector from a homogenous matrix
-     * @param  T_ab is a 4x4 yarp matrix describing a homogenous transformation
-     * @return d_ab  is a 3x1 yarp vector 
-     */
-    yarp::sig::Vector getTrasl( const yarp::sig::Matrix T_ab) ;
-    
-    //------------------------------------------------------------
-    
-     /**
-     * @brief  homogeneous computes the homogenous transformation composed by:
-     * @param  R_ab is a 3x3 yarp matrix describing the rotational part
-     * @param  d_ab is a 3x1 yarp vector describing the translational part   
-     * @return T_ab is a 4x4 yarp matrix 
-     */
-    yarp::sig::Matrix Homogeneous( const yarp::sig::Matrix R_ab,  const yarp::sig::Vector d_ab  ) ;
-    
-    
-    //-----------------------------------------------------------------
-     /**
-     * @brief  iHomogeneous computes the inverse of an homogenous transformation
-     * @param  T_ab is a 4x4 yarp matrix describing an homogenous transformation
-     * @return T_ba  is a 4x4 yarp matrix, the inverse of T_ab
-     */
-    yarp::sig::Matrix iHomogeneous( const yarp::sig::Matrix T_ab) ;
-    
-     
-     //-----------------------------------------------------------------
-     /**
-     * @brief  Adjoint computes the adjoint matrix := Ad_g from a homogenous transformation
-     * @param  T_ab is a 4x4 yarp matrix describing an homogenous transformation
-     * @return Ad_T_ab is a 6x6 yarp matrix, able to map twists in twists
-     */
-    yarp::sig::Matrix Adjoint( const yarp::sig::Matrix T_ab) ;
-    
-     //-----------------------------------------------------------------
-     /**
-     * @brief  Adjoint_MT computes the inverse transpose of the adjoint  matrix := (Ad_(g^{-1}))^{T} from a homogenous transformation
-     * @param  T_ab is a 4x4 yarp matrix describing an homogenous transformation
-     * @return ( Ad_(T_ab)^{-1} )^{T}  is a 6x6 yarp matrix, able to map wrenches in wrenches
-     */
-    yarp::sig::Matrix Adjoint_MT( const yarp::sig::Matrix T_ab) ;
-    
-         
-    
-    //-----------------------------------------------------------------
-     /**
-     * @brief  fConToSens maps contact forces on the sensor frame, is equivalent to a grasp matrix
-     * @param  sens_index, ... c4_index are the indexes of the sensor and of the 4 contact points
-     * @return is a 6x6 yarp matrix, able to map contact forces in sensor wrenches
-     */
-    yarp::sig::Matrix fConToSens( const int sens_index,
-                                  const int c1_index,
-                                  const int c2_index,
-				  const int c3_index,
-                                  const int c4_index  ) ;
-
-				  
-     //-----------------------------------------------------------------
-     /**
-     * @brief  SkewToVect transforms a cross product matrix into the original vector
-     * @param  Skew is a 3x3 yarp matrix describing an cross product
-     * @return 3x1 yarp vector
-     */
-    yarp::sig::Vector SkewToVect( const yarp::sig::Matrix Skew) ;
-    
-    
-     //-----------------------------------------------------------------
-     /**
-     * @brief  xi_hat returns the homogeneous form of a tiwst
-     * @param  xi is a 6 dimentional yarp vector describing a twits = [v^T, w^T]^T
-     * @return 4x4 yarp matrix describing the homogenous form of a the twist xi
-     */
-    yarp::sig::Matrix xi_hat( const yarp::sig::Vector xi) ;
-
-     //-----------------------------------------------------------------
-     /**
-     * @brief  exp_omega_theta returns the rotation matrix provided by the Rodrigues formula
-     * @param  omega is the rotation axis
-     * @param  theta is the rotation amount
-     * @return 4x4 yarp matrix describing the homogenous form of a the twist xi
-     */
-    yarp::sig::Matrix exp_omega_theta( const yarp::sig::Vector omega, const double theta) ;
 
 
-    
-    
-     //-----------------------------------------------------------------
-     /**
-     * @brief  exp_xi_theta returns the homogenous transformation associated to the twist
-     * @param  xi is the twist = [v^T, w^T]^T 
-     * @param  theta is the transformation amount
-     * @return 4x4 yarp matrix describing the homogenous transformation
-     */
-    yarp::sig::Matrix twistexp( const yarp::sig::Vector xi, const double theta) ;
 
+//          //----------------------------------------------------------------------------
+//      /**
+//      * @brief  Q_ci compute the derivative of the spatial Jacobian 
+//      * @param  J_spa_i is a 6xc yarp matrix describing a spatial Jacobian
+//      * @param  T_a_ci is the homogeneous transformation between the floating base and the contact frame 
+//      * @param  f_ci contact force vector
+//      * @return qxq yarp matrix 
+//      */
+//     yarp::sig::Matrix Q_ci( const yarp::sig::Matrix J_spa_i, const yarp::sig::Matrix T_a_ci , const yarp::sig::Vector f_ci) ;
+//     
     
+//      //----------------------------------------------------------------------------
+//      /**
+//      * @brief  RoundMatrix computes the round of M to k decimal places 
+//      * @param  M yarp matrix to round
+//      * @param  k number of decimal places 
+//      * @return rounded yarp matrix 
+//      */
+//     yarp::sig::Matrix RoundMatrix( const yarp::sig::Matrix M, const int k) ;
+//     
+    
+//      //------------------------------------------------------------------------------------
+//      /**
+//      * @brief  FLMM_ext computes the FLMM for a compliant humanoid robot 
+//      * @param  J_c is a contacts x joints yarp matrix describing the body Jacobian of the humanoid
+//      * @param  S_c is a 6 x contacts yarp matrix describing the body Stance matrix of the humanoid
+//      * @param  Q_j is a joints x joints yarp matrix about the derivative of the Jacobian 
+//      * @param  Q_s is a contacts x joints yarp matrix about the derivative of the Jacobian 
+//      * @param  U_j is a joints x 6 yarp matrix about the derivative of the Jacobian 
+//      * @param  U_s is a 6 x 6 yarp matrix about the derivative of the Jacobian 
+//      * @param  K_c is a contacts x contacts yarp matrix describing the contact stiffness matrix
+//      * @param  K_q is a joints x joints yarp matrix describing the joint stiffness matrix
+//      * @return FLMM_ext is the Fundamental Loco-Manipulation Matrix
+//      */
+//     yarp::sig::Matrix FLMM_ext( const yarp::sig::Matrix J_c ,
+// 			    const yarp::sig::Matrix S_c ,
+// 			    const yarp::sig::Matrix Q_j,
+// 			    const yarp::sig::Matrix Q_s,
+// 			    const yarp::sig::Matrix U_j,
+// 			    const yarp::sig::Matrix U_s,
+// 			    const yarp::sig::Matrix K_c,
+// 			    const yarp::sig::Matrix K_q
+// 			      ) ;
 
-
-   
-     //----------------------------------------------------------------------------
-     /**
-     * @brief  AdjToPose transforms an Adjoint matrix into the original homogenous matrix
-     * @param  Adj is a 6x6 yarp matrix describing an Adjoint transformation
-     * @return 4x4 yarp matrix describing a homogenous transformation
-     */
-    yarp::sig::Matrix AdjToPose( const yarp::sig::Matrix Adj) ;
-    
-    
-    
-    
-     //----------------------------------------------------------------------------
-     /**
-     * @brief  ad_lie transforms a tiwst given as a yarp matrix into the Lie adjoint matrix
-     * @param  Xi is a 6x1 yarp matrix describing a twist
-     * @return 6xc yarp matrix 
-     */
-    yarp::sig::Matrix ad_lie( const yarp::sig::Matrix Xi) ;
-    
-    yarp::sig::Matrix ad_lie( const yarp::sig::Vector Xi) ;
-
-    
-    
-     //----------------------------------------------------------------------------
-     /**
-     * @brief  D_Jacob_spa_i compute the derivative of the spatial Jacobian with respect to the i-th q
-     * @param  J_s is a 6xc yarp matrix describing a spatial Jacobian
-     * @param  i -th joint () with repect to the derivative is computed 
-     * @return 6x6 yarp matrix describing the Lie adjoint matrix
-     */
-    yarp::sig::Matrix D_Jacob_spa_i( const yarp::sig::Matrix J_s, const int i ) ;
-
-
-         //----------------------------------------------------------------------------
-     /**
-     * @brief  Q_ci compute the derivative of the spatial Jacobian 
-     * @param  J_spa_i is a 6xc yarp matrix describing a spatial Jacobian
-     * @param  T_a_ci is the homogeneous transformation between the floating base and the contact frame 
-     * @param  f_ci contact force vector
-     * @return qxq yarp matrix 
-     */
-    yarp::sig::Matrix Q_ci( const yarp::sig::Matrix J_spa_i, const yarp::sig::Matrix T_a_ci , const yarp::sig::Vector f_ci) ;
-    
-    
-     //----------------------------------------------------------------------------
-     /**
-     * @brief  RoundMatrix computes the round of M to k decimal places 
-     * @param  M yarp matrix to round
-     * @param  k number of decimal places 
-     * @return rounded yarp matrix 
-     */
-    yarp::sig::Matrix RoundMatrix( const yarp::sig::Matrix M, const int k) ;
-    
-    
-     //------------------------------------------------------------------------------------
-     /**
-     * @brief  FLMM_ext computes the FLMM for a compliant humanoid robot 
-     * @param  J_c is a contacts x joints yarp matrix describing the body Jacobian of the humanoid
-     * @param  S_c is a 6 x contacts yarp matrix describing the body Stance matrix of the humanoid
-     * @param  Q_j is a joints x joints yarp matrix about the derivative of the Jacobian 
-     * @param  Q_s is a contacts x joints yarp matrix about the derivative of the Jacobian 
-     * @param  U_j is a joints x 6 yarp matrix about the derivative of the Jacobian 
-     * @param  U_s is a 6 x 6 yarp matrix about the derivative of the Jacobian 
-     * @param  K_c is a contacts x contacts yarp matrix describing the contact stiffness matrix
-     * @param  K_q is a joints x joints yarp matrix describing the joint stiffness matrix
-     * @return FLMM_ext is the Fundamental Loco-Manipulation Matrix
-     */
-    yarp::sig::Matrix FLMM_ext( const yarp::sig::Matrix J_c ,
-			    const yarp::sig::Matrix S_c ,
-			    const yarp::sig::Matrix Q_j,
-			    const yarp::sig::Matrix Q_s,
-			    const yarp::sig::Matrix U_j,
-			    const yarp::sig::Matrix U_s,
-			    const yarp::sig::Matrix K_c,
-			    const yarp::sig::Matrix K_q
-			      ) ;
-
-   //------------------------------------------------------------------------------------
+/*   //------------------------------------------------------------------------------------
      /**
      * @brief  Rf_ext computes the joints-forces map for a compliant humanoid robot 
      * @param  J_c is a contacts x joints yarp matrix describing the body Jacobian of the humanoid
@@ -344,7 +190,7 @@ public:
      * @param  K_q is a joints x joints yarp matrix describing the joint stiffness matrix
      * @return Rf_ext computes the joint-forces map
      */
-    yarp::sig::Matrix Rf_ext( const yarp::sig::Matrix J_c ,
+/*    yarp::sig::Matrix Rf_ext( const yarp::sig::Matrix J_c ,
 			    const yarp::sig::Matrix S_c ,
 			    const yarp::sig::Matrix Q_j,
 			    const yarp::sig::Matrix Q_s,
@@ -352,77 +198,77 @@ public:
 			    const yarp::sig::Matrix U_s,
 			    const yarp::sig::Matrix K_c,
 			    const yarp::sig::Matrix K_q
-			      ) ;			      
+			      ) ;*/			      
 	      
-     //------------------------------------------------------------------------------------
-     /**
-     * @brief  FLMM_redu computes a basic version of the FLMM for a rigid humanoid robot 
-     * @param  J_c is a contacts x joints yarp matrix describing the body Jacobian of the humanoid
-     * @param  S_c is a 6 x contacts yarp matrix describing the body Stance matrix of the humanoid
-     * @param  Q_s is a contacts x joints yarp matrix about the derivative of the Jacobian 
-     * @param  U_s is a 6 x 6 yarp matrix about the derivative of the Jacobian 
-     * @param  K_c is a contacts x contacts yarp matrix describing the contact stiffness matrix
-     * @return FLMM_ext is the Fundamental Loco-Manipulation Matrix
-     */
-    yarp::sig::Matrix FLMM_redu( const yarp::sig::Matrix J_c ,
-			    const yarp::sig::Matrix S_c ,
-			    const yarp::sig::Matrix Q_s,
-			    const yarp::sig::Matrix U_s,
-			    const yarp::sig::Matrix K_c
-			      ) ; 			      
-     //------------------------------------------------------------------------------------
-     /**
-     * @brief  Rf_redu computes the joints-forces map for a rigid humanoid robot 
-     * @param  J_c is a contacts x joints yarp matrix describing the body Jacobian of the humanoid
-     * @param  S_c is a 6 x contacts yarp matrix describing the body Stance matrix of the humanoid
-     * @param  Q_s is a contacts x joints yarp matrix about the derivative of the Jacobian 
-     * @param  U_s is a 6 x 6 yarp matrix about the derivative of the Jacobian 
-     * @param  K_c is a contacts x contacts yarp matrix describing the contact stiffness matrix
-     * @return Rf_redu is the Fundamental Loco-Manipulation Matrix
-     */
-    yarp::sig::Matrix Rf_redu( const yarp::sig::Matrix J_c ,
-			    const yarp::sig::Matrix S_c ,
-			    const yarp::sig::Matrix Q_s,
-			    const yarp::sig::Matrix U_s,
-			    const yarp::sig::Matrix K_c
-			      ) ;			      
-			      
-       //------------------------------------------------------------------------------------
-     /**
-     * @brief  Ru_redu computes the joints-movements map for a a rigid humanoid robot 
-     * @param  J_c is a contacts x joints yarp matrix describing the body Jacobian of the humanoid
-     * @param  S_c is a 6 x contacts yarp matrix describing the body Stance matrix of the humanoid
-     * @param  Q_s is a contacts x joints yarp matrix about the derivative of the Jacobian 
-     * @param  U_s is a 6 x 6 yarp matrix about the derivative of the Jacobian 
-     * @param  K_c is a contacts x contacts yarp matrix describing the contact stiffness matrix
-     * @return Ru_redu is the Fundamental Loco-Manipulation Matrix
-     */
-    yarp::sig::Matrix Ru_redu( const yarp::sig::Matrix J_c ,
-			    const yarp::sig::Matrix S_c ,
-			    const yarp::sig::Matrix Q_s,
-			    const yarp::sig::Matrix U_s,
-			    const yarp::sig::Matrix K_c
-			      ) ;		
-//------------------------------------------------------------------------------------
-     /**
+//      //------------------------------------------------------------------------------------
+//      /**
+//      * @brief  FLMM_redu computes a basic version of the FLMM for a rigid humanoid robot 
+//      * @param  J_c is a contacts x joints yarp matrix describing the body Jacobian of the humanoid
+//      * @param  S_c is a 6 x contacts yarp matrix describing the body Stance matrix of the humanoid
+//      * @param  Q_s is a contacts x joints yarp matrix about the derivative of the Jacobian 
+//      * @param  U_s is a 6 x 6 yarp matrix about the derivative of the Jacobian 
+//      * @param  K_c is a contacts x contacts yarp matrix describing the contact stiffness matrix
+//      * @return FLMM_ext is the Fundamental Loco-Manipulation Matrix
+//      */
+//     yarp::sig::Matrix FLMM_redu( const yarp::sig::Matrix J_c ,
+// 			    const yarp::sig::Matrix S_c ,
+// 			    const yarp::sig::Matrix Q_s,
+// 			    const yarp::sig::Matrix U_s,
+// 			    const yarp::sig::Matrix K_c
+// 			      ) ; 			      
+//      //------------------------------------------------------------------------------------
+//      /**
+//      * @brief  Rf_redu computes the joints-forces map for a rigid humanoid robot 
+//      * @param  J_c is a contacts x joints yarp matrix describing the body Jacobian of the humanoid
+//      * @param  S_c is a 6 x contacts yarp matrix describing the body Stance matrix of the humanoid
+//      * @param  Q_s is a contacts x joints yarp matrix about the derivative of the Jacobian 
+//      * @param  U_s is a 6 x 6 yarp matrix about the derivative of the Jacobian 
+//      * @param  K_c is a contacts x contacts yarp matrix describing the contact stiffness matrix
+//      * @return Rf_redu is the Fundamental Loco-Manipulation Matrix
+//      */
+//     yarp::sig::Matrix Rf_redu( const yarp::sig::Matrix J_c ,
+// 			    const yarp::sig::Matrix S_c ,
+// 			    const yarp::sig::Matrix Q_s,
+// 			    const yarp::sig::Matrix U_s,
+// 			    const yarp::sig::Matrix K_c
+// 			      ) ;			      
+// 			      
+//        //------------------------------------------------------------------------------------
+//      /**
+//      * @brief  Ru_redu computes the joints-movements map for a a rigid humanoid robot 
+//      * @param  J_c is a contacts x joints yarp matrix describing the body Jacobian of the humanoid
+//      * @param  S_c is a 6 x contacts yarp matrix describing the body Stance matrix of the humanoid
+//      * @param  Q_s is a contacts x joints yarp matrix about the derivative of the Jacobian 
+//      * @param  U_s is a 6 x 6 yarp matrix about the derivative of the Jacobian 
+//      * @param  K_c is a contacts x contacts yarp matrix describing the contact stiffness matrix
+//      * @return Ru_redu is the Fundamental Loco-Manipulation Matrix
+//      */
+//     yarp::sig::Matrix Ru_redu( const yarp::sig::Matrix J_c ,
+// 			    const yarp::sig::Matrix S_c ,
+// 			    const yarp::sig::Matrix Q_s,
+// 			    const yarp::sig::Matrix U_s,
+// 			    const yarp::sig::Matrix K_c
+// 			      ) ;		
+/*//------------------------------------------------------------------------------------
+ /*
      * @brief  Pinv_trunc_SVD computes the pseudoinverse of A via the truncated SVD method 
      * @param  A is the matrix to pseudo-inverse
      * @param  k is the maximum ratio admitted between the max and min singular values
      * @return Pinv_trunc_SVD is the pseudo-inverse of A
      */
-      yarp::sig::Matrix Pinv_trunc_SVD( const yarp::sig::Matrix A ,
-			                const double k = 1E-4 
-			              ) ;   // 
+//      yarp::sig::Matrix Pinv_trunc_SVD( const yarp::sig::Matrix A ,
+			               // const double k = 1E-4 
+			            //  ) ;   // 
 //------------------------------------------------------------------------------------
      /**
-     * @brief  Pinv_Regularized computes the Levemberg Regularized pseudo-inverse of A 
+//     * @brief  Pinv_Regularized computes the Levemberg Regularized pseudo-inverse of A 
      * @param  A is the matrix to pseudo-inverse
      * @param  k is the regularization factor
      * @return Pinv_Regularized is the pseudo-inverse of A
      */ 
-      yarp::sig::Matrix Pinv_Regularized( const yarp::sig::Matrix A ,
+/*      yarp::sig::Matrix Pinv_Regularized( const yarp::sig::Matrix A ,
 			                  const double k  
-			                ) ;     
+			                ) ;*/     
 					
      /**
      * @brief  Pinv_Marq computes the Levemberg-Marquard Regularized pseudo-inverse of A 
@@ -430,9 +276,9 @@ public:
      * @param  k is the regularization factor
      * @return Pinv_Marq is the pseudo-inverse of A
      */ 
-      yarp::sig::Matrix Pinv_Marq( const yarp::sig::Matrix A ,
+/*      yarp::sig::Matrix Pinv_Marq( const yarp::sig::Matrix A ,
 			                  const double k  
-			                ) ;    
+			                ) ;*/    
 //------------------------------------------------------------------------------------
      /**
      * @brief  x_Pinv_Iter computes the variable x: Ax=b via the Landweber iteration method
@@ -441,28 +287,28 @@ public:
      * @param  n is the maximum number of steps to be performed (less that the minimum dimension of A)
      * @return x_Pinv_Iter is the solution vetor
      */
-      yarp::sig::Vector x_Pinv_Iter( const yarp::sig::Matrix A , 
+/*      yarp::sig::Vector x_Pinv_Iter( const yarp::sig::Matrix A , 
 				   const yarp::sig::Vector b , 
 			           double n 
-			           ) ;   // 			      
+			           ) ; */  // 			      
      /**
      * @brief  orth_SVD computes a basis for the span of A via the truncated SVD method 
      * @param  A is the matrix of which a basis is needed
      * @param  k is the maximum ratio admitted between the max and min singular values
      * @return orth_SVD is a basis for the span of A
      */
-      yarp::sig::Matrix orth_SVD( const yarp::sig::Matrix A ,
+/*      yarp::sig::Matrix orth_SVD( const yarp::sig::Matrix A ,
 			                const double k = 1E-4 
-			              ) ;   // 			           
+			              ) ; */  // 			           
      /**
      * @brief  null_SVD computes a basis for the nullspace of A via the truncated SVD method 
      * @param  A is the matrix of which a basis for the nullspace is needed
      * @param  k is the maximum ratio admitted between the max and min singular values
      * @return null_SVD is a basis for the nullspace of A
      */
-      yarp::sig::Matrix null_SVD( const yarp::sig::Matrix A ,
-			                const double k = 1E-4 
-			              ) ;  
+//       yarp::sig::Matrix null_SVD( const yarp::sig::Matrix A ,
+// 			                const double k = 1E-4 
+// 			              ) ;  
            
      /**
      * @brief  filter_SVD computes a "filtered" version of A via the truncated SVD  
@@ -470,101 +316,97 @@ public:
      * @param  k is the maximum ratio admitted between the max and min singular values
      * @return filter_SVD is the filtered version of A
      */
-      yarp::sig::Matrix filter_SVD( const yarp::sig::Matrix A ,
+/*      yarp::sig::Matrix filter_SVD( const yarp::sig::Matrix A ,
 			                const double k = 1E-4 
-			              ) ; 				      
+			              ) ;	*/			      
 
 
-     /**
-     * @brief  sigma_frict computes the metrics measuring the goodness of the contact force with respect to friction limits 
-     * @param  fc is the contact force. The normal is assumed to be n = [0 0 1]^T 
-     * @param  mu is the friction coefficient
-     * @return the value of sigma_frict
-     */
-      double sigma_frict( const yarp::sig::Vector fc ,
-			  const double mu 
-			              ) ; 
+//      /**
+//      * @brief  sigma_frict computes the metrics measuring the goodness of the contact force with respect to friction limits 
+//      * @param  fc is the contact force. The normal is assumed to be n = [0 0 1]^T 
+//      * @param  mu is the friction coefficient
+//      * @return the value of sigma_frict
+//      */
+//       double sigma_frict( const yarp::sig::Vector fc ,
+// 			  const double mu 
+// 			              ) ; 
 
-     /**
-     * @brief  sigma_min computes the distance (along a certain metric) with respect to minimum force allowed 
-     * @param  fc is the contact force.  
-     * @param  f_min is the minimum module of the force allowed
-     * @return the value of sigma_min
-     */
-      double sigma_min( const yarp::sig::Vector fc,
-         		const double f_min 
-			              ) ; 
+//      /**
+//      * @brief  sigma_min computes the distance (along a certain metric) with respect to minimum force allowed 
+//      * @param  fc is the contact force.  
+//      * @param  f_min is the minimum module of the force allowed
+//      * @return the value of sigma_min
+//      */
+//       double sigma_min( const yarp::sig::Vector fc,
+//          		const double f_min 
+// 			              ) ; 
 
-     /**
-     * @brief  sigma_max computes the distance (along a certain metric) with respect to maximum force allowed 
-     * @param  fc is the contact force.  
-     * @param  f_max is the maximum module of the force allowed
-     * @return the value of sigma_min
-     */
-      double sigma_max( const yarp::sig::Vector fc,
-         		const double f_max 
-			              ) ; 
+//      /**
+//      * @brief  sigma_max computes the distance (along a certain metric) with respect to maximum force allowed 
+//      * @param  fc is the contact force.  
+//      * @param  f_max is the maximum module of the force allowed
+//      * @return the value of sigma_min
+//      */
+//       double sigma_max( const yarp::sig::Vector fc,
+//          		const double f_max 
+// 			              ) ; 
 	      
-     /**
-     * @brief  V_ij computes the distance (along a certain metric) with respect to the contact limits
-     * @param  sigma is one exit of the functions sigma_frict, sigma_min, sigma_max
-     * @param  toll is the admitted tolerance with respect to sigma limit value (= 0)
-     * @return the value of V_ij
-     */
-      double V_ij( const double sigma, 
-                   const double toll  = 1E-7
-			              ) ; 
+//      /**
+//      * @brief  V_ij computes the distance (along a certain metric) with respect to the contact limits
+//      * @param  sigma is one exit of the functions sigma_frict, sigma_min, sigma_max
+//      * @param  toll is the admitted tolerance with respect to sigma limit value (= 0)
+//      * @return the value of V_ij
+//      */
+//       double V_ij( const double sigma, 
+//                    const double toll  = 1E-7
+// 			              ) ; 
 				      
-     /**
-     * @brief  provide the initial configuration
-     * @return  yarp vector 
-     */
-     yarp::sig::Vector q_init( void ) ; 
+//      /**
+//      * @brief  provide the initial configuration
+//      * @return  yarp vector 
+//      */
+//      yarp::sig::Vector q_init( void ) ; 
     
-     /**
+/*     /**
      * @brief  provide the desired contact force distribution => 100% on the right
      * @return  0 if ok 
      */
-     int FC_DES_right( void ) ;     
+//      int FC_DES_right( void ) ;   */  
 
-     /**
-     * @brief  provide the desired contact force distribution => 100% on the left
-     * @return  0 if ok
-     */
-     int FC_DES_left( void ) ;   
+//      /**
+//      * @brief  provide the desired contact force distribution => 100% on the left
+//      * @return  0 if ok
+//      */
+//      int FC_DES_left( void ) ;   
 
-     /**
+/*     /**
      * @brief  provide the desired contact force distribution => 50% on the left/right
      * @return  0 if ok
      */
-     int FC_DES_center( void ) ;   
+//      int FC_DES_center( void ) ;  */ 
   
-     /**
-     * @brief  easy way for rotating the right shoulder 
-     * @param alpha rotation angle [rad], angluar step at each loop
-     * @return the uptated joint vector configuration 
-     */
-     yarp::sig::Vector moving_right_arm( const double alpha ) ;  
+//      /**
+//      * @brief  easy way for rotating the right shoulder 
+//      * @param alpha rotation angle [rad], angluar step at each loop
+//      * @return the uptated joint vector configuration 
+//      */
+//      yarp::sig::Vector moving_right_arm( const double alpha ) ;  
        
-     /**
-     * @brief linear function from the values (0,err_min) to (1,err_max)
-     * @param err the point on which the filtering function has to be computed
-     * @param err_min minimum error value (positive)
-     * @param err_max maximum error value (greather than err_min)
-     * @return the filtering value
-     */
-     double alpha_filter( double err, double err_min, double err_max ) ;  
+//      /**
+//      * @brief linear function from the values (0,err_min) to (1,err_max)
+//      * @param err the point on which the filtering function has to be computed
+//      * @param err_min minimum error value (positive)
+//      * @param err_max maximum error value (greather than err_min)
+//      * @return the filtering value
+//      */
+//      double alpha_filter( double err, double err_min, double err_max ) ;  
      
-     /**
-     * @brief The function computes and returns the pose of the frame auxiliary world frame {AW} with 
-     * @return respect to the world
-     */
-     yarp::sig::Matrix AW_world_posture( void  ) ;  
-     
-     
-     
-     
-     
+//      /**
+//      * @brief The function computes and returns the pose of the frame auxiliary world frame {AW} with 
+//      * @return respect to the world
+//      */
+//      yarp::sig::Matrix AW_world_posture( void  ) ;  
+
      /**
      * @brief linear function from the values (0,err_min) to (1,err_max)
      * @param err the point on which the filtering function has to be computed
@@ -575,60 +417,61 @@ public:
     // double data_on_file( char file_name, double data  ) ;  
      
      
-     /**
-     * @brief  Rot2Quat computes the quaterion components given the rotation matrix
-     * @param  Rot is 3 x 3 rotation matrix
-     * @return a vector of 4 elements; the first element is the scalar part of the quaternion
-     */
-    yarp::sig::Vector Rot2Quat( const yarp::sig::Matrix Rot) ;		
      
-     /**
-     * @brief  Orient_Error computes the orientation error based on the quaternion representation of the rotation matrices
-     * @param  Rot_des is 3 x 3 rotation matrix representing the desired orientation
-     * @param  Rot_cur is 3 x 3 rotation matrix representing the current orientation
-     * @return a vector of 3 elements representing the orientation error
-     */
-    yarp::sig::Vector Orient_Error( const yarp::sig::Matrix Rot_des, const yarp::sig::Matrix Rot_cur) ;		
-
-     /**
-     * @brief  Inv_quaternion computes the inverse of a given quaternion
-     * @param  quat is 4 elements vector describing a quaternion
-     * @return a vector of 4 elements representing the inverse of the input quaternion
-     */
-    yarp::sig::Vector Inv_quaternion( const yarp::sig::Vector quat ) ;	
-
-     /**
-     * @brief  Computes the product of two quaternions
-     * @param  quat_1 and quat_2 are 4 elements vectors describing quaternions
-     * @return a vector of 4 elements representing the product of the two input quaternions
-     */
-    yarp::sig::Vector quat_Product( const yarp::sig::Vector quat_1 , const yarp::sig::Vector quat_2) ;	
-    
-    /**
-     * @brief  Computes the rotation matrix about x axis
-     * @param  phi_x rotation angle
-     * @return a 3x3 yarp Matrix
-     */
-    yarp::sig::Matrix Rot_x( const double phi_x ) ;	
-        
-    /**
-     * @brief  Computes the rotation matrix about y axis
-     * @param  theta_y rotation angle
-     * @return a 3x3 yarp Matrix
-     */   
-    yarp::sig::Matrix Rot_y( const double theta_y ) ;
-    
-     /**
-     * @brief  Computes the rotation matrix about z axis
-     * @param  psi_z rotation angle
-     * @return a 3x3 yarp Matrix
-     */
-    yarp::sig::Matrix Rot_z( const double psi_z) ;	
-     
+//      /**
+//      * @brief  Rot2Quat computes the quaterion components given the rotation matrix
+//      * @param  Rot is 3 x 3 rotation matrix
+//      * @return a vector of 4 elements; the first element is the scalar part of the quaternion
+//      */
+//     yarp::sig::Vector Rot2Quat( const yarp::sig::Matrix Rot) ;		
+//      
+//      /**
+//      * @brief  Orient_Error computes the orientation error based on the quaternion representation of the rotation matrices
+//      * @param  Rot_des is 3 x 3 rotation matrix representing the desired orientation
+//      * @param  Rot_cur is 3 x 3 rotation matrix representing the current orientation
+//      * @return a vector of 3 elements representing the orientation error
+//      */
+//     yarp::sig::Vector Orient_Error( const yarp::sig::Matrix Rot_des, const yarp::sig::Matrix Rot_cur) ;		
+// 
+//      /**
+//      * @brief  Inv_quaternion computes the inverse of a given quaternion
+//      * @param  quat is 4 elements vector describing a quaternion
+//      * @return a vector of 4 elements representing the inverse of the input quaternion
+//      */
+//     yarp::sig::Vector Inv_quaternion( const yarp::sig::Vector quat ) ;	
+// 
+//      /**
+//      * @brief  Computes the product of two quaternions
+//      * @param  quat_1 and quat_2 are 4 elements vectors describing quaternions
+//      * @return a vector of 4 elements representing the product of the two input quaternions
+//      */
+//     yarp::sig::Vector quat_Product( const yarp::sig::Vector quat_1 , const yarp::sig::Vector quat_2) ;	
+//     
+//     /**
+//      * @brief  Computes the rotation matrix about x axis
+//      * @param  phi_x rotation angle
+//      * @return a 3x3 yarp Matrix
+//      */
+//     yarp::sig::Matrix Rot_x( const double phi_x ) ;	
+//         
+//     /**
+//      * @brief  Computes the rotation matrix about y axis
+//      * @param  theta_y rotation angle
+//      * @return a 3x3 yarp Matrix
+//      */   
+//     yarp::sig::Matrix Rot_y( const double theta_y ) ;
+//     
+//      /**
+//      * @brief  Computes the rotation matrix about z axis
+//      * @param  psi_z rotation angle
+//      * @return a 3x3 yarp Matrix
+//      */
+//     yarp::sig::Matrix Rot_z( const double psi_z) ;	
+//      
 
     //----------------------------------------------------------------------
      
-     /**
+/*     /**
      * @brief  WB_Cartesian_Tasks computes the whole-body displacement for achieving the 
      *         desired configurations of the End Effectors and of the CoM (all together)
      * @param  T_l1_foot_des desired pose of the left foot (first contact) in local frame
@@ -644,7 +487,7 @@ public:
      * @param  J_waist_CoM    is a (3 x (joints+6)) Jacobian of the CoM expressed in {Waist} frame
      * @return the desired delta_q vector 
      */
-    yarp::sig::Vector WB_Cartesian_Tasks( 
+/*    yarp::sig::Vector WB_Cartesian_Tasks( 
 			    const yarp::sig::Matrix T_l_hand_des,
 			    const yarp::sig::Matrix T_r_hand_des,
                             const yarp::sig::Matrix T_l1_foot_des ,
@@ -655,7 +498,7 @@ public:
 			    const yarp::sig::Matrix J_l1_foot_body ,
 			    const yarp::sig::Matrix J_r1_foot_body ,
 			    const yarp::sig::Matrix J_waist_CoM 
-					) ;  		
+					) ;*/ 		
     
     
 };

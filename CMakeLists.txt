@@ -31,6 +31,8 @@ find_package(paramHelp REQUIRED)
 find_package(YARP REQUIRED)
 FIND_PACKAGE(GYM REQUIRED)
 find_package(iDynTree REQUIRED)
+FIND_PACKAGE(locoman_utils REQUIRED)
+
 ###########
 ## Build ##
 ###########
@@ -38,8 +40,13 @@ find_package(iDynTree REQUIRED)
 file(GLOB_RECURSE locoman_INCLUDES "${CMAKE_CURRENT_SOURCE_DIR}/include/" *.h*)  #generic_locoman_INCLUDES
 
 # include directories list
-include_directories( include ${CMAKE_SOURCE_DIR}/include ${idynutils_INCLUDE_DIRS} ${paramHelp_INCLUDE_DIRS} ${YARP_INCLUDE_DIRS} 
-		    ${GYM_INCLUDE_DIRS})
+include_directories( include 
+		    ${CMAKE_SOURCE_DIR}/include 
+		    ${idynutils_INCLUDE_DIRS} 
+		    ${paramHelp_INCLUDE_DIRS} 
+		    ${YARP_INCLUDE_DIRS} 
+		    ${GYM_INCLUDE_DIRS}
+		    ${locoman_utils_INCLUDE_DIRS})
 
 # create the generic locoman executable
 add_executable( ${PROJECT_NAME} src/locoman_main.cpp 
