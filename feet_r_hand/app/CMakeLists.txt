@@ -12,7 +12,7 @@ file(GLOB conf conf/*.ini)
 # install all the .ini files in conf in the "default context" directory
 yarp_install(FILES ${conf} DESTINATION ${YARP_CONTEXTS_INSTALL_DIR}/locoman)   #generic_locoman
 
-add_custom_target(  copy_conf_files_to_build ALL
+add_custom_target(  feet_r_hand_copy_conf_files_to_build ALL
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${PROJECT_SOURCE_DIR}/app/conf"
         "${CMAKE_BINARY_DIR}/bin")
