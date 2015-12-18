@@ -40,7 +40,8 @@ private:
     double max_vel;
 public:
 
-    int mg =  290 ; // [N]  295
+
+    int mg =  290 ; // [N]  295 // mg_coman = 290; mg_bigman = 1200 ;
     int loop_counter;
     int WINDOW_size;
     int FC_size ;  

@@ -135,6 +135,9 @@ locoman_control_thread::locoman_control_thread( std::string module_prefix,
    // std::cout << " FC_DES_LEFT_HAND_sensor  =  "  << std::endl << FC_DES_LEFT_HAND_sensor.toString() << std::endl  ; 
    // std::cout << " FC_DES_RIGHT_HAND_sensor  =  "  << std::endl << FC_DES_RIGHT_HAND_sensor.toString() << std::endl  ;     
     std::cout << " FC_HANDS_SUM  =  "  << std::endl << FC_HANDS_SUM.toString() << std::endl  ; 
+     if(robot.idynutils.getRobotName() == "bigman") {
+     mg = 1200;
+     }
 }
 
 
@@ -229,16 +232,17 @@ bool locoman_control_thread::custom_init()
     double err_0 = norm(q_motor_act- q_des) +0.1 ;
     double err_1 = norm(q_motor_act- q_des)  ;
     int cont = 1 ;
-    int frac = 40 ;
+    int frac = 1000 ; //1000 ;
     while ( norm(q_motor_act- q_des)>0.01 && fabs(err_0-err_1)>0.000001 ) //( ( (norm(q_motor_act- q_des)>0.01)  )) // &&  ( abs(err_0-err_1)>0.000001 )) )
     {
     err_0 = err_1 ;
-    usleep(100*1000) ;
     q_motor_act = locoman::utils::senseMotorPosition(robot,flag_robot) ;
+    usleep(10*1000) ;  //  usleep(10*1000) ;
+    robot.move((q_motor_0 + cont*d_q_des/frac)) ;  //q_motor_0
+    cont++ ;
+    std::cout << " cont  =  " <<  cont << std::endl; 
     err_1 = norm(q_motor_act- q_des)  ;
     
-    robot.move((q_motor_0+ cont*d_q_des/frac)) ; 
-    cont++ ;
     if(cont>frac){cont =frac;}
     std::cout << " err_1  =  " <<  err_1 << std::endl; 
      continue ; 
@@ -246,7 +250,7 @@ bool locoman_control_thread::custom_init()
     std::cout << " final error =  " <<  norm(q_motor_act- q_des) << std::endl; 
     std::cout << " final fabs(err_0-err_1) =  " <<  fabs(err_0-err_1) << std::endl; 
     
-    usleep(1000*1000) ; // usleep(milliseconds*1000)
+    usleep(2000*1000) ; // usleep(milliseconds*1000)
     // robot.left_arm.move(q_ref_ToMove_left_arm);
     return true;
     //
@@ -316,7 +320,6 @@ void locoman_control_thread::run()
 //   std::cout << " r_wrist  =  "  << std::endl << ft_r_wrist.toString() << std::endl  ;     
 //   std::cout << " l_wrist  =  "  << std::endl << ft_l_wrist.toString() << std::endl  ;     
 
-  
    
 //---------------------------------------------------------------------------------------------------------//  
     // 
@@ -343,14 +346,13 @@ void locoman_control_thread::run()
     int l_hand_c3_index = model.iDyn3_model.getLinkIndex("l_hand_upper_left_link");   // r_foot_lower_left_link
     int l_hand_c4_index = model.iDyn3_model.getLinkIndex("l_hand_lower_left_link");  // r_foot_lower_right_link
     
-    
     int r_wrist_index  = model.iDyn3_model.getLinkIndex("r_wrist") ;
     int r_hand_c1_index = model.iDyn3_model.getLinkIndex("r_hand_upper_right_link");  // r_foot_upper_left_link
     int r_hand_c2_index = model.iDyn3_model.getLinkIndex("r_hand_lower_right_link");  // r_foot_upper_right_link
     int r_hand_c3_index = model.iDyn3_model.getLinkIndex("r_hand_upper_left_link");   // r_foot_lower_left_link
     int r_hand_c4_index = model.iDyn3_model.getLinkIndex("r_hand_lower_left_link");  // r_foot_lower_right_link
     
-
+    
     yarp::sig::Matrix map_l_fcToSens =   locoman::utils::fConToSens( l_ankle_index, 
 						      l_c1_index  , 
 					              l_c2_index  ,  						      
@@ -1034,7 +1036,7 @@ void locoman_control_thread::run()
 
   
   
-  if(norm(d_q_move)>0.008){d_q_move =  0.008 *d_q_move/ norm(d_q_move) ; //d_q_dsp_7 ; //0.012 *d_q_move/ norm(d_q_move) ;
+  if(norm(d_q_move)>0.004){d_q_move =  0.004 *d_q_move/ norm(d_q_move) ; //d_q_dsp_7 ; //0.012 *d_q_move/ norm(d_q_move) ;
   }
   if(norm(d_q_move)<0.002){d_q_move =  0.002 *d_q_move/ norm(d_q_move) ;
   }

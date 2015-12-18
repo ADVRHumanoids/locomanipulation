@@ -7,12 +7,12 @@ Current Build Directory Index=0
 ProjectRootRelative=./
 
 [CMake][CMake Build Directory 0]
-Build Directory Path=file:///home/edo/walkman/build/drc/locomanipulation/
-Build Type=
+Build Directory Path=file:///home/lucamuratore/walkman/build/drc/locomanipulation/
+Build Type=Release
 CMake Binary=file:///usr/bin/cmake
 Environment Profile=
 Extra Arguments=
-Install Directory=file:///home/edo/walkman/build/install
+Install Directory=file:///home/lucamuratore/walkman/build/install
 
 [Launch]
 Launch Configurations=Launch Configuration 0
@@ -28,16 +28,16 @@ Arguments=
 Dependencies=@Variant(\x00\x00\x00\t\x00\x00\x00\x00\x00)
 Dependency Action=Nothing
 EnvironmentGroup=default
-Executable=file:///home/edo/walkman/build/drc/locomanipulation/locomanipulation
+Executable=file:///home/lucamuratore/walkman/drc/locomanipulation/
 External Terminal=konsole --noclose --workdir %workdir -e %exe
-Project Target=locomanipulation,locomanipulation
+Project Target=locomanipulation,only_feet,locomanipulation_only_feet
 Use External Terminal=false
 Working Directory=
-isExecutable=true
+isExecutable=false
 
 [MakeBuilder]
 Additional Options=install
-Number Of Jobs=3
+Number Of Jobs=8
 
 [Project]
 VersionControlSupport=kdevgit
