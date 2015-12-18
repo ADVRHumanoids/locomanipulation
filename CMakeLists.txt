@@ -16,17 +16,17 @@ IF(LOCOMAN_only_feet)
 ENDIF(LOCOMAN_only_feet)
 
 # ---------------------
-# Compile only_feet
+# Compile feet_r_hand
 # ---------------------
-set(LOCOMAN_feet_r_hand ON CACHE BOOL "Flag to compile feet_r_hand")
+set(LOCOMAN_feet_r_hand OFF CACHE BOOL "Flag to compile feet_r_hand")
 IF(LOCOMAN_feet_r_hand)
 	add_subdirectory(feet_r_hand)
 ENDIF(LOCOMAN_feet_r_hand)
 
 # ---------------------
-# Compile only_feet
+# Compile feet_hands
 # ---------------------
-set(LOCOMAN_feet_hands ON CACHE BOOL "Flag to compile feet_hands")
+set(LOCOMAN_feet_hands OFF CACHE BOOL "Flag to compile feet_hands")
 IF(LOCOMAN_feet_hands)
 	add_subdirectory(feet_hands)
 ENDIF(LOCOMAN_feet_hands)
