@@ -41,12 +41,17 @@ private:
 public:
 
 
-    int mg =  290 ; // [N]  295 // mg_coman = 290; mg_bigman = 1200 ;
+    int mg =  290 ; // [N]  295 // mg_coman = 290; mg_bigman = 1000 ;
     int loop_counter;
     int WINDOW_size;
     int FC_size ;  
-    bool flag_robot = 0 ;
+    bool flag_robot = 1 ;
     bool flag_simulator = 1-flag_robot ;
+    
+    
+    yarp::sig::Vector q_offset  ;  
+    yarp::sig::Vector q_current_open_loop  ;  
+
     
     int FC_HANDS_size ;
     
