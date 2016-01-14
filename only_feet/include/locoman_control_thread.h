@@ -36,6 +36,12 @@ private:
     yarp::sig::Vector left_leg_configuration;
     yarp::sig::Vector right_leg_configuration;
     yarp::sig::Vector torso_configuration;
+
+    yarp::sig::Vector left_arm_config_0  ;
+    yarp::sig::Vector right_arm_config_0 ;
+    yarp::sig::Vector left_leg_config_0  ;
+    yarp::sig::Vector right_leg_config_0 ;
+    yarp::sig::Vector torso_config_0     ;
     
     double max_vel;
 public:

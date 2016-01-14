@@ -28,17 +28,15 @@ int main(int argc, char* argv[])
 
     // create locomanipulation module
     locoman_module locoman_mod = locoman_module( argc, 
-                                                    argv, 
-                                                    "locoman",   //generic_locoman
-                                                    MODULE_PERIOD_MILLISEC, 
-                                                    locoman_rf );
-        
-
-    
+                                                 argv, 
+                                                 "locoman",   //generic_locoman
+                                                 MODULE_PERIOD_MILLISEC, 
+                                                 locoman_rf );
+ 
     // run the module
     locoman_mod.runModule( locoman_rf );
     
-        // yarp network deinitialization
+    // yarp network deinitialization
     yarp.fini();
     exit(EXIT_SUCCESS);
 }
