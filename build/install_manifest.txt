@@ -1,5 +1,0 @@
-/home/edo/walkman/build/install/bin/locomanipulation_only_feet
-/home/edo/walkman/build/install/share/yarp/contexts/locoman/locoman_configuration.ini
-/home/edo/walkman/build/install/share/yarp/contexts/locoman/locoman_configuration_bigman.ini
-/home/edo/walkman/build/install/share/yarp/contexts/locoman/locoman_configuration.ini
-/home/edo/walkman/build/install/share/yarp/contexts/locoman/locoman_configuration_bigman.ini
