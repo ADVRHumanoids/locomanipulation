@@ -80,7 +80,39 @@ public:
                                                                             PARAM_SIZE_MAX_VEL, 
                                                                             paramHelp::PARAM_IN_OUT, 
                                                                             NULL, 
-                                                                            "maximum velocity in [rad/second]" ) );      
+                                                                            "maximum velocity in [rad/second]" ) );   
+        //-----------------------------------------------------------------------------------
+        custom_params.push_back( new paramHelp::ParamProxyBasic<double>(   "left_leg_0", 
+                                                                            PARAM_ID_LEFT_LEG_0 , 
+                                                                            PARAM_SIZE_LEFT_LEG , 
+                                                                            paramHelp::PARAM_IN_OUT, 
+                                                                            NULL, 
+                                                                            "left_leg configuration in [rad]" ) );
+        custom_params.push_back( new paramHelp::ParamProxyBasic<double>(   "right_leg_0", 
+                                                                            PARAM_ID_RIGHT_LEG_0 , 
+                                                                            PARAM_SIZE_RIGHT_LEG , 
+                                                                            paramHelp::PARAM_IN_OUT, 
+                                                                            NULL, 
+                                                                            "right_leg configuration in [rad]" ) );
+        custom_params.push_back( new paramHelp::ParamProxyBasic<double>(   "torso_0", 
+                                                                            PARAM_ID_TORSO_0 , 
+                                                                            PARAM_SIZE_TORSO , 
+                                                                            paramHelp::PARAM_IN_OUT, 
+                                                                            NULL, 
+                                                                            "torso configuration in [rad]" ) ); 
+        custom_params.push_back( new paramHelp::ParamProxyBasic<double>(   "left_arm_0", 
+                                                                            PARAM_ID_LEFT_ARM_0, 
+                                                                            PARAM_SIZE_LEFT_ARM, 
+                                                                            paramHelp::PARAM_IN_OUT, 
+                                                                            NULL, 
+                                                                            "left_arm configuration in [rad]" ) );
+        custom_params.push_back( new paramHelp::ParamProxyBasic<double>(   "right_arm_0", 
+                                                                            PARAM_ID_RIGHT_ARM_0, 
+                                                                            PARAM_SIZE_RIGHT_ARM, 
+                                                                            paramHelp::PARAM_IN_OUT, 
+                                                                            NULL, 
+                                                                            "right_arm configuration in [rad]" ) );
+
         return custom_params;
     }
 };

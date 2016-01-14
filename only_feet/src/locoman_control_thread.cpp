@@ -97,6 +97,13 @@ locoman_control_thread::locoman_control_thread( std::string module_prefix,
     left_leg_configuration.resize(left_leg_joints);
     right_leg_joints = robot.right_leg.getNumberOfJoints();
     right_leg_configuration.resize(right_leg_joints);
+    
+    left_arm_config_0.resize(left_arm_joints);
+    right_arm_config_0.resize(right_arm_joints);
+    torso_config_0.resize(torso_joints);
+    left_leg_config_0.resize(left_leg_joints);
+    right_leg_config_0.resize(right_leg_joints);
+
     //
     //  Simulator-To-Robot Switch
     flag_robot = 0 ; //1
@@ -147,8 +154,6 @@ locoman_control_thread::locoman_control_thread( std::string module_prefix,
 }
 
 
-
-
 void locoman_control_thread::link_locoman_params()
 {
     // get a shared pointer to param helper
@@ -171,71 +176,73 @@ void locoman_control_thread::link_locoman_params()
     
     // link the max_vel parameter (single value linking
     ph->linkParam( PARAM_ID_MAX_VEL, &max_vel );
+    
+    //------------------------------------------------------------
+    ph->linkParam( PARAM_ID_LEFT_LEG_0 , left_leg_config_0.data() );
+    ph->linkParam( PARAM_ID_RIGHT_LEG_0, right_leg_config_0.data() );
+    ph->linkParam( PARAM_ID_TORSO_0    , torso_config_0.data() );
+    ph->linkParam( PARAM_ID_LEFT_ARM_0 , left_arm_config_0.data() );
+    ph->linkParam( PARAM_ID_RIGHT_ARM_0, right_arm_config_0.data() );
 }
 
 
 bool locoman_control_thread::custom_init()
 {   
-    struct sched_param thread_param;
-    thread_param.sched_priority = 99;
-    pthread_setschedparam(pthread_self(), SCHED_FIFO, &thread_param);
+  struct sched_param thread_param;
+  thread_param.sched_priority = 99;
+  pthread_setschedparam(pthread_self(), SCHED_FIFO, &thread_param);
     
-    link_locoman_params();
+  link_locoman_params();
     
-    robot.idynutils.setFloatingBaseLink("base_link");
-    yarp::sig::Vector q_current(robot.getNumberOfJoints(),0.0) ; // = robot.sensePosition();
-    robot.idynutils.updateiDyn3Model(q_current, true);
-    
-   robot.setPositionDirectMode();    
-    
-   // TODO : adding integral part in the low level control
+  robot.idynutils.setFloatingBaseLink("base_link");
+  yarp::sig::Vector q_current(robot.getNumberOfJoints(),0.0) ; // = robot.sensePosition();
+  robot.idynutils.updateiDyn3Model(q_current, true);
    
+  robot.setPositionDirectMode();    
+    
+  // TODO : adding integral part in the low level control
    
-
-
-//-----------------------------
+  //-----------------------------
   yarp::sig::Vector q_motor_0(robot.getNumberOfJoints() ) ;                  
   q_motor_0 = locoman::utils::senseMotorPosition(robot, flag_robot) ; // this function uses manually imposed joint stiffness values
 
   yarp::sig::Vector q_des(robot.getNumberOfJoints() ) ;                   
-  yarp::sig::Vector q_right_arm_des(robot.right_arm.getNumberOfJoints()) ; 
-  yarp::sig::Vector q_left_arm_des(robot.left_arm.getNumberOfJoints()) ;
-  yarp::sig::Vector q_torso_des(robot.torso.getNumberOfJoints()) ;
-  yarp::sig::Vector q_right_leg_des(robot.right_leg.getNumberOfJoints()) ;
-  yarp::sig::Vector q_left_leg_des(robot.left_leg.getNumberOfJoints()) ;    
     
-  q_right_arm_des = right_arm_configuration  ; //Insertion of predefined values (from .ini)                      
-  q_left_arm_des  = left_arm_configuration   ;
-  q_torso_des     = torso_configuration      ;
-  q_left_leg_des  = left_leg_configuration   ;
-  q_right_leg_des = right_leg_configuration  ;
-    
-  robot.fromRobotToIdyn( q_right_arm_des ,
-                           q_left_arm_des  ,
-                           q_torso_des     ,
-                           q_right_leg_des ,
-                           q_left_leg_des  ,
-                           q_des            );     
+  robot.fromRobotToIdyn( right_arm_configuration ,
+                         left_arm_configuration  ,
+                         torso_configuration     ,
+                         right_leg_configuration ,
+                         left_leg_configuration  ,
+                         q_des                   );     
      
-  yarp::sig::Vector q_motor_act(robot.getNumberOfJoints() ) ;
-  yarp::sig::Vector d_q_des(robot.getNumberOfJoints()) ;     
-    
-  d_q_des = (q_des - q_motor_0); //
- 
-  double steps  = 300.0 ;  // slower on the real robot for safety
+  yarp::sig::Vector d_q_des = (q_des - q_motor_0); //
+  
+  double steps = 300.0 ;  // slower on the real robot for safety
   if(flag_simulator){steps = 100.0 ; } //faster on the simulator
   
-  for(int i = 1; i <steps+1; i++){
-      robot.move(q_motor_0+(i/steps)*  d_q_des) ; // robot.move(q_des) ;
-      usleep(50*1000) ;
-  }
-  q_motor_act = locoman::utils::senseMotorPosition(robot, flag_robot) ;
+  locoman::utils::Joint_Trajectory(robot, flag_robot, q_motor_0, q_des, steps  ) ;   
+
+  yarp::sig::Vector q_motor_act = locoman::utils::senseMotorPosition(robot, flag_robot) ;
   std::cout << " final error =  " <<  norm(q_motor_act- q_des) << std::endl;     
 
   usleep(2000*1000) ; // usleep(milliseconds*1000)
   // robot.left_arm.move(q_ref_ToMove_left_arm);  
  
-  //------------------------------------------------------------
+//   //------------------------------------------------------------
+//   // Homing to config  _0
+//   robot.fromRobotToIdyn( right_arm_config_0 ,
+//                          left_arm_config_0  ,
+//                          torso_config_0     ,
+//                          right_leg_config_0 ,
+//                          left_leg_config_0  ,
+//                          q_des              );     
+//   q_motor_0 = locoman::utils::senseMotorPosition(robot, flag_robot) ; 
+//   
+//   locoman::utils::Joint_Trajectory(robot, flag_robot, q_motor_0, q_des, steps  ) ;   
+// 
+//   usleep(2000*1000) ; // usleep(milliseconds*1000)
+  
+  //----------------------------------------------------------------
   // Offset Evaluation
 
   int dim_offeset = 1000    ;
@@ -255,11 +262,7 @@ bool locoman_control_thread::custom_init()
 //                            left_leg_configuration  ,
 //                            q_motor_init            )  ;
   q_offset = q_motor_init - q_current ;
-  q_current_open_loop = q_current + q_offset;
-  
-  std::cout << " q_motor_init=  " <<  q_motor_init.toString() << std::endl;     
-  std::cout << " q_current_open_loop=  " <<  q_current_open_loop.toString() << std::endl;     
-  std::cout << " q_motor_init=  " <<  q_motor_init.toString() << std::endl;     
+  q_current_open_loop = q_current + q_offset; 
   
   return true ;
 
@@ -499,13 +502,13 @@ void locoman_control_thread::run()
    yarp::sig::Vector q_sense_position = robot.sensePosition() ;                        
    //yarp::sig::Vector q_sense_motor_position = locoman::utils::senseMotorPosition(robot, flag_robot) ;    
    
-   yarp::sig::Vector q_recostructed = q_sense_position +q_offset ; 
+   yarp::sig::Vector q_reconstructed = q_sense_position +q_offset ; 
    
    std::cout << "---------------------------------------------------------------------------" <<  std::endl ; 
    std::cout << " q_motor_init = "  <<  std::endl<<  q_motor_init.toString() << std::endl; 
   //std::cout << " q_sense_position = " <<  std::endl <<  q_sense_position.toString() << std::endl; 
   // std::cout << " q_sense_motor_position = " <<  std::endl << q_sense_motor_position.toString() << std::endl;
-   std::cout << " q_recostructed = " <<  std::endl << q_recostructed.toString() << std::endl;
+   std::cout << " q_reconstructed = " <<  std::endl << q_reconstructed.toString() << std::endl;
 
    std::cout << "---------------------------------------------------------------------------" <<  std::endl ; 
 
@@ -516,7 +519,7 @@ void locoman_control_thread::run()
    yarp::sig::Vector q_reconstr_r_leg(right_leg_configuration.length()) ; ;
    yarp::sig::Vector q_reconstr_l_leg(left_leg_configuration.length()) ;
    
-    robot.fromIdynToRobot(  q_recostructed  ,
+    robot.fromIdynToRobot(  q_reconstructed  ,
                             q_reconstr_r_arm,
                             q_reconstr_l_arm,
                             q_reconstr_torso,
@@ -566,7 +569,7 @@ void locoman_control_thread::run()
   yarp::sig::Vector fc_l_c4_filt = FC_FILTERED.subVector(9,11)  ;
 
   yarp::sig::Vector fc_r_c1_filt = FC_FILTERED.subVector(12,14)  ; 
-  yarp::sig::Vector fc_r_c2_filt = FC_FILTERED.subVector(15,17)  ; 
+  yarp::sig::Vector fc_r_c2_filt = FC_FILTERED.subVector(15,17)  ; //*
   yarp::sig::Vector fc_r_c3_filt = FC_FILTERED.subVector(18,20)  ; 
   yarp::sig::Vector fc_r_c4_filt = FC_FILTERED.subVector(21,23)  ; 
   
@@ -582,10 +585,11 @@ void locoman_control_thread::run()
 
   //-----------------------------------------------------------------------------------------------------------------
   // Defining the "Auxiliary World" Frame => {AW}
-
+   std::cout << " qui  = " <<  std::endl  ;
   yarp::sig::Matrix T_w_aw_0 = locoman::utils::AW_world_posture(model, robot) ;
   yarp::sig::Matrix T_aw_w_0 = locoman::utils::iHomogeneous(T_w_aw_0) ;    
 
+  std::cout << " qui  = " <<  std::endl  ;
   //-------------------------------------------------------------------------------------------------------------    
   // Defining Useful Transformations
   yarp::sig::Matrix T_w_waist_0   = model.iDyn3_model.getPosition(waist_index) ;  

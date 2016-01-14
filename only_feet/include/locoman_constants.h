@@ -23,14 +23,18 @@
 #define PARAM_ID_RIGHT_ARM   4
 #define PARAM_SIZE_RIGHT_ARM 7
 
-
-
-
-
-
-
+// ------------------------------------------
 // max_vel : ID and SIZE definition
 #define PARAM_ID_MAX_VEL   11
 #define PARAM_SIZE_MAX_VEL 1
+
+// ------------------------------------------
+#define PARAM_ID_LEFT_LEG_0   20
+#define PARAM_ID_RIGHT_LEG_0  21
+#define PARAM_ID_TORSO_0      22
+#define PARAM_ID_LEFT_ARM_0   23
+#define PARAM_ID_RIGHT_ARM_0  24
+
+
 
 #endif
