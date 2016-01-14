@@ -1,2 +1,0 @@
-/home/edo/walkman/drc/locomanipulation/build/only_feet/CMakeFiles/locomanipulation_only_feet.dir
-/home/edo/walkman/drc/locomanipulation/build/only_feet/app/CMakeFiles/only_feet_copy_conf_files_to_build.dir
