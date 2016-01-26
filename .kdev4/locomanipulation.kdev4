@@ -2,25 +2,17 @@
 BuildItems=@Variant(\x00\x00\x00\t\x00\x00\x00\x00\x01\x00\x00\x00\x0b\x00\x00\x00\x00\x01\x00\x00\x00 \x00l\x00o\x00c\x00o\x00m\x00a\x00n\x00i\x00p\x00u\x00l\x00a\x00t\x00i\x00o\x00n)
 
 [CMake]
-Build Directory Count=2
-Current Build Directory Index=1
+Build Directory Count=1
+Current Build Directory Index=0
 ProjectRootRelative=./
 
 [CMake][CMake Build Directory 0]
-Build Directory Path=file:///home/lucamuratore/walkman/build/drc/locomanipulation/
+Build Directory Path=file:///home/walkman/walkman/build/drc/locomanipulation/
 Build Type=Release
 CMake Binary=file:///usr/bin/cmake
 Environment Profile=
 Extra Arguments=
-Install Directory=file:///home/lucamuratore/walkman/build/install
-
-[CMake][CMake Build Directory 1]
-Build Directory Path=file:///home/edo/walkman/drc/locomanipulation/build
-Build Type=Release
-CMake Binary=file:///usr/bin/cmake
-Environment Profile=
-Extra Arguments=
-Install Directory=file:///home/edo/walkman/build/install
+Install Directory=file:///home/walkman/walkman/build/install
 
 [Launch]
 Launch Configurations=Launch Configuration 0

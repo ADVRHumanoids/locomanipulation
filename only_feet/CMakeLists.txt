@@ -52,6 +52,9 @@ include_directories( include
 add_executable( ${PROJECT_NAME} src/locoman_main.cpp 
                                 src/locoman_control_thread.cpp
                                 ${locoman_INCLUDES} )  #generic_locoman_INCLUDES
+                                
+add_executable( "${PROJECT_NAME}_simple" src/simple_main.cpp
+                                ${locoman_INCLUDES} )  #generic_locoman_INCLUDES
 
 # wait for GYM to compile before building the locoman
 add_dependencies( ${PROJECT_NAME} GYM )
@@ -69,6 +72,11 @@ target_link_libraries( ${PROJECT_NAME} ${idynutils_LIBRARIES} ${YARP_LIBRARIES}
 				      boost_system)
 				      
 
+target_link_libraries( "${PROJECT_NAME}_simple" ${idynutils_LIBRARIES} ${YARP_LIBRARIES} 
+                      ${iDynTree_LIBRARIES}
+                                      ${GYM_LIBRARIES}
+                      ${iDynTree_LIBRARIES}
+                      boost_system)
 #############
 ## Install ##
 #############
