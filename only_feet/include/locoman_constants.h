@@ -35,6 +35,11 @@
 #define PARAM_ID_LEFT_ARM_0   23
 #define PARAM_ID_RIGHT_ARM_0  24
 
+#define PARAM_ID_LEFT_LEG_1   30
+#define PARAM_ID_RIGHT_LEG_1  31
+#define PARAM_ID_TORSO_1      32
+#define PARAM_ID_LEFT_ARM_1   33
+#define PARAM_ID_RIGHT_ARM_1  34
 
 
 #endif

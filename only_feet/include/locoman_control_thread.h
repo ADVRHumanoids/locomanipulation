@@ -43,9 +43,16 @@ private:
     yarp::sig::Vector right_leg_config_0 ;
     yarp::sig::Vector torso_config_0     ;
     
+    yarp::sig::Vector left_arm_config_1  ;
+    yarp::sig::Vector right_arm_config_1 ;
+    yarp::sig::Vector left_leg_config_1  ;
+    yarp::sig::Vector right_leg_config_1 ;
+    yarp::sig::Vector torso_config_1     ;
+    
     double max_vel;
 public:
-
+    
+    unsigned int size_q ;
     int mg =  290 ; // [N]  295 // mg_coman = 290; mg_bigman = 1000 ;
     int loop_counter;
     int WINDOW_size;
@@ -53,6 +60,12 @@ public:
     bool flag_robot = 1 ;
     bool flag_simulator = 1-flag_robot ;
     
+    
+    yarp::sig::Vector fc_offset_left ;
+    yarp::sig::Vector fc_offset_right ;
+    
+    yarp::sig::Vector fc_offset_left_hand ;
+    yarp::sig::Vector fc_offset_right_hand ;    
     
     yarp::sig::Vector q_offset  ;  
     yarp::sig::Vector q_current_open_loop  ;  
@@ -109,9 +122,8 @@ public:
     yarp::sig::Matrix Eye_4 ;
     yarp::sig::Matrix B ;
     
-    unsigned int size_q ;
-    unsigned int size_u ;
-    unsigned int size_fc ;
+    unsigned int size_u = 6 ;
+    unsigned int size_fc = 24;
     double kc ;
     yarp::sig::Matrix Kq ;
     yarp::sig::Matrix Kc ;

@@ -112,6 +112,38 @@ public:
                                                                             paramHelp::PARAM_IN_OUT, 
                                                                             NULL, 
                                                                             "right_arm configuration in [rad]" ) );
+                                                                                   
+        //-----------------------------------------------------------------------------------
+        custom_params.push_back( new paramHelp::ParamProxyBasic<double>(   "left_leg_1", 
+                                                                            PARAM_ID_LEFT_LEG_1 , 
+                                                                            PARAM_SIZE_LEFT_LEG , 
+                                                                            paramHelp::PARAM_IN_OUT, 
+                                                                            NULL, 
+                                                                            "left_leg configuration in [rad]" ) );
+        custom_params.push_back( new paramHelp::ParamProxyBasic<double>(   "right_leg_1", 
+                                                                            PARAM_ID_RIGHT_LEG_1 , 
+                                                                            PARAM_SIZE_RIGHT_LEG , 
+                                                                            paramHelp::PARAM_IN_OUT, 
+                                                                            NULL, 
+                                                                            "right_leg configuration in [rad]" ) );
+        custom_params.push_back( new paramHelp::ParamProxyBasic<double>(   "torso_1", 
+                                                                            PARAM_ID_TORSO_1 , 
+                                                                            PARAM_SIZE_TORSO , 
+                                                                            paramHelp::PARAM_IN_OUT, 
+                                                                            NULL, 
+                                                                            "torso configuration in [rad]" ) ); 
+        custom_params.push_back( new paramHelp::ParamProxyBasic<double>(   "left_arm_1", 
+                                                                            PARAM_ID_LEFT_ARM_1, 
+                                                                            PARAM_SIZE_LEFT_ARM, 
+                                                                            paramHelp::PARAM_IN_OUT, 
+                                                                            NULL, 
+                                                                            "left_arm configuration in [rad]" ) );
+        custom_params.push_back( new paramHelp::ParamProxyBasic<double>(   "right_arm_1", 
+                                                                            PARAM_ID_RIGHT_ARM_1, 
+                                                                            PARAM_SIZE_RIGHT_ARM, 
+                                                                            paramHelp::PARAM_IN_OUT, 
+                                                                            NULL, 
+                                                                            "right_arm configuration in [rad]" ) );
 
         return custom_params;
     }
