@@ -7,33 +7,12 @@ Current Build Directory Index=0
 ProjectRootRelative=./
 
 [CMake][CMake Build Directory 0]
-Build Directory Path=file:///home/walkman/walkman/build/drc/locomanipulation/
+Build Directory Path=file:///home/walkman/build/drc/locomanipulation/
 Build Type=Release
 CMake Binary=file:///usr/bin/cmake
 Environment Profile=
 Extra Arguments=
 Install Directory=file:///home/walkman/walkman/build/install
-
-[Launch]
-Launch Configurations=Launch Configuration 0
-
-[Launch][Launch Configuration 0]
-Configured Launch Modes=execute
-Configured Launchers=nativeAppLauncher
-Name=New Application Launcher
-Type=Native Application
-
-[Launch][Launch Configuration 0][Data]
-Arguments=
-Dependencies=@Variant(\x00\x00\x00\t\x00\x00\x00\x00\x00)
-Dependency Action=Nothing
-EnvironmentGroup=default
-Executable=file:///home/lucamuratore/walkman/drc/locomanipulation/
-External Terminal=konsole --noclose --workdir %workdir -e %exe
-Project Target=locomanipulation,only_feet,locomanipulation_only_feet
-Use External Terminal=false
-Working Directory=
-isExecutable=false
 
 [MakeBuilder]
 Additional Options=install

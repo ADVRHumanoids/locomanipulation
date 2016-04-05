@@ -1,3 +1,6 @@
+// This is the last working version before the architecture control modification, 
+// to be maintained as a backup
+//
 // #include <yarp/os/all.h>
 #include <cstdlib>
 #include <yarp/math/Math.h>
@@ -21,8 +24,8 @@
 using namespace yarp::math;
 
 locoman_control_thread::locoman_control_thread( std::string module_prefix, 
-                             			yarp::os::ResourceFinder rf, 
-                             			std::shared_ptr< paramHelp::ParamHelperServer > ph ) :
+                                        yarp::os::ResourceFinder rf, 
+                                        std::shared_ptr< paramHelp::ParamHelperServer > ph ) :
     control_thread( module_prefix, rf, ph ),  
     size_q(robot.getNumberOfKinematicJoints()),
     command_interface(module_prefix), 
@@ -1133,7 +1136,6 @@ void locoman_control_thread::run()
    yarp::sig::Vector d_fc_r_hand  = FC_HANDS_DES.subVector(12,23) -  FC_HANDS_FILTERED.subVector(12,23) ;
    yarp::sig::Vector d_fc_des_f_r_hand(size_fc+size_fc/2,0.0) ;
     
-   double err_fc_feet = norm( d_fc_des_to_world )  ; 
     
    std::cout << "---------------------------------------------------------------------------" <<  std::endl ; 
    std::cout << " FC_DES_feet = " << std::endl << FC_DES.toString() << std::endl; 
@@ -1170,7 +1172,20 @@ void locoman_control_thread::run()
         if(data){ data_from_service_1 = *data; }
     };
         
-//---------------------------------------------------------------------
+//    yarp::sig::Vector *data = from_service_1.read(); //(false) porta non bloccante
+           // if(data){ data_from_service_1 = *data; }
+//    data_from_service_1 = *data; 
+/*   yarp::sig::Vector *data = from_service_1.read(!from_service_1_initted);
+     std::cout << "ricevuto ! " << std::cout ;
+     from_service_1_initted = true;
+     if(data){ data_from_service_1 = *data; }
+//   */  
+     std::cout << "data_from_service_1 = " << data_from_service_1.toString() << std::endl ;
+ 
+   std::cout << "---------------------------------------------------------------------------" <<  std::endl ; 
+   
+
+   
    loop_counter++ ;   
   // End of Contact Forces Filtering
   //
@@ -1196,55 +1211,11 @@ void locoman_control_thread::run()
   fc_r3_hand_filt = FC_HANDS_FILTERED.subVector(18,20)  ; 
   fc_r4_hand_filt = FC_HANDS_FILTERED.subVector(21,23)  ;   
   
-   //----------------------------------------------------------------------------------------- 
-  
- //  std::cout << "data_from_service_1 = " << data_from_service_1.toString() << std::endl ;
- 
-   // Using data from service to move....
-     
-  
-  yarp::sig::Vector d_q_move_new = data_from_service_1 ; // d_q_dsp_6 ; // d_q_dsp_5_m   ; // d_q_dsp_6 ; //
-     std::cout << " d_q_move_new.toString()  =  "<< std::endl << d_q_move_new.toString() << std::endl  ;  
-
-  if(norm(d_q_move_new)>0.005){d_q_move_new =  0.005 *d_q_move_new/ norm(d_q_move_new) ; //d_q_dsp_7 ; //0.012 *d_q_move/ norm(d_q_move) ;
-  }  // 0.0018
-  if(norm(d_q_move_new)<0.0002){d_q_move_new =  0.0002 *d_q_move_new/ norm(d_q_move_new) ;
-  }   
-   std::cout << " d_q_move_new.toString_2()  =  "<< std::endl << d_q_move_new.toString() << std::endl  ;  
-
-  //   
-  double err_min = 30.0 ; //10.0 ;
-  double err_max = 150.0 ;  //40.0 ; 
-    
-//   char file_name[] = "err.m";   // writing
-//   std::ofstream err_cl ( file_name, std::ios::app );
-//   if( err_cl.is_open() )
-//   err_cl <<  err_fc_feet << std::endl;  
-
-  
-  //---------------------------------------------------- -------------------------------------------
-
-  double alpha = locoman::utils::alpha_filter(err_fc_feet, err_min, err_max) ;
-
-  std::cout << " err  =  "<< std::endl << err_fc_feet << std::endl  ;  
- 
-// q_current_open_loop =  q_current_open_loop +  (1.0/1.0)* alpha*d_q_move  ; 
-
-  yarp::sig::Vector q_ref_ToMove_NEW = q_senseRefFeedback +  (1.0/1.0)* alpha *  d_q_move_new  ; 
-  
-     
-  
-   std::cout << "---------------------------------------------------------------------------" <<  std::endl ; 
-   
-
-   
-  
-  //--------------------------------------------------------------------------------------------
+  //----------------------------------------------------------------------------------------- 
   // Defining the "Auxiliary World" Frame => {AW} // 
   
   T_w_aw_0 = locoman::utils::AW_world_posture(model, robot) ;
- // std::cout << "T_w_aw_0 = "  << T_w_aw_0.toString() << std::endl ; 
-
+ 
   //
   
   
@@ -1253,7 +1224,7 @@ void locoman_control_thread::run()
 
   //-------------------------------------------------------------------------------------------------------------    
   // Defining Useful Transformations
- /* T_w_waist_0   = model.iDyn3_model.getPosition(waist_index) ;  
+  T_w_waist_0   = model.iDyn3_model.getPosition(waist_index) ;  
   T_w_l_ankle_0 = model.iDyn3_model.getPosition(l_ankle_index) ;
   T_w_l_c1_0    = model.iDyn3_model.getPosition(l_c1_index)    ;    
   T_w_l_c2_0    = model.iDyn3_model.getPosition(l_c2_index)    ;  
@@ -1446,7 +1417,7 @@ void locoman_control_thread::run()
   J_r3_hand_body_0 = locoman::utils::Adjoint( locoman::utils::iHomogeneous(T_aw_r3_hand_0) ) * J_aw_r3_hand_spa_0 ;
   J_r4_hand_body_0 = locoman::utils::Adjoint( locoman::utils::iHomogeneous(T_aw_r4_hand_0) ) * J_aw_r4_hand_spa_0 ;
   //------------------------------------------------------------------------------------------------------------
-  // */ 
+  //  
   // Stance and Jacobian Matrices
     
   yarp::sig::Matrix Complete_Jac( 8*B.cols() , size_q + 6) ;
@@ -1485,46 +1456,44 @@ void locoman_control_thread::run()
   yarp::sig::Matrix S_c_f_rh   = S_c_f_rh_T.transposed() ;
 
   // -------------------------------------------------------------------------------------------------------------
-//   // Defining derivative Terms
-// 
-//   // Computing Derivative Terms
-//   Q_aw_l_c1 = locoman::utils::Q_ci(J_aw_l_c1_spa_0, T_aw_l_c1_0, fc_l_c1_filt ) ;
-//   Q_aw_l_c2 = locoman::utils::Q_ci(J_aw_l_c2_spa_0, T_aw_l_c2_0, fc_l_c2_filt ) ; // (size_q+ 6, size_q + 6) ;
-//   Q_aw_l_c3 = locoman::utils::Q_ci(J_aw_l_c3_spa_0, T_aw_l_c3_0, fc_l_c3_filt ) ; //(size_q+ 6, size_q + 6) ; 
-//   Q_aw_l_c4 = locoman::utils::Q_ci(J_aw_l_c4_spa_0, T_aw_l_c4_0, fc_l_c4_filt ) ; //(size_q+ 6, size_q + 6) ;
-//   //
-// 
-//   Q_aw_r_c1 = locoman::utils::Q_ci(J_aw_r_c1_spa_0, T_aw_r_c1_0, fc_r_c1_filt ) ; //(size_q+ 6, size_q + 6) ;
-//   Q_aw_r_c2 = locoman::utils::Q_ci(J_aw_r_c2_spa_0, T_aw_r_c2_0, fc_r_c2_filt ) ; //(size_q+ 6, size_q + 6) ;
-//   Q_aw_r_c3 = locoman::utils::Q_ci(J_aw_r_c3_spa_0, T_aw_r_c3_0, fc_r_c3_filt ) ; //(size_q+ 6, size_q + 6) ; 
-//   Q_aw_r_c4 = locoman::utils::Q_ci(J_aw_r_c4_spa_0, T_aw_r_c4_0, fc_r_c4_filt ) ; //(size_q+ 6, size_q + 6) ;
-//   
-//   Q_aw_r1_hand = locoman::utils::Q_ci(J_aw_r1_hand_spa_0, T_aw_r1_hand_0, fc_r1_hand_filt ) ; //(size_q+ 6, size_q + 6) ;  
-//   Q_aw_r2_hand = locoman::utils::Q_ci(J_aw_r2_hand_spa_0, T_aw_r2_hand_0, fc_r2_hand_filt ) ; //(size_q+ 6, size_q + 6) ;
-//   Q_aw_r3_hand = locoman::utils::Q_ci(J_aw_r3_hand_spa_0, T_aw_r3_hand_0, fc_r3_hand_filt ) ; //(size_q+ 6, size_q + 6) ; 
-//   Q_aw_r4_hand = locoman::utils::Q_ci(J_aw_r4_hand_spa_0, T_aw_r4_hand_0, fc_r4_hand_filt ) ; //(size_q+ 6, size_q + 6) ;
-// 
-//   Q_aw_l_tot = Q_aw_l_c1 + Q_aw_l_c2 + Q_aw_l_c3 + Q_aw_l_c4;
-//   Q_aw_r_tot = Q_aw_r_c1 + Q_aw_r_c2 + Q_aw_r_c3 + Q_aw_r_c4;
-//   Q_aw_r_hand_tot = Q_aw_r1_hand + Q_aw_r2_hand + Q_aw_r3_hand + Q_aw_r4_hand;
-// 
-//   Q_aw_c =  Q_aw_l_tot + Q_aw_r_tot ;  
-// 
-//   U_aw_s_cont = Q_aw_c.submatrix( 0 ,  5 , 0, 5) ;     
-//   Q_aw_s_cont = Q_aw_c.submatrix( 0  , 5,  6,  (Q_aw_c.cols()-1)  ) ;
-// 
-// //   yarp::sig::Matrix U_aw_l_s_cont = Q_aw_l_tot.submatrix( 0 ,  5 , 0, 5) ;     
-// //   yarp::sig::Matrix Q_aw_l_s_cont = Q_aw_l_tot.submatrix( 0  , 5,  6,  (Q_aw_l_tot.cols()-1)  ) ;
-// //   yarp::sig::Matrix U_aw_r_s_cont = Q_aw_r_tot.submatrix( 0 ,  5 , 0, 5) ;     
-// //   yarp::sig::Matrix Q_aw_r_s_cont = Q_aw_r_tot.submatrix( 0  , 5,  6,  (Q_aw_r_tot.cols()-1)  ) ;
-// //  
-//   Q_aw_c_f_rh = Q_aw_l_tot + Q_aw_r_tot   + Q_aw_r_hand_tot ;  
-//   U_aw_s_c_f_rh = Q_aw_c.submatrix( 0 ,  5 , 0, 5) ;     
-//   Q_aw_s_c_f_rh = Q_aw_c.submatrix( 0  , 5,  6,  (Q_aw_c_f_rh.cols()-1)  ) ;
+  // Defining derivative Terms
 
-  // -----------------------------------------------------------------
+  // Computing Derivative Terms
+  Q_aw_l_c1 = locoman::utils::Q_ci(J_aw_l_c1_spa_0, T_aw_l_c1_0, fc_l_c1_filt ) ;
+  Q_aw_l_c2 = locoman::utils::Q_ci(J_aw_l_c2_spa_0, T_aw_l_c2_0, fc_l_c2_filt ) ; // (size_q+ 6, size_q + 6) ;
+  Q_aw_l_c3 = locoman::utils::Q_ci(J_aw_l_c3_spa_0, T_aw_l_c3_0, fc_l_c3_filt ) ; //(size_q+ 6, size_q + 6) ; 
+  Q_aw_l_c4 = locoman::utils::Q_ci(J_aw_l_c4_spa_0, T_aw_l_c4_0, fc_l_c4_filt ) ; //(size_q+ 6, size_q + 6) ;
+  //
 
+  Q_aw_r_c1 = locoman::utils::Q_ci(J_aw_r_c1_spa_0, T_aw_r_c1_0, fc_r_c1_filt ) ; //(size_q+ 6, size_q + 6) ;
+  Q_aw_r_c2 = locoman::utils::Q_ci(J_aw_r_c2_spa_0, T_aw_r_c2_0, fc_r_c2_filt ) ; //(size_q+ 6, size_q + 6) ;
+  Q_aw_r_c3 = locoman::utils::Q_ci(J_aw_r_c3_spa_0, T_aw_r_c3_0, fc_r_c3_filt ) ; //(size_q+ 6, size_q + 6) ; 
+  Q_aw_r_c4 = locoman::utils::Q_ci(J_aw_r_c4_spa_0, T_aw_r_c4_0, fc_r_c4_filt ) ; //(size_q+ 6, size_q + 6) ;
   
+  Q_aw_r1_hand = locoman::utils::Q_ci(J_aw_r1_hand_spa_0, T_aw_r1_hand_0, fc_r1_hand_filt ) ; //(size_q+ 6, size_q + 6) ;  
+  Q_aw_r2_hand = locoman::utils::Q_ci(J_aw_r2_hand_spa_0, T_aw_r2_hand_0, fc_r2_hand_filt ) ; //(size_q+ 6, size_q + 6) ;
+  Q_aw_r3_hand = locoman::utils::Q_ci(J_aw_r3_hand_spa_0, T_aw_r3_hand_0, fc_r3_hand_filt ) ; //(size_q+ 6, size_q + 6) ; 
+  Q_aw_r4_hand = locoman::utils::Q_ci(J_aw_r4_hand_spa_0, T_aw_r4_hand_0, fc_r4_hand_filt ) ; //(size_q+ 6, size_q + 6) ;
+
+  Q_aw_l_tot = Q_aw_l_c1 + Q_aw_l_c2 + Q_aw_l_c3 + Q_aw_l_c4;
+  Q_aw_r_tot = Q_aw_r_c1 + Q_aw_r_c2 + Q_aw_r_c3 + Q_aw_r_c4;
+  Q_aw_r_hand_tot = Q_aw_r1_hand + Q_aw_r2_hand + Q_aw_r3_hand + Q_aw_r4_hand;
+
+  Q_aw_c =  Q_aw_l_tot + Q_aw_r_tot ;  
+
+  U_aw_s_cont = Q_aw_c.submatrix( 0 ,  5 , 0, 5) ;     
+  Q_aw_s_cont = Q_aw_c.submatrix( 0  , 5,  6,  (Q_aw_c.cols()-1)  ) ;
+
+//   yarp::sig::Matrix U_aw_l_s_cont = Q_aw_l_tot.submatrix( 0 ,  5 , 0, 5) ;     
+//   yarp::sig::Matrix Q_aw_l_s_cont = Q_aw_l_tot.submatrix( 0  , 5,  6,  (Q_aw_l_tot.cols()-1)  ) ;
+//   yarp::sig::Matrix U_aw_r_s_cont = Q_aw_r_tot.submatrix( 0 ,  5 , 0, 5) ;     
+//   yarp::sig::Matrix Q_aw_r_s_cont = Q_aw_r_tot.submatrix( 0  , 5,  6,  (Q_aw_r_tot.cols()-1)  ) ;
+//  
+  Q_aw_c_f_rh = Q_aw_l_tot + Q_aw_r_tot   + Q_aw_r_hand_tot ;  
+  U_aw_s_c_f_rh = Q_aw_c.submatrix( 0 ,  5 , 0, 5) ;     
+  Q_aw_s_c_f_rh = Q_aw_c.submatrix( 0  , 5,  6,  (Q_aw_c_f_rh.cols()-1)  ) ;
+
+  // 
   //-------------------------------------------------------------------------------------------
   // Useful Definitions
 
@@ -1745,16 +1714,16 @@ void locoman_control_thread::run()
  
   //-----------------------------------------------------------------------------------------------------
 
-//   yarp::sig::Matrix FLMM  = locoman::utils::FLMM_redu(J_c, S_c, Q_aw_s_cont, U_aw_s_cont, Kc ) ;
-//   yarp::sig::Matrix cFLMM = locoman::utils::Pinv_trunc_SVD(FLMM.submatrix(0, FLMM.rows()-1 , 0, FLMM.rows()-1), 1E-10 ) * FLMM;
-//    
-//   yarp::sig::Matrix Rf_temp_2 = cFLMM.submatrix(0, size_fc-1, cFLMM.cols()-size_q, cFLMM.cols()-1) ;  
-//   yarp::sig::Matrix Rf_temp_2_filt = locoman::utils::filter_SVD( Rf_temp_2,  1E-10); 
+  yarp::sig::Matrix FLMM  = locoman::utils::FLMM_redu(J_c, S_c, Q_aw_s_cont, U_aw_s_cont, Kc ) ;
+  yarp::sig::Matrix cFLMM = locoman::utils::Pinv_trunc_SVD(FLMM.submatrix(0, FLMM.rows()-1 , 0, FLMM.rows()-1), 1E-10 ) * FLMM;
+   
+  yarp::sig::Matrix Rf_temp_2 = cFLMM.submatrix(0, size_fc-1, cFLMM.cols()-size_q, cFLMM.cols()-1) ;  
+  yarp::sig::Matrix Rf_temp_2_filt = locoman::utils::filter_SVD( Rf_temp_2,  1E-10); 
 
+  
+  double err = norm( d_fc_des_to_world )  ;  // d_fc_des_to_world
 
-//   double err = norm( d_fc_des_to_world )  ;  // d_fc_des_to_world
-// 
-//   double regu_filter = 1E8 ; 
+  double regu_filter = 1E8 ; 
   
   
 //   if( last_command == "center"){
@@ -1766,12 +1735,9 @@ void locoman_control_thread::run()
 //   std::cout << " regu_filter  =  "<< std::endl << regu_filter << std::endl  ;  
 
   
-//   yarp::sig::Vector d_q_dsp_6 = -1.0* locoman::utils::Pinv_Regularized( Rf_temp_2_filt, regu_filter)* d_fc_des_to_world ;
-//   std::cout << " d_q_dsp_6 qui =  "<< std::endl << d_q_dsp_6.toString() << std::endl  ;  
+  yarp::sig::Vector d_q_dsp_6 = -1.0* locoman::utils::Pinv_Regularized( Rf_temp_2_filt, regu_filter)* d_fc_des_to_world ;
+  std::cout << " d_q_dsp_6  =  "<< std::endl << d_q_dsp_6.toString() << std::endl  ;  
 
-    std::cout << " d_q_move_new qui =  "<< std::endl << d_q_move_new.toString() << std::endl  ;  
-
-   q_ref_ToMove_NEW = q_senseRefFeedback +  (1.0/1.0)* alpha *  d_q_move_new  ; 
   //------------------------------------------------------------------------------
     //------------------------------------------------------------------------------
 
@@ -1779,47 +1745,47 @@ void locoman_control_thread::run()
   //1) computind d_u
   
   
-//   yarp::sig::Matrix Ru_temp_2 = cFLMM.submatrix(size_fc, size_fc+6-1, cFLMM.cols()-size_q, cFLMM.cols()-1) ;  
-// //  yarp::sig::Matrix Ru_temp_2_filt = locoman::utils::filter_SVD( Ru_temp_2,  1E-10); 
-//   
-//   yarp::sig::Matrix J_u_r_hand = J_r1_hand_body_0.submatrix(0,5,0,5) ;
-//   yarp::sig::Matrix J_q_r_hand = J_r1_hand_body_0.submatrix(0,5,6,J_r1_hand_body_0.cols()-1) ;
-//   
-//   yarp::sig::Matrix J_u_r_foot = J_r_c1_body_0.submatrix(0,5,0,5)  ;
-//   yarp::sig::Matrix J_q_r_foot = J_r_c1_body_0.submatrix(0,5,6,J_r_c1_body_0.cols()-1)  ;
-//   
-//   yarp::sig::Matrix J_u_l_foot = J_l_c1_body_0.submatrix(0,5,0,5)  ;
-//   yarp::sig::Matrix J_q_l_foot = J_l_c1_body_0.submatrix(0,5,6,J_l_c1_body_0.cols()-1)  ;
-//   
-//   yarp::sig::Matrix J_1(12,6) ;
-//   yarp::sig::Matrix J_2(12,d_q_dsp_6.length() ) ;
-//   
-//   J_1.setSubmatrix( J_u_r_hand, 0,  0 ) ;
-//   J_1.setSubmatrix( J_u_r_foot, 6,  0 ) ;
-//   //J_1.setSubmatrix( J_u_l_foot, 12, 0 ) ;
-//  
-//   J_2.setSubmatrix( J_q_r_hand, 0,  0 ) ;
-//   J_2.setSubmatrix( J_q_r_foot, 6,  0 ) ;
-//   //J_2.setSubmatrix( J_q_l_foot, 12, 0 ) ;
-//   
-//   yarp::sig::Matrix J_aux = -1.0*J_1*Ru_temp_2 + 1.0*J_2;
-//   J_aux = locoman::utils::filter_SVD( J_aux,  1E-10); 
-// 
-// 
-//   yarp::sig::Vector T_aux(12, 0.0) ;
-//   if(loop_counter%800 < 400 ){T_aux[0] = 0.001 ;
-//          std::cout << " qui 1 = loop_counter%200 < 100   =  "  << loop_counter%200    << std::endl  ;  }
-//   else{T_aux[0] = -0.001 ;
-//                std::cout << " qui 2 = loop_counter%200 < 100   =  "  << loop_counter%200    << std::endl  ;  
-// }
-// 
-//   yarp::sig::Vector d_q_r_hand = pinv(J_aux)*T_aux ;
-//   
-//   //  
-//   yarp::sig::Vector d_q_projected = nullspaceProjection(J_aux,1E-3)* d_q_dsp_6;
-// 
-//   
-//   
+  yarp::sig::Matrix Ru_temp_2 = cFLMM.submatrix(size_fc, size_fc+6-1, cFLMM.cols()-size_q, cFLMM.cols()-1) ;  
+//  yarp::sig::Matrix Ru_temp_2_filt = locoman::utils::filter_SVD( Ru_temp_2,  1E-10); 
+  
+  yarp::sig::Matrix J_u_r_hand = J_r1_hand_body_0.submatrix(0,5,0,5) ;
+  yarp::sig::Matrix J_q_r_hand = J_r1_hand_body_0.submatrix(0,5,6,J_r1_hand_body_0.cols()-1) ;
+  
+  yarp::sig::Matrix J_u_r_foot = J_r_c1_body_0.submatrix(0,5,0,5)  ;
+  yarp::sig::Matrix J_q_r_foot = J_r_c1_body_0.submatrix(0,5,6,J_r_c1_body_0.cols()-1)  ;
+  
+  yarp::sig::Matrix J_u_l_foot = J_l_c1_body_0.submatrix(0,5,0,5)  ;
+  yarp::sig::Matrix J_q_l_foot = J_l_c1_body_0.submatrix(0,5,6,J_l_c1_body_0.cols()-1)  ;
+  
+  yarp::sig::Matrix J_1(12,6) ;
+  yarp::sig::Matrix J_2(12,d_q_dsp_6.length() ) ;
+  
+  J_1.setSubmatrix( J_u_r_hand, 0,  0 ) ;
+  J_1.setSubmatrix( J_u_r_foot, 6,  0 ) ;
+  //J_1.setSubmatrix( J_u_l_foot, 12, 0 ) ;
+ 
+  J_2.setSubmatrix( J_q_r_hand, 0,  0 ) ;
+  J_2.setSubmatrix( J_q_r_foot, 6,  0 ) ;
+  //J_2.setSubmatrix( J_q_l_foot, 12, 0 ) ;
+  
+  yarp::sig::Matrix J_aux = -1.0*J_1*Ru_temp_2 + 1.0*J_2;
+  J_aux = locoman::utils::filter_SVD( J_aux,  1E-10); 
+
+
+  yarp::sig::Vector T_aux(12, 0.0) ;
+  if(loop_counter%800 < 400 ){T_aux[0] = 0.001 ;
+         std::cout << " qui 1 = loop_counter%200 < 100   =  "  << loop_counter%200    << std::endl  ;  }
+  else{T_aux[0] = -0.001 ;
+               std::cout << " qui 2 = loop_counter%200 < 100   =  "  << loop_counter%200    << std::endl  ;  
+}
+
+  yarp::sig::Vector d_q_r_hand = pinv(J_aux)*T_aux ;
+  
+  //  
+  yarp::sig::Vector d_q_projected = nullspaceProjection(J_aux,1E-3)* d_q_dsp_6;
+
+  
+  
   //std::cout << " Ru_temp_2.rows  =  "<< std::endl << Ru_temp_2.rows() << std::endl  ;  
   //std::cout << " Ru_temp_2.cols  =  "<< std::endl << Ru_temp_2.cols() << std::endl  ;  
   
@@ -1838,11 +1804,11 @@ void locoman_control_thread::run()
    
      */
  
-//     std::cout << " d_q_r_hand  =  "<< std::endl << d_q_r_hand.toString() << std::endl  ;  
-// 
-//    std::cout << " d_q_dsp_6.toString()  =  "<< std::endl << d_q_dsp_6.toString() << std::endl  ;  
-// 
-//  std::cout << " d_q_projected.toString()  =  "<< std::endl << d_q_projected.toString() << std::endl  ;  
+    std::cout << " d_q_r_hand  =  "<< std::endl << d_q_r_hand.toString() << std::endl  ;  
+
+   std::cout << " d_q_dsp_6.toString()  =  "<< std::endl << d_q_dsp_6.toString() << std::endl  ;  
+
+ std::cout << " d_q_projected.toString()  =  "<< std::endl << d_q_projected.toString() << std::endl  ;  
 
    
  //
@@ -1882,16 +1848,15 @@ void locoman_control_thread::run()
   //--------------------------------------------------------------------
  
   
- /* yarp::sig::Vector d_q_move = 2.0*d_q_r_hand+ d_q_projected; // d_q_dsp_6 ; // d_q_dsp_5_m   ; // d_q_dsp_6 ; //
+  yarp::sig::Vector d_q_move = 2.0*d_q_r_hand+ d_q_projected; // d_q_dsp_6 ; // d_q_dsp_5_m   ; // d_q_dsp_6 ; //
   
   if(norm(d_q_move)>0.0018){d_q_move =  0.0018 *d_q_move/ norm(d_q_move) ; //d_q_dsp_7 ; //0.012 *d_q_move/ norm(d_q_move) ;
   }  // 0.0015
   if(norm(d_q_move)<0.0002){d_q_move =  0.0002 *d_q_move/ norm(d_q_move) ;
   }   
-  // std::cout << " d_q_move.toString()  =  "<< std::endl << d_q_move.toString() << std::endl  ;  */
+   std::cout << " d_q_move.toString()  =  "<< std::endl << d_q_move.toString() << std::endl  ;  
 
   //   
-  double err = norm( d_fc_des_to_world )  ;
   double err_min = 70.0 ; //10.0 ;
   double err_max = 250.0 ;  //40.0 ; 
     
@@ -1915,25 +1880,19 @@ void locoman_control_thread::run()
 //   std::cout << " FC_DES  =  "<< std::endl << FC_DES.toString() << std::endl  ; 
 //   std::cout << " FC_FILTERED =  "<< std::endl << FC_FILTERED.toString() << std::endl  ; 
   std::cout << " err  =  "<< std::endl << err << std::endl  ;  
-  
-   std::cout << " alpha  =  "<< std::endl << alpha << std::endl   ;  
+//  std::cout << " alpha  =  "<< std::endl << alpha << std::endl  ;  
   
 //   q_ref_ToMove = q_motor_side + q_offset +  (0.0/1.0)* alpha*d_q_move ;  //d_q_temp_var ; // alpha*d_q_aw_2_6 ;  // +  (1.0/5.0)*d_q_0_project ;        
 //   q_ref_ToMove = q_current    + q_offset +  (0.0/1.0)* alpha*d_q_move  ;  // on the real robot
 //   q_ref_ToMove = q_current_open_loop +  (1.0/1.0)* alpha*d_q_move  ;    // q in open loop
 //   q_current_open_loop =  q_current_open_loop +  (1.0/1.0)* alpha*d_q_move  ; 
 
-  
-  
- // q_ref_ToMove = q_senseRefFeedback +  (1.0/1.0)* alpha * d_q_move  ; 
+  q_ref_ToMove = q_senseRefFeedback +  (1.0/1.0)* alpha * d_q_move  ; 
   
  //------------------------------------------------------------------------------------------------------  
 
   //std::cout << "Double Stance Phase "<< std::endl ; 
- // q_ref_ToMove_NEW = q_senseRefFeedback +  (1.0/1.0)* alpha * d_q_dsp_6; // d_q_move  ; 
-  q_ref_ToMove_NEW = q_senseRefFeedback +  (1.0/1.0)* alpha *  d_q_move_new  ; 
- 
-  robot.move29( q_ref_ToMove_NEW ); // q_ref_ToMove);                 //  q_motor_side);//
+ // robot.move29( q_ref_ToMove);                 //  q_motor_side);//
 
   } // closing of the Double Stance Phase
 //----------------------------------------------------------------------------------
@@ -2062,7 +2021,7 @@ else if (last_command =="feet_r_hand" )//|| last_command =="resume" ||
   //std::cout << " q_ref_ToMove = "  << q_ref_ToMove.toString() << std::endl; 
 
   //std::cout << "Feet and R-hand Stance Phase "<< std::endl ; 
-  //robot.move29( q_ref_ToMove);                 //  q_motor_side);//
+  robot.move29( q_ref_ToMove);                 //  q_motor_side);//
   } // End of Feet + R-Hand Phase
 
   
@@ -2070,13 +2029,13 @@ else if (last_command =="feet_r_hand" )//|| last_command =="resume" ||
 //------------------------------------------------------------------------------------
 else if (last_command == "sw_rg_up" || last_command == "sw_rg_fw" || last_command == "sw_rg_dw" || 
          last_command == "sw_lf_up" || last_command == "sw_lf_fw" || last_command == "sw_lf_dw"  )
-/*	 last_command == "com_up"   || last_command == "com_dw"   ||
-	 last_command =="r_hand_z_world_fw" || last_command =="r_hand_z_world_bk" || 
-	 last_command =="r_hand_x_world_fw" || last_command =="r_hand_x_world_bk" ||
-	 last_command =="r_hand_z_world_rot_ccw" ||
-	 last_command =="r_hand_z_world_rot_cw"  ||   
-	 last_command =="r_hand_x_world_rot_ccw" ||
-	 last_command =="r_hand_x_world_rot_cw" */  
+/*   last_command == "com_up"   || last_command == "com_dw"   ||
+     last_command =="r_hand_z_world_fw" || last_command =="r_hand_z_world_bk" || 
+     last_command =="r_hand_x_world_fw" || last_command =="r_hand_x_world_bk" ||
+     last_command =="r_hand_z_world_rot_ccw" ||
+     last_command =="r_hand_z_world_rot_cw"  ||   
+     last_command =="r_hand_x_world_rot_ccw" ||
+     last_command =="r_hand_x_world_rot_cw" */  
    { // Single Stance Phase  
   
   if (last_command =="sw_rg_up")
@@ -2560,13 +2519,13 @@ else if (last_command =="sw_lf_fw")
   
    // ------------------------------------------------------------------
   yarp::sig::Vector d_q_r_hand_z_world_fw = locoman::utils::WB_Cartesian_Tasks( Eye_4, T_r_hand_des_local, //T_r_hand_des_local, //T_l_hand_des_local, T_r_hand_des_local, 
-								Eye_4,  Eye_4,                            //T_l1_foot_des_local, T_r1_foot_des_local , 
-								zer_3 , 
-								J_l_hand_body_0,
+                                Eye_4,  Eye_4,                            //T_l1_foot_des_local, T_r1_foot_des_local , 
+                                zer_3 , 
+                                J_l_hand_body_0,
                                                                 J_r_hand_body_0, 
-								J_l_c1_body_0, 
+                                J_l_c1_body_0, 
                                                                 J_r_c1_body_0, 
-								J_com_waist) ;
+                                J_com_waist) ;
   
   //q_ref_ToMove = q_motor_side + (1.0/1.0) * d_q_r_hand_z_world_fw  ;  
   
@@ -2609,11 +2568,11 @@ else if (last_command =="sw_lf_fw")
   yarp::sig::Vector zer_3(3,0.0) ;  
    // ------------------------------------------------------------------
   yarp::sig::Vector d_q_r_hand_z_world_fw = locoman::utils::WB_Cartesian_Tasks( Eye_4, T_r_hand_des_local, //T_l_hand_des_local, T_r_hand_des_local, 
-								Eye_4,  Eye_4,             //T_l1_foot_des_local, T_r1_foot_des_local , 
-								zer_3 , 
-								J_l_hand_body_0, J_r_hand_body_0, 
-								J_l_c1_body_0, J_r_c1_body_0, 
-								J_com_waist) ;
+                                Eye_4,  Eye_4,             //T_l1_foot_des_local, T_r1_foot_des_local , 
+                                zer_3 , 
+                                J_l_hand_body_0, J_r_hand_body_0, 
+                                J_l_c1_body_0, J_r_c1_body_0, 
+                                J_com_waist) ;
   
  // q_ref_ToMove = q_motor_side + (1.0/1.0) * d_q_r_hand_z_world_fw  ;  
   
@@ -2648,11 +2607,11 @@ else if (last_command =="sw_lf_fw")
   
   // ------------------------------------------------------------------
   yarp::sig::Vector d_q_r_hand_z_world_fw = locoman::utils::WB_Cartesian_Tasks( Eye_4, T_r_hand_des_local, //T_l_hand_des_local, T_r_hand_des_local, 
-								Eye_4,  Eye_4,             //T_l1_foot_des_local, T_r1_foot_des_local , 
-								zer_3 , 
-								J_l_hand_body_0, J_r_hand_body_0, 
-								J_l_c1_body_0, J_r_c1_body_0, 
-								J_com_waist) ;
+                                Eye_4,  Eye_4,             //T_l1_foot_des_local, T_r1_foot_des_local , 
+                                zer_3 , 
+                                J_l_hand_body_0, J_r_hand_body_0, 
+                                J_l_c1_body_0, J_r_c1_body_0, 
+                                J_com_waist) ;
   
   //q_ref_ToMove = q_motor_side + (1.0/1.0) * d_q_r_hand_z_world_fw  ;  
   
@@ -2686,11 +2645,11 @@ else if (last_command =="sw_lf_fw")
   
   // ------------------------------------------------------------------
   yarp::sig::Vector d_q_r_hand_z_world_fw = locoman::utils::WB_Cartesian_Tasks( Eye_4, T_r_hand_des_local, //T_l_hand_des_local, T_r_hand_des_local, 
-								Eye_4,  Eye_4,             //T_l1_foot_des_local, T_r1_foot_des_local , 
-								zer_3 , 
-								J_l_hand_body_0, J_r_hand_body_0, 
-								J_l_c1_body_0, J_r_c1_body_0, 
-								J_com_waist) ;
+                                Eye_4,  Eye_4,             //T_l1_foot_des_local, T_r1_foot_des_local , 
+                                zer_3 , 
+                                J_l_hand_body_0, J_r_hand_body_0, 
+                                J_l_c1_body_0, J_r_c1_body_0, 
+                                J_com_waist) ;
   
  // q_ref_ToMove = q_motor_side + (1.0/1.0) * d_q_r_hand_z_world_fw  ;  
   
@@ -2786,11 +2745,11 @@ else if (last_command =="sw_lf_fw")
 
   // ------------------------------------------------------------------
   yarp::sig::Vector d_q_r_hand_z_world_fw = locoman::utils::WB_Cartesian_Tasks( Eye_4, T_r_hand_des_local, //T_l_hand_des_local, T_r_hand_des_local, 
-								Eye_4,  Eye_4,             //T_l1_foot_des_local, T_r1_foot_des_local , 
-								zer_3 , 
-								J_l_hand_body_0, J_r_hand_body_0, 
-								J_l_c1_body_0, J_r_c1_body_0, 
-								J_com_waist) ;
+                                Eye_4,  Eye_4,             //T_l1_foot_des_local, T_r1_foot_des_local , 
+                                zer_3 , 
+                                J_l_hand_body_0, J_r_hand_body_0, 
+                                J_l_c1_body_0, J_r_c1_body_0, 
+                                J_com_waist) ;
  // q_ref_ToMove = q_motor_side + (1.0/1.0) * d_q_r_hand_z_world_fw  ;  
   
   q_ref_ToMove = q_senseRefFeedback +  (1.0/1.0)* d_q_r_hand_z_world_fw  ;    // q in open loop
@@ -2813,11 +2772,11 @@ else if (last_command =="sw_lf_fw")
   T_r_hand_des_local= locoman::utils::Homogeneous( Rot_des, zer_3) ; 
   // ------------------------------------------------------------------
   yarp::sig::Vector d_q_r_hand_z_world_fw = locoman::utils::WB_Cartesian_Tasks( Eye_4, T_r_hand_des_local, //T_l_hand_des_local, T_r_hand_des_local, 
-								Eye_4,  Eye_4,             //T_l1_foot_des_local, T_r1_foot_des_local , 
-								zer_3 , 
-								J_l_hand_body_0, J_r_hand_body_0, 
-								J_l_c1_body_0, J_r_c1_body_0, 
-								J_com_waist) ;
+                                Eye_4,  Eye_4,             //T_l1_foot_des_local, T_r1_foot_des_local , 
+                                zer_3 , 
+                                J_l_hand_body_0, J_r_hand_body_0, 
+                                J_l_c1_body_0, J_r_c1_body_0, 
+                                J_com_waist) ;
 //  q_ref_ToMove = q_motor_side + (1.0/1.0) * d_q_r_hand_z_world_fw  ;  
   
   q_ref_ToMove = q_senseRefFeedback +  (1.0/1.0)* d_q_r_hand_z_world_fw  ;    // q in open loop
@@ -2837,11 +2796,11 @@ else if (last_command =="sw_lf_fw")
   T_r_hand_des_local= locoman::utils::Homogeneous( Rot_des, zer_3) ; 
   // ------------------------------------------------------------------
   yarp::sig::Vector d_q_r_hand_z_world_fw = locoman::utils::WB_Cartesian_Tasks( Eye_4, T_r_hand_des_local, //T_l_hand_des_local, T_r_hand_des_local, 
-								Eye_4,  Eye_4,             //T_l1_foot_des_local, T_r1_foot_des_local , 
-								zer_3 , 
-								J_l_hand_body_0, J_r_hand_body_0, 
-								J_l_c1_body_0, J_r_c1_body_0, 
-								J_com_waist) ;
+                                Eye_4,  Eye_4,             //T_l1_foot_des_local, T_r1_foot_des_local , 
+                                zer_3 , 
+                                J_l_hand_body_0, J_r_hand_body_0, 
+                                J_l_c1_body_0, J_r_c1_body_0, 
+                                J_com_waist) ;
  // q_ref_ToMove = q_motor_side + (1.0/1.0) * d_q_r_hand_z_world_fw  ;  
   
   q_ref_ToMove = q_senseRefFeedback +  (1.0/1.0)* d_q_r_hand_z_world_fw  ;    // q in open loop
@@ -2861,13 +2820,13 @@ else if (last_command =="sw_lf_fw")
   
   T_r_hand_des_local= locoman::utils::Homogeneous( Rot_des, zer_3) ; 
   yarp::sig::Vector d_q_r_hand_z_world_fw = locoman::utils::WB_Cartesian_Tasks( Eye_4, T_r_hand_des_local, //T_l_hand_des_local, T_r_hand_des_local, 
-								Eye_4,  Eye_4,             //T_l1_foot_des_local, T_r1_foot_des_local , 
-								zer_3 , 
-								J_l_hand_body_0, 
+                                Eye_4,  Eye_4,             //T_l1_foot_des_local, T_r1_foot_des_local , 
+                                zer_3 , 
+                                J_l_hand_body_0, 
                                                                 J_r_hand_body_0, 
-								J_l_c1_body_0, 
+                                J_l_c1_body_0, 
                                                                 J_r_c1_body_0, 
-								J_com_waist) ;
+                                J_com_waist) ;
  // q_ref_ToMove = q_motor_side + (1.0/1.0) * d_q_r_hand_z_world_fw  ;  
   
   q_ref_ToMove = q_senseRefFeedback +  (1.0/1.0)* d_q_r_hand_z_world_fw  ;    // q in open loop

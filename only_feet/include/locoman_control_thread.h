@@ -14,7 +14,24 @@
 class locoman_control_thread: public control_thread
 {
 private:   
+    
+    //-----------------------------------------------------------------------------------------------
+    // Yarp Port 
+    
+    yarp::os::BufferedPort<yarp::sig::Vector> to_service_1 ;
+    yarp::os::BufferedPort<yarp::sig::Vector> sending_q    ;
+    yarp::os::BufferedPort<yarp::sig::Vector> sending_fc    ;
+    
+    
+    
+    yarp::os::BufferedPort<yarp::sig::Vector> from_service_1;
+    bool from_service_1_initted;
 
+    yarp::sig::Vector data_from_service_1;
+    
+    //---------------------------------------------------------------------------------------------
+    
+    
     walkman::yarp_command_interface command_interface;
 
     // link the locoman optional params
