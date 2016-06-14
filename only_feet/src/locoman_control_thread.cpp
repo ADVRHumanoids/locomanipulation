@@ -354,7 +354,7 @@ locoman_control_thread::locoman_control_thread( std::string module_prefix,
     right_leg_config_1.resize(right_leg_joints);
     //
     //  Simulator-To-Robot Switch
-    flag_robot = 1 ;
+    flag_robot = 0 ;
     flag_simulator = 1-flag_robot ;
     //
     //-----------------------------------------------
@@ -461,7 +461,7 @@ bool locoman_control_thread::custom_init()
    
    
    //--------------------------------------------------------------------------------------------------------------
-   // YARP Port
+   // YARP Port Section
    
    if(!to_service_1.open(std::string("/" + get_module_prefix() + "/test"))) {
         std::cout << "ERROR: cannot open YARP port " << std::string(get_module_prefix() + "/test") << std::endl;
@@ -490,57 +490,16 @@ bool locoman_control_thread::custom_init()
   }
       
    from_service_1_initted = false;
-   
+   // end of the ...  YARP Port Section
    //----------------------------------------------------------------------------------------------------------------
-    
-  
    
-  //-----------------------------
-  yarp::sig::Vector q_motor_0 =locoman::utils::senseMotorPosition(robot, flag_robot) ;                  
-  yarp::sig::Vector q_des(robot.getNumberOfKinematicJoints() ) ;     
-  yarp::sig::Vector d_q_des(robot.getNumberOfKinematicJoints() ) ;     
-  yarp::sig::Vector q_motor_act = locoman::utils::senseMotorPosition(robot, flag_robot) ; 
-  
-  double steps = 380.0 ;  // slower on the real robot for safety 
-  if(flag_simulator){steps = 100.0 ; } //faster on the simulator
-  //
-//   //---------------------------------------------------------
-//   // A First Homing
-//   robot.fromRobotToIdyn29(  right_arm_configuration ,//right_arm_configuration
-//                             left_arm_configuration  , //left_arm_configuration
-//                             torso_configuration     ,
-//                             right_leg_configuration ,  //right_leg_configuration
-//                             left_leg_configuration  ,  //left_leg_configuration
-//                             q_des                   );   
-    robot.fromRobotToIdyn29(  right_arm_config_0 ,
-                            left_arm_config_0  ,
-                            torso_config_0     ,
-                            right_leg_config_0 ,
-                            left_leg_config_0  ,
-                            q_des              );   
-  
-  q_motor_0 = locoman::utils::senseMotorPosition(robot, flag_robot) ; // this function uses manually imposed joint stiffness values
-  d_q_des = (q_des - q_motor_0); //
-  locoman::utils::Joint_Trajectory(robot, flag_robot, q_motor_0, q_des, steps  ) ;   
-  std::cout << " final error =  " <<  norm(q_motor_act- q_des) << std::endl;     
-  usleep(100*1000) ; // usleep(milliseconds*1000)
-//   
-// //   //-------------------------------------------
-
-// //         // robot.left_arm.move(q_ref_ToMove_left_arm);  
-
  //------------------------------------------------------------------------------------------------------------------
+ // Defining Various Parameters
 
-  // Defining Various Parameters
-  //yarp::sig::Vector zero_3(3, 0.0) ;
-  //yarp::sig::Matrix Zeros_6_6(6,6) ;
   Zeros_6_6.zero();
-  //yarp::sig::Matrix Eye_6(6,6) ;
   Eye_6.eye() ;
-  //yarp::sig::Matrix Eye_3(3,3) ;
   Eye_3.eye() ;
   Eye_4.eye() ;
-  //yarp::sig::Matrix B( 6 , 3 ) ;
   B.zero();
   B.setSubmatrix( Eye_3 , 0 , 0 ) ;
   
@@ -553,13 +512,10 @@ bool locoman_control_thread::custom_init()
   Kc = kc*Kc ;    //   ;// 1E6*Kc ;    1E8*Kc ;  
   Kc_f_rh.eye() ;
   Kc_f_rh = (kc/10)*Kc_f_rh ;
-  
- 
-  // 
-  
+  //
   waist_index   = model.iDyn3_model.getLinkIndex("Waist");  
-  l_ankle_index = model.iDyn3_model.getLinkIndex("l_leg_ft") ; // sensors are placed in *_ankle in the model
-//     int l_ankle_index = model.iDyn3_model.getLinkIndex("l_foot_upper_left_link") ;
+  l_ankle_index = model.iDyn3_model.getLinkIndex("l_leg_ft") ; 
+  //     int l_ankle_index = model.iDyn3_model.getLinkIndex("l_foot_upper_left_link") ;
   l_c1_index    = model.iDyn3_model.getLinkIndex("l_foot_upper_left_link") ;
   l_c2_index    = model.iDyn3_model.getLinkIndex("l_foot_upper_right_link");
   l_c3_index    = model.iDyn3_model.getLinkIndex("l_foot_lower_left_link") ;
@@ -581,7 +537,6 @@ bool locoman_control_thread::custom_init()
   l_hand_c3_index = model.iDyn3_model.getLinkIndex("l_hand_upper_left_link");   // r_foot_lower_left_link
   l_hand_c4_index = model.iDyn3_model.getLinkIndex("l_hand_lower_left_link");  // r_foot_lower_right_link
 //     
-    
   r_wrist_index   = model.iDyn3_model.getLinkIndex("r_arm_ft") ;
   r_hand_c1_index = model.iDyn3_model.getLinkIndex("r_hand_upper_right_link");  // r_foot_upper_left_link
   r_hand_c2_index = model.iDyn3_model.getLinkIndex("r_hand_lower_right_link");  // r_foot_upper_right_link
@@ -619,93 +574,13 @@ bool locoman_control_thread::custom_init()
                                                     r_hand_c4_index ,
                                                     model
                                                     ) ;
-                                                                        
+  // TODO: Introducing the Pinv_QR    
   map_l_fcToSens_PINV = locoman::utils::Pinv_trunc_SVD( map_l_fcToSens, 1E-10 ) ; //*  ft_l_ankle  ;  // yarp::math::pinv( map_l_fcToSens, 1E-6)  *  ft_l_ankle     ;
   map_r_fcToSens_PINV = locoman::utils::Pinv_trunc_SVD( map_r_fcToSens, 1E-10 ) ; // *  ft_r_ankle  ;  */// yarp::math::pinv( map_r_fcToSens, 1E-6)  *  ft_r_ankle     ;
   map_l_hand_fcToSens_PINV = locoman::utils::Pinv_trunc_SVD( map_l_hand_fcToSens, 1E-10 ) ; //*  ft_l_wrist  ;  // yarp::math::pinv( map_l_fcToSens, 1E-6)  *  ft_l_ankle     ;
   map_r_hand_fcToSens_PINV = locoman::utils::Pinv_trunc_SVD( map_r_hand_fcToSens, 1E-10 ) ; //    
-//   //-----------------------------------------------------
-//   // Offset Evaluation
-
-  int dim_offeset = 1000    ;
-   
-  yarp::sig::Matrix offset_window(robot.getNumberOfKinematicJoints(), dim_offeset);
-  for(int k=0; k<dim_offeset ; k++ ){
-       q_current += locoman::utils::sense_position_no_hands(robot); //if sense returns motorPosition       
-       usleep(1*1000) ;  
-     }
-     
-  q_current = q_current/dim_offeset ;  
- 
-  yarp::sig::Vector q_motor_init = q_des  ;
-//    robot.fromRobotToIdyn(  right_arm_configuration ,
-//                            left_arm_configuration  ,
-//                            torso_configuration     ,
-//                            right_leg_configuration ,
-//                            left_leg_configuration  ,
-//                            q_motor_init            )  ;
-  q_offset = q_motor_init - q_current ;
-  //q_current_open_loop = q_current + q_offset; 
-  
-   //----------------------------------------------------------
-    // // -----------------------------------------------------------
-  // // Evaluating offset for contact forces
-  int dim_fc_offset = 1000 ;  
- 
-  for(int k=0; k<dim_fc_offset ; k++ ){
-  robot.senseftSensor("l_leg_ft", ft_l_ankle) ;
-  robot.senseftSensor("r_leg_ft", ft_r_ankle) ;
-  fc_offset_left  += map_l_fcToSens_PINV * ft_l_ankle ;
-  fc_offset_right += map_r_fcToSens_PINV * ft_r_ankle ;
   //
-  robot.senseftSensor("l_arm_ft", ft_l_wrist) ;
-  robot.senseftSensor("r_arm_ft", ft_r_wrist) ;  
-  fc_offset_left_hand  += map_l_hand_fcToSens_PINV * ft_l_wrist  ;  // yarp::math::pinv( map_l_fcToSens, 1E-6)  *  ft_l_ankle     ;
-  fc_offset_right_hand += map_r_hand_fcToSens_PINV * ft_r_wrist  ; 
-  //
-  // std::cout << " fc_offset_left = " << fc_offset_left.toString() << std::endl;
- //std::cout << " fc_offset_right = " << fc_offset_right.toString() << std::endl;
-  usleep(1*1000) ; 
-  }
-
-  fc_offset_left       = fc_offset_left/ dim_fc_offset ;
-  fc_offset_right      = fc_offset_right/ dim_fc_offset ;
-  fc_offset_left_hand  = fc_offset_left_hand/ dim_fc_offset ;
-  fc_offset_right_hand = fc_offset_right_hand/ dim_fc_offset ;
- 
- std::cout << " fc_offset_left = " << fc_offset_left.toString() << std::endl;
- std::cout << " fc_offset_right = " << fc_offset_right.toString() << std::endl;
-  // // -----------------------------------------------------------
-
-  //---------------------------------------------------------------------------------------------
-  // fc offset evaluation
-//   fc_offset_left(size_fc/2, 0.0) ;
-//   fc_offset_right(size_fc/2,0.0) ;
-
-
-
-// // //--------------------------------------------------------
-//   fc_l_c1_filt(3) ; //= FC_FILTERED.subVector(0,2)  ;  // Applied from the robot to the world
-//   fc_l_c2_filt(3) ; //= FC_FILTERED.subVector(3,5)  ;
-//   fc_l_c3_filt(3) ; //= FC_FILTERED.subVector(6,8)  ;
-//   fc_l_c4_filt(3) ; //= FC_FILTERED.subVector(9,11)  ;
-// 
-//   fc_r_c1_filt(3) ; //= FC_FILTERED.subVector(12,14)  ; 
-//   fc_r_c2_filt(3) ; //= FC_FILTERED.subVector(15,17)  ; 
-//   fc_r_c3_filt(3) ; //= FC_FILTERED.subVector(18,20)  ; 
-//   fc_r_c4_filt(3) ; //= FC_FILTERED.subVector(21,23)  ; 
-//   
-//   fc_l1_hand_filt(3) ; //= FC_HANDS_FILTERED.subVector(0,2)  ;  // Applied from the robot to the world
-//   fc_l2_hand_filt(3) ; // = FC_HANDS_FILTERED.subVector(3,5)  ;
-//   fc_l3_hand_filt(3) ; //= FC_HANDS_FILTERED.subVector(6,8)  ;
-//   fc_l4_hand_filt(3) ; //= FC_HANDS_FILTERED.subVector(9,11)  ;
-// 
-//   fc_r1_hand_filt(3) ; //= FC_HANDS_FILTERED.subVector(12,14)  ; 
-//   fc_r2_hand_filt(3) ; //= FC_HANDS_FILTERED.subVector(15,17)  ; 
-//   fc_r3_hand_filt(3) ; //= FC_HANDS_FILTERED.subVector(18,20)  ; 
-//   fc_r4_hand_filt(3) ; //= FC_HANDS_FILTERED.subVector(21,23)  ;   
-// 
-//   std::cout << "qui 4" << std::cout ;
+  //-------------------------------------------------------------------------------------------------------------------------
   T_w_aw_0.zero()     ; //= locoman::utils::AW_world_posture(model, robot) ;
   T_aw_w_0.zero()  ; //= locoman::utils::iHomogeneous(T_w_aw_0) ;    
 
@@ -885,9 +760,9 @@ bool locoman_control_thread::custom_init()
   U_aw_s_c_f_rh.zero()  ;
   Q_aw_s_c_f_rh.zero()  ;
   //// ---------------------------------------------------------
-// 
+  // 
   d_fc_des_to_world.zero();  ;
-// 
+  // 
   T_l_c1_r_c1_loop.zero()  ;
   T_r_c1_l_c1_loop.zero()  ;
   T_l_c1_r_c1_loop.zero() ;
@@ -899,15 +774,87 @@ bool locoman_control_thread::custom_init()
   J_r_c1_aw.zero()  ;
   J_l_c1_aw.zero()  ;
   q_ref_ToMove( size_q   ) ; // 
+  // end of parameter definition section
+ //-----------------------------------------------------
+
+  //-----------------------------
+  // TODO: cleaning some variables in homing section
+  yarp::sig::Vector q_motor_0 =locoman::utils::senseMotorPosition(robot, flag_robot) ;                  
+  yarp::sig::Vector q_des(robot.getNumberOfKinematicJoints() ) ;     
+  yarp::sig::Vector d_q_des(robot.getNumberOfKinematicJoints() ) ;     
+  yarp::sig::Vector q_motor_act = locoman::utils::senseMotorPosition(robot, flag_robot) ; 
   
-  // // 
-    bool traject ;
-    char vai ;
-    std::cout << " waiting... " << std::endl ;
-    std::cin >> vai ;
-    // //   //------------------------------------------------------------
-// //   //  Homing to config  _0
-//   robot.fromRobotToIdyn29(  right_arm_config_0 ,
+  double steps = 380.0 ;  // slower on the real robot for safety 
+  if(flag_simulator){steps = 100.0 ; } //faster on the simulator
+  //
+//   //---------------------------------------------------------
+//   // A First Homing - before contac force offset evaluation
+
+//   robot.fromRobotToIdyn29(  right_arm_configuration ,//right_arm_configuration
+//                             left_arm_configuration  , //left_arm_configuration
+//                             torso_configuration     ,
+//                             right_leg_configuration ,  //right_leg_configuration
+//                             left_leg_configuration  ,  //left_leg_configuration
+//                             q_des                   );   
+    robot.fromRobotToIdyn29(  right_arm_config_0 ,
+                            left_arm_config_0  ,
+                            torso_config_0     ,
+                            right_leg_config_0 ,
+                            left_leg_config_0  ,
+                            q_des              );   
+  
+  q_motor_0 = locoman::utils::senseMotorPosition(robot, flag_robot) ; // this function uses manually imposed joint stiffness values
+  d_q_des = (q_des - q_motor_0); //
+  locoman::utils::Joint_Trajectory(robot, flag_robot, q_motor_0, q_des, steps  ) ;   
+  std::cout << " final error =  " <<  norm(q_motor_act- q_des) << std::endl;     
+  usleep(100*1000) ; // usleep(milliseconds*1000)
+  // robot.left_arm.move(q_ref_ToMove_left_arm);  
+   
+  // q_ Offset Evaluation Section
+  int dim_offeset = 1000    ; 
+  yarp::sig::Matrix offset_window(robot.getNumberOfKinematicJoints(), dim_offeset);
+  for(int k=0; k<dim_offeset ; k++ ){
+       q_current += locoman::utils::sense_position_no_hands(robot); //if sense returns motorPosition       
+       usleep(1*1000) ;  
+     }   
+  q_current = q_current/dim_offeset ;  
+  yarp::sig::Vector q_motor_init = q_des  ;
+  q_offset = q_motor_init - q_current ;
+  // end of the Homing Section
+  //-------------------------------------------
+
+  //-----------------------------------------------------------
+  // Evaluating offset for contact forces
+  int dim_fc_offset = 1000 ;  
+ 
+  for(int k=0; k<dim_fc_offset ; k++ ){
+  robot.senseftSensor("l_leg_ft", ft_l_ankle) ;
+  robot.senseftSensor("r_leg_ft", ft_r_ankle) ;
+  robot.senseftSensor("l_arm_ft", ft_l_wrist) ;
+  robot.senseftSensor("r_arm_ft", ft_r_wrist) ;
+  fc_offset_left  += map_l_fcToSens_PINV * ft_l_ankle ;
+  fc_offset_right += map_r_fcToSens_PINV * ft_r_ankle ;  
+  fc_offset_left_hand  += map_l_hand_fcToSens_PINV * ft_l_wrist  ;  // yarp::math::pinv( map_l_fcToSens, 1E-6)  *  ft_l_ankle     ;
+  fc_offset_right_hand += map_r_hand_fcToSens_PINV * ft_r_wrist  ; 
+  usleep(1*1000) ; 
+  }
+
+  fc_offset_left       = fc_offset_left/ dim_fc_offset ;
+  fc_offset_right      = fc_offset_right/ dim_fc_offset ;
+  fc_offset_left_hand  = fc_offset_left_hand/ dim_fc_offset ;
+  fc_offset_right_hand = fc_offset_right_hand/ dim_fc_offset ;
+ 
+  std::cout << " fc_offset_left = "  << fc_offset_left.toString() << std::endl;
+  std::cout << " fc_offset_right = " << fc_offset_right.toString() << std::endl;
+  std::cout << " fc_offset_left_hand = "  << fc_offset_left_hand.toString() << std::endl;
+  std::cout << " fc_offset_right_hand = " << fc_offset_right_hand.toString() << std::endl;
+  //------------------------------------------------------------------------------------------
+  char vai ;
+  std::cout << " waiting for a keyboard input !!! " << std::endl ;
+  std::cin >> vai ;
+//  //------------------------------------------------------------
+//  //Homing to config  _0
+//  robot.fromRobotToIdyn29(  right_arm_config_0 ,
 //                             left_arm_config_0  ,
 //                             torso_config_0     ,
 //                             right_leg_config_0 ,
@@ -915,6 +862,7 @@ bool locoman_control_thread::custom_init()
 //                             q_des              );    
 //   q_motor_0 = locoman::utils::senseMotorPosition(robot, flag_robot) ; // this function uses manually imposed joint stiffness values
 //   d_q_des = (q_des - q_motor_0); //
+//        bool traject ;
 //   traject = locoman::utils::Joint_Trajectory(robot, flag_robot, q_motor_0, q_des, steps  ) ;   
 //   std::cout << " final error =  " <<  norm(q_motor_act- q_des) << std::endl;     
 //   usleep(100*1000) ; // usleep(milliseconds*1000)
@@ -934,42 +882,25 @@ bool locoman_control_thread::custom_init()
 //   traject = locoman::utils::Joint_Trajectory(robot, flag_robot, q_motor_0, q_des, steps  ) ;   
 //   std::cout << " final error =  " <<  norm(q_motor_act- q_des) << std::endl;     
 //   usleep(100*1000) ; // usleep(milliseconds*1000)
-//   //----------------------------------------------------------------
+//   //---------------------------------------------------------------
 //   
-  fc_offset_left_hand.zero();
-  fc_offset_right_hand.zero();
-  
-  for(int k=0; k<dim_fc_offset ; k++ ){
-//   robot.senseftSensor("l_leg_ft", ft_l_ankle) ;
-//   robot.senseftSensor("r_leg_ft", ft_r_ankle) ;
-//   fc_offset_left  += map_l_fcToSens_PINV * ft_l_ankle ;
-//   fc_offset_right += map_r_fcToSens_PINV * ft_r_ankle ;
-  //
-  robot.senseftSensor("l_arm_ft", ft_l_wrist) ;
-  robot.senseftSensor("r_arm_ft", ft_r_wrist) ;  
-  fc_offset_left_hand  += map_l_hand_fcToSens_PINV * ft_l_wrist  ;  // yarp::math::pinv( map_l_fcToSens, 1E-6)  *  ft_l_ankle     ;
-  fc_offset_right_hand += map_r_hand_fcToSens_PINV * ft_r_wrist  ; 
-  //
-  // std::cout << " fc_offset_left = " << fc_offset_left.toString() << std::endl;
- //std::cout << " fc_offset_right = " << fc_offset_right.toString() << std::endl;
-  usleep(1*1000) ; 
-  }
-
-  fc_offset_left       = fc_offset_left/ dim_fc_offset ;
-  fc_offset_right      = fc_offset_right/ dim_fc_offset ;
-  fc_offset_left_hand  = fc_offset_left_hand/ dim_fc_offset ;
-  fc_offset_right_hand = fc_offset_right_hand/ dim_fc_offset ;
- 
- std::cout << " fc_offset_left = " << fc_offset_left.toString() << std::endl;
- std::cout << " fc_offset_right = " << fc_offset_right.toString() << std::endl;
-  
-//       std::cout << " waiting... " << std::endl ;
-//     std::cin >> vai ;
-  //-------------------------------------------------------------------
-  std::cout << " Beginning the -run- loop...  " << std::endl ;
+// //       std::cout << " waiting... " << std::endl ;
+// //     std::cin >> vai ;
+//   //-------------------------------------------------------------------
+//   std::cout << " Beginning the -run- loop... if you press a button! " << std::endl ;
+//   char vai_2 ;
+//   std::cout << " waiting... " << std::endl ;
+//   std::cin >> vai_2 ;
+    
   return true ;
-
 }
+
+
+
+//--------------------------------------------------------------------------
+//--------------                      --------------------------------------
+//--------------    !!!   RUN !!!     --------------------------------------
+//--------------------------------------------------------------------------
 
 
 void locoman_control_thread::run()
@@ -1214,6 +1145,7 @@ void locoman_control_thread::run()
 
   //   
   double err_min = 30.0 ; //10.0 ;
+  
   double err_max = 150.0 ;  //40.0 ; 
     
 //   char file_name[] = "err.m";   // writing
