@@ -18,7 +18,7 @@ private:
     //-----------------------------------------------------------------------------------------------
     // Yarp Port 
     
-    yarp::os::BufferedPort<yarp::sig::Vector> to_service_1 ;
+    yarp::os::BufferedPort<yarp::sig::Vector> to_service_2 ;
     yarp::os::BufferedPort<yarp::sig::Vector> sending_q    ;
     yarp::os::BufferedPort<yarp::sig::Vector> sending_fc    ;
     
@@ -77,6 +77,8 @@ public:
     bool flag_robot = 1 ;
     bool flag_simulator = 1-flag_robot ;
     
+    yarp::sig::Vector Sensor_Collection;
+    yarp::sig::Vector Sensor_Collection_Offset ;
     
     yarp::sig::Vector fc_offset_left ;
     yarp::sig::Vector fc_offset_right ;
@@ -118,13 +120,17 @@ public:
     yarp::sig::Matrix T_r1_l1_fw ;
     yarp::sig::Matrix T_r1_l1_dw ;
     
+    yarp::sig::Matrix SENSORS_WINDOW ;
+    yarp::sig::Vector SENSORS_SUM ;
+    yarp::sig::Vector SENSORS_FILTERED ; 
+    
     yarp::sig::Vector FC_DES ;  //     yarp::sig::Vector FC_DES( FC_size   ) ;
     yarp::sig::Vector FC_DES_LEFT_sensor ;
     yarp::sig::Vector FC_DES_RIGHT_sensor ;
     yarp::sig::Vector FC_SUM ;
     yarp::sig::Vector FC_FILTERED ;
     yarp::sig::Matrix FC_WINDOW ;  //    yarp::sig::Matrix FC_WINDOW(FC_size, WINDOW_filter ) ;
-    
+        
     yarp::sig::Vector FC_HANDS_DES ;  //     yarp::sig::Vector FC_DES( FC_size   ) ;
     yarp::sig::Vector FC_DES_LEFT_HAND_sensor ;
     yarp::sig::Vector FC_DES_RIGHT_HAND_sensor ;
@@ -391,6 +397,7 @@ public:
   yarp::sig::Matrix Q_aw_s_c_f_rh ; //( 6 , size_q ) ; //  = Q_aw_c.submatrix( 0  , 5,  6,  (Q_aw_c.cols()-1)  ) ;
   //----------------------------------------------------------------------------------------
   yarp::sig::Vector d_fc_des_to_world ; //(size_fc)  ;
+  yarp::sig::Vector d_fc_hands_des_to_world;
   yarp::sig::Vector d_EE_r_des ; //(6,0.0) ;
   yarp::sig::Vector d_EE_l_des ; //(6,0.0) ;
   yarp::sig::Matrix T_l_c1_r_c1_loop ; //(4,4) ;
