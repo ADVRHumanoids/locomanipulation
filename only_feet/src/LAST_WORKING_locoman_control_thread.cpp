@@ -1173,13 +1173,15 @@ void locoman_control_thread::run()
     };
         
 //    yarp::sig::Vector *data = from_service_1.read(); //(false) porta non bloccante
-           // if(data){ data_from_service_1 = *data; }
+//            if(data){ data_from_service_1 = *data; }
 //    data_from_service_1 = *data; 
-/*   yarp::sig::Vector *data = from_service_1.read(!from_service_1_initted);
-     std::cout << "ricevuto ! " << std::cout ;
-     from_service_1_initted = true;
-     if(data){ data_from_service_1 = *data; }
-//   */  
+//    yarp::sig::Vector *data = from_service_1.read(!from_service_1_initted);
+//      std::cout << "ricevuto ! " << std::cout ;
+//      from_service_1_initted = true;
+//      if(data){ data_from_service_1 = *data; }
+
+     
+     
      std::cout << "data_from_service_1 = " << data_from_service_1.toString() << std::endl ;
  
    std::cout << "---------------------------------------------------------------------------" <<  std::endl ; 

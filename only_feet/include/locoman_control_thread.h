@@ -22,12 +22,21 @@ private:
     yarp::os::BufferedPort<yarp::sig::Vector> sending_q    ;
     yarp::os::BufferedPort<yarp::sig::Vector> sending_fc    ;
     
+    yarp::os::BufferedPort<yarp::sig::Vector> receiving_Rf;
+    yarp::sig::Vector *Rf_received ;
+    bool receiving_Rf_initted ;
+    yarp::sig::Vector Rf_data;
     
-    
-    yarp::os::BufferedPort<yarp::sig::Vector> from_service_1;
-    bool from_service_1_initted;
+//     yarp::os::BufferedPort<yarp::sig::Matrix> receiving_Rf;
+//     yarp::sig::Matrix *Rf_received ;
+//     bool receiving_Rf_initted ;
+//     yarp::sig::Matrix Rf_data;
 
-    yarp::sig::Vector data_from_service_1;
+    yarp::os::BufferedPort<yarp::sig::Matrix> receiving_Matrix;
+    yarp::sig::Matrix *Matrix_received ;
+    bool receiving_Matrix_initted ;
+    yarp::sig::Matrix Matrix_data;
+
     
     //---------------------------------------------------------------------------------------------
     
@@ -71,12 +80,53 @@ public:
     
     unsigned int size_q ;
     int mg =  290 ; // [N]  295 // mg_coman = 290; mg_bigman = 1000 ;
-    int loop_counter;
+    int loop_counter ;
+    int count_sensor ;
     int WINDOW_size;
     int FC_size ;  
+    
     bool flag_robot = 1 ;
     bool flag_simulator = 1-flag_robot ;
+        
     
+    double mu_l_foot = 1.0 ;
+    double mu_r_foot = 1.0 ;
+    int n_loop_V = 5 ;
+    
+    bool cout_print = 1 ;
+    
+    double tic = 0.0 ;
+    double toc = 0.0 ;
+    
+    double err_min = 30.0 ; //10.0 ;
+    double err_max = 150.0 ;  //40.0 ; 
+  
+    double err_fc_feet  = 0.0 ; 
+    double err_fc_hands = 0.0 ; 
+    double alpha = 0.0 ;
+  
+    bool optimize_V = 0 ;
+    
+    double regu_filter = 1E7 ; 
+    double alpha_V = 0.0;
+
+       
+    yarp::sig::Vector Grad_V ;
+    yarp::sig::Matrix H_V  ;
+    yarp::sig::Matrix E ; 
+    yarp::sig::Vector y_ ;
+ 
+    yarp::sig::Matrix Rf_feet ; // 
+    yarp::sig::Vector mu_l_foot_vect ; // one for each contact point
+    yarp::sig::Vector mu_r_foot_vect ; // one for each contact point
+    yarp::sig::Vector mu_feet_vect ;         // one for each contact point
+    yarp::sig::Vector f_min_vect ;  
+    yarp::sig::Vector f_max_vect ;  
+    yarp::sig::Vector fc_feet_opt ;
+    yarp::sig::Vector d_fc_feet_opt ;
+  //  yarp::sig::Vector fc_feet_V ;   
+    yarp::sig::Vector normals ; 
+      
     yarp::sig::Vector Sensor_Collection;
     yarp::sig::Vector Sensor_Collection_Offset ;
     
@@ -89,7 +139,10 @@ public:
     yarp::sig::Vector q_offset  ;  
     yarp::sig::Vector q_current_open_loop  ;  
 
+    yarp::sig::Vector q_senseRefFeedback ;
     
+    yarp::sig::Vector d_q_opt ; 
+
     int FC_HANDS_size ;
     
     std::string last_command = "pause" ;
@@ -156,6 +209,18 @@ public:
     yarp::sig::Vector ft_l_wrist ;
     yarp::sig::Vector ft_r_wrist ;
     
+    yarp::sig::Vector fc_l_c_to_robot       ; //  
+    yarp::sig::Vector fc_r_c_to_robot       ; // 
+    yarp::sig::Vector fc_l_c_hand_to_world  ; // 
+    yarp::sig::Vector fc_r_c_hand_to_world  ; // 
+    
+    yarp::sig::Vector fc_l_c_to_world ; 
+    yarp::sig::Vector fc_r_c_to_world ;
+    yarp::sig::Vector fc_feet_to_world ;
+    yarp::sig::Vector fc_hand_to_world ;
+    
+    yarp::sig::Vector FC_to_world ;
+           
     unsigned int waist_index ;
     unsigned int l_ankle_index ;
     unsigned int l_c1_index ;

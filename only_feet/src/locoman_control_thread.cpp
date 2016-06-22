@@ -25,8 +25,11 @@ locoman_control_thread::locoman_control_thread( std::string module_prefix,
                              			std::shared_ptr< paramHelp::ParamHelperServer > ph ) :
     control_thread( module_prefix, rf, ph ),  
     size_q(robot.getNumberOfKinematicJoints()),
+    q_senseRefFeedback(size_q, 0.0) ,
+    d_q_opt(size_q, 0.0)  ,
     command_interface(module_prefix), 
     loop_counter(0) ,
+    count_sensor(0) ,
     CoM_w_cmd(3, 0.0) ,
     CoM_w_up(3, 0.0) ,
     CoM_w_dw(3, 0.0) ,
@@ -67,6 +70,24 @@ locoman_control_thread::locoman_control_thread( std::string module_prefix,
     fc_offset_left_hand(12, 0.0) ,
     fc_offset_right_hand(12, 0.0),
     
+    Grad_V(size_q, 0.0) ,
+    y_(size_q, 0.0) ,
+    H_V(size_q, size_q)  ,
+    E(48, size_q) ,
+    
+    Rf_feet(24, size_q ) , 
+    
+    //Rf_data(24, size_q ) ,
+    mu_l_foot_vect(4, mu_l_foot) , // one for each contact point
+    mu_r_foot_vect(4, mu_r_foot) , // one for each contact point
+    mu_feet_vect(8, 0.0) ,         // one for each contact point
+    f_min_vect(8, 0.0) ,  
+    f_max_vect(8, 2.0*mg ) ,  
+    fc_feet_opt(24,  0.0) ,
+    d_fc_feet_opt(24, 0.0) ,
+    //fc_feet_V(24, 0.0) ,   
+    normals(24, 0.0) , 
+    
     Sensor_Collection_Offset(24, 0.0) ,
     Sensor_Collection(24,0.0),
     //
@@ -98,9 +119,22 @@ locoman_control_thread::locoman_control_thread( std::string module_prefix,
   fc_r2_hand_filt(3, 0.0) , // = FC_HANDS_FILTERED.subVector(15,17)  ; 
   fc_r3_hand_filt(3, 0.0) , // = FC_HANDS_FILTERED.subVector(18,20)  ; 
   fc_r4_hand_filt(3, 0.0) , // = FC_HANDS_FILTERED.subVector(21,23)  ;   
-    
-  d_EE_r_des(6, 0.0 ) ,
-  d_EE_l_des(6 , 0.0) ,  
+      
+  fc_l_c_to_robot(12, 0.0) ,
+  fc_r_c_to_robot(12, 0.0) ,
+  fc_l_c_hand_to_world(12, 0.0 ) ,
+  fc_r_c_hand_to_world(12, 0.0 ) ,
+  
+  fc_l_c_to_world(12, 0.0) ,
+  fc_r_c_to_world(12, 0.0) ,
+  
+  fc_feet_to_world(24, 0.0 ) ,
+  fc_hand_to_world(24, 0.0 ) ,
+  
+  FC_to_world(48, 0.0 ),
+
+  d_EE_r_des(6 , 0.0 ) ,
+  d_EE_l_des(6 , 0.0 ) ,  
     
   T_w_aw_0(4,4) , // = locoman::utils::AW_world_posture(model, robot) ;
   T_aw_w_0(4,4) , //  = locoman::utils::iHomogeneous(T_w_aw_0) ;    
@@ -467,10 +501,11 @@ bool locoman_control_thread::custom_init()
    //--------------------------------------------------------------------------------------------------------------
    // YARP Port Section
    
-   if(!to_service_2.open(std::string("/" + get_module_prefix() + "/test"))) {
-        std::cout << "ERROR: cannot open YARP port " << std::string(get_module_prefix() + "/test") << std::endl;
-        return false;    }
-   yarp::os::Network::connect( std::string("/" + get_module_prefix() + "/test"), "/locoman_service_2/test");  
+  // Prototipo di porta SEND
+//    if(!to_service_2.open(std::string("/" + get_module_prefix() + "/test"))) {
+//         std::cout << "ERROR: cannot open YARP port " << std::string(get_module_prefix() + "/test") << std::endl;
+//         return false;    }
+//    yarp::os::Network::connect( std::string("/" + get_module_prefix() + "/test"), "/locoman_service_2/test");  
 
     
    if(!sending_q.open(std::string("/" + get_module_prefix() + "/sending_q"))) {
@@ -482,18 +517,30 @@ bool locoman_control_thread::custom_init()
         std::cout << "ERROR: cannot open YARP port " << std::string(get_module_prefix() + "/sending_fc") << std::endl;
         return false; } 
    yarp::os::Network::connect( std::string("/" + get_module_prefix() + "/sending_fc"), "/locoman_service_2/receiving_fc");       
-    
+     
    
-   
-   if(!from_service_1.open(std::string("/" + get_module_prefix() + "/test_input"))) {
+   if(!receiving_Rf.open(std::string("/" + get_module_prefix() + "/test_input"))) {
         std::cout << "ERROR: cannot open YARP port " << std::string(get_module_prefix() + "/test_input") << std::endl;
         return false;  }
   if(!yarp::os::Network::connect(  "/locoman_service_2/test_output", std::string("/" + get_module_prefix() + "/test_input"))){
       std::cout << "ERROR connecting YARP ports " << std::endl ;
       return false ;
-  }
-      
-   from_service_1_initted = false;
+  }   
+   receiving_Rf_initted = false;
+   
+   
+   
+    if(!receiving_Matrix.open(std::string("/" + get_module_prefix() + "/receiving_Matrix"))) {
+        std::cout << "ERROR: cannot open YARP port " << std::string(get_module_prefix() + "/receiving_Matrix") << std::endl;
+        return false;  }
+     if(!yarp::os::Network::connect(  "/locoman_service_2/sending_Matrix", std::string("/" + get_module_prefix() + "/receiving_Matrix"))){
+      std::cout << "ERROR connecting YARP ports " << std::endl ;
+      return false ;
+  }   
+   receiving_Matrix_initted = false ;
+    // yarp::sig::Matrix Matrix_data;
+   
+   
    // end of the ...  YARP Port Section
    //----------------------------------------------------------------------------------------------------------------
    
@@ -585,6 +632,19 @@ bool locoman_control_thread::custom_init()
   map_r_hand_fcToSens_PINV = locoman::utils::Pinv_trunc_SVD( map_r_hand_fcToSens, 1E-10 ) ; //    
   //
   SENSORS_WINDOW.zero() ;
+  Rf_feet.zero() ; 
+  //Rf_data.zero();
+  H_V.zero()  ;
+  E.zero() ; 
+  //
+  normals[2]  = 1.0 ;
+  normals[5]  = 1.0 ;
+  normals[8]  = 1.0 ;
+  normals[11] = 1.0 ;
+  normals[14] = 1.0 ;
+  normals[17] = 1.0 ;
+  normals[20] = 1.0 ;
+  normals[23] = 1.0 ;
   //-------------------------------------------------------------------------------------------------------------------------
   T_w_aw_0.zero()  ; //= locoman::utils::AW_world_posture(model, robot) ;
   T_aw_w_0.zero()  ; //= locoman::utils::iHomogeneous(T_w_aw_0) ;    
@@ -956,210 +1016,254 @@ bool locoman_control_thread::custom_init()
 void locoman_control_thread::run()
 {     
   //
-  // yarp::sig::Vector q_current = locoman::utils::sense_position_no_hands(robot);
-  // yarp::sig::Vector tau_current = locoman::utils::sense_torque_no_hands(robot) ;
-  // yarp::sig::Vector q_motor_side(size_q ) ; //robot.getNumberOfKinematicJoints() ) ;
-  //
-//    std::cout << " loop_counter = " <<  loop_counter << std::endl; 
-//    std::cout << " q_current = " << q_current.toString() << std::endl ;
-//    std::cout << " q_senseRefFeedback = " << q_senseRefFeedback.toString() << std::endl ;
-//    //
+  cout_print = 1 ;
+  tic = locoman::utils::Tic() ;
+  //--------------------------------------------------------------------//
+  // Getting Robot Configuration
+  q_senseRefFeedback =  locoman::utils::senseMotorPosition( robot, flag_robot ) ;            // Ok, verified! We can use it instead of q_sensed + offset                 
+  robot.idynutils.updateiDyn3Model( q_senseRefFeedback, true ); //update model first   
+  //--------------------------------------------------------------------//
+  //Getting Force/Torque Sensor Measures
+  if(!robot.senseftSensor("l_leg_ft", ft_l_ankle)) std::cout << "ERROR READING SENSOR l_ankle" << std::endl; 
+  if(!robot.senseftSensor("r_leg_ft", ft_r_ankle)) std::cout << "ERROR READING SENSOR r_ankle" << std::endl;     
+  if(!robot.senseftSensor("l_arm_ft", ft_l_wrist)) std::cout << "ERROR READING SENSOR l_wrist" << std::endl; 
+  if(!robot.senseftSensor("r_arm_ft", ft_r_wrist)) std::cout << "ERROR READING SENSOR r_wrist" << std::endl;    
+  //---------------------------------------------------------------------------------------------------------
+  // Filtering The Sensors
+  Sensor_Collection.setSubvector(0, ft_l_ankle )   ;
+  Sensor_Collection.setSubvector(6, ft_r_ankle )   ;
+  Sensor_Collection.setSubvector(12, ft_l_wrist )  ;
+  Sensor_Collection.setSubvector(18, ft_r_wrist )  ;
   
-  double tic = locoman::utils::Tic() ;
-  yarp::sig::Vector q_senseRefFeedback =  locoman::utils::senseMotorPosition( robot, flag_robot ) ;            // Ok, verified! We can use it instead of q_sensed + offset                 
-  robot.idynutils.updateiDyn3Model( q_senseRefFeedback, true ); //update model first
-   
-    //----------------------------------------------------------------------------------------
-    // YARP Ports  // TODO : verificare questa porta
-    //
-    yarp::sig::Vector& v_to_service_2 = to_service_2.prepare();  // generic vector to service_2  
-    v_to_service_2.resize( q_senseRefFeedback.size() ) ; 
-    v_to_service_2 = q_senseRefFeedback ;
-    to_service_2.write() ;
-        
-    yarp::sig::Vector &sending_q_vect = sending_q.prepare() ; // 
-    sending_q_vect.resize( q_senseRefFeedback.size() ) ;
-    sending_q_vect = q_senseRefFeedback ;
-    sending_q.write() ;
-    //-----------------------------------------------------------------------------------------------
+  count_sensor = count_sensor% WINDOW_size ;
+  SENSORS_WINDOW.setCol( count_sensor , Sensor_Collection ) ;
+  SENSORS_SUM = SENSORS_SUM + Sensor_Collection -1.0 * SENSORS_WINDOW.getCol((count_sensor+ 1)%WINDOW_size) ; 
+  SENSORS_FILTERED = SENSORS_SUM / (WINDOW_size-1.0) ;
+  SENSORS_FILTERED -= Sensor_Collection_Offset ;  
+  count_sensor += 1 ;
+  // End of Filtering Sensors Section
+  
+  //---------------------------------------------------------------------------------------------------------
+  // Contact Force Vector Computation Section
+  
+  fc_l_c_to_robot      = map_l_fcToSens_PINV      * SENSORS_FILTERED.subVector(  0,5  ) ; //ft_l_ankle  ;  // yarp::math::pinv( map_l_fcToSens, 1E-6)  *  ft_l_ankle     ;
+  fc_r_c_to_robot      = map_r_fcToSens_PINV      * SENSORS_FILTERED.subVector(  6,11 ); //ft_r_ankle  ;    
+
+  if(  !(flag_robot ==1  && robot.idynutils.getRobotName() == "bigman")  ){  // Changing the sign again in case of walkman real robot
+	fc_l_c_to_world  = -1.0*fc_l_c_to_world ;                  // in the walkman (real) robot the feet sensors provide to_wolrd measures
+	fc_r_c_to_world  = -1.0*fc_r_c_to_world ;  // TODO :  verifica segno su sim e su robot
+  }
+  fc_l_c_to_world -= fc_offset_left   ; // =  - 1.0 * fc_l_c_to_robot  + fc_offset_left   ;
+  fc_r_c_to_world -= fc_offset_right  ; // =  - 1.0 * fc_r_c_to_robot  + fc_offset_right  ;
+  
+  fc_feet_to_world.setSubvector(0, fc_l_c_to_world ) ;
+  fc_feet_to_world.setSubvector(fc_l_c_to_world.length(), fc_r_c_to_world ) ; 
+  
+  //fc_feet_V = fc_feet_to_world ; // 
+  
+  //-------------------------------
+  fc_l_c_hand_to_world = map_l_hand_fcToSens_PINV * SENSORS_FILTERED.subVector( 12,17 ); //ft_l_wrist  ;  // TODO :  verifica segno su sim e su robot
+  fc_r_c_hand_to_world = map_r_hand_fcToSens_PINV * SENSORS_FILTERED.subVector( 18,23 ); //ft_r_wrist  ;  // yarp::math::pinv( map_r_fcToSens, 1E-6)  *  ft_r_ankle     ;
+  fc_l_c_hand_to_world -= fc_offset_left_hand  ;
+  fc_r_c_hand_to_world -= fc_offset_right_hand ;
+  // TODO : checking the sign in sim and on the real robot
+  fc_hand_to_world.setSubvector(0, fc_l_c_hand_to_world ) ;
+  fc_hand_to_world.setSubvector(fc_l_c_hand_to_world.length(), fc_r_c_hand_to_world ) ;  
+  //---------------------------
+  FC_to_world.setSubvector(0, fc_feet_to_world) ;
+  FC_to_world.setSubvector(fc_feet_to_world.length(), fc_hand_to_world) ;  
+
+  // End of Contact Force Vector Computation Section
+  //----------------------------------------------------------------------------------------
+  
+  
+  //---------------------------------------------------------------------------------------------------------
+  // Yarp Ports: Sending Robot Configuration and Contact Forces 
+  //
+//   yarp::sig::Vector& v_to_service_2 = to_service_2.prepare();  // generic vector to service_2  
+//   v_to_service_2.resize( q_senseRefFeedback.size() ) ; 
+//   v_to_service_2 = q_senseRefFeedback ;
+//   to_service_2.write() ;
+      
+  yarp::sig::Vector &sending_q_vect = sending_q.prepare() ; // 
+  sending_q_vect.resize( q_senseRefFeedback.size() ) ;
+  sending_q_vect = q_senseRefFeedback ;
+  sending_q.write() ;
+  if(cout_print){std::cout << " q_senseRefFeedback = " << q_senseRefFeedback.toString() << std::endl ;}
+
+  yarp::sig::Vector &sending_fc_vect = sending_fc.prepare() ;
+  sending_fc_vect.resize( FC_to_world.size() ) ;
+  sending_fc_vect = FC_to_world ;
+  sending_fc.write() ;
+  if(cout_print){std::cout << "FC_to_send = " << FC_to_world.toString() << std::endl  ;}
+  
     
+  //---------------------------------------------------------------------------------------------------------
+  // Receiving ports...  
+  if(cout_print){std::cout << "ricevendo ... " << std::endl ;}
+  if(!receiving_Rf_initted){ Rf_received = receiving_Rf.read();  // if we are in the first loop... 
+      if(Rf_received){ Rf_data = *Rf_received;
+	receiving_Rf_initted = true ; }
+  }
+  else { Rf_received = receiving_Rf.read(false); //porta non bloccante
+      if(Rf_received){ Rf_data = *Rf_received; }
+  };  
+  
+  
+  
+   if(!receiving_Matrix_initted){ Matrix_received = receiving_Matrix.read();  // if we are in the first loop... 
+      if(Matrix_received){ Matrix_data = *Matrix_received;
+	receiving_Matrix_initted = true ; }
+  }
+  else {  Matrix_received = receiving_Matrix.read(false) ; //porta non bloccante
+      if(Matrix_received){Matrix_data = *Matrix_received; }
+  };  
+  
+  
+  
+  
+  if(cout_print){std::cout << "Rf_data = " << Rf_data.toString() << std::endl ;
+    std::cout << "Matrix_data = " << Matrix_data.toString() << std::endl ;
+  }   
+  
+  
+  
+  
+  
+  
+  
+  // End of the YARP Port Section
+  //---------------------------------------------------------------------
 
-    //--------------------------------------------------------------------//
-    //Getting Force/Torque Sensor Measures
+ 
+ 
+  
 
+  
+ //-----------------------------------------------------------------------------------------------
+ // Contact Force Optimization Functions
+  
+   
+    //  normals, mu_feet_vect, f_min_vect, f_max_vect  ??? CHECK TODO
+   
+   
+  err_min = 30.0 ; //10.0 ;
+  err_max = 150.0 ;  //40.0 ; 
+
+  
+  optimize_V = 0 ; 
+  
+  if(optimize_V){
+    
+  E = locoman::utils::orth_SVD(Rf_feet) ;
+  y_.resize(E.cols()) ;
+  y_.zero() ;
+  
+  n_loop_V = 5 ;
+  
+  for(int i = 0; i < n_loop_V; i++){  // Contact Force Optimization Loop
+    if(i>0){ // re-Sense the force-torque sensors from the second loop
+    // 1) Sensing new q and Fc   
+    q_senseRefFeedback =  locoman::utils::senseMotorPosition( robot, flag_robot ) ;  
     if(!robot.senseftSensor("l_leg_ft", ft_l_ankle)) std::cout << "ERROR READING SENSOR l_ankle" << std::endl; 
     if(!robot.senseftSensor("r_leg_ft", ft_r_ankle)) std::cout << "ERROR READING SENSOR r_ankle" << std::endl;     
     if(!robot.senseftSensor("l_arm_ft", ft_l_wrist)) std::cout << "ERROR READING SENSOR l_wrist" << std::endl; 
-    if(!robot.senseftSensor("r_arm_ft", ft_r_wrist)) std::cout << "ERROR READING SENSOR r_wrist" << std::endl;     
-    
+    if(!robot.senseftSensor("r_arm_ft", ft_r_wrist)) std::cout << "ERROR READING SENSOR r_wrist" << std::endl;        
     //---------------------------------------------------------------------------------------------------------
-    // Filtering The Sensors
-
-    Sensor_Collection.setSubvector(0, ft_l_ankle )   ;
-    Sensor_Collection.setSubvector(6, ft_r_ankle )   ;
+    // 2) Low_Pass Filter to Fc
+    Sensor_Collection.setSubvector( 0, ft_l_ankle )  ;
+    Sensor_Collection.setSubvector( 6, ft_r_ankle )  ;
     Sensor_Collection.setSubvector(12, ft_l_wrist )  ;
     Sensor_Collection.setSubvector(18, ft_r_wrist )  ;
     
-    int count_sensor = loop_counter% WINDOW_size ;
+    count_sensor = count_sensor% WINDOW_size ;
     SENSORS_WINDOW.setCol( count_sensor , Sensor_Collection ) ;
     SENSORS_SUM = SENSORS_SUM + Sensor_Collection -1.0 * SENSORS_WINDOW.getCol((count_sensor+ 1)%WINDOW_size) ; 
     SENSORS_FILTERED = SENSORS_SUM / (WINDOW_size-1.0) ;
     SENSORS_FILTERED -= Sensor_Collection_Offset ;  // READY to be sent for computations.... !!!
+    count_sensor +=   1 ;
+        // 2.1 converting to contact force componenets  
+    fc_l_c_to_robot      = map_l_fcToSens_PINV      * SENSORS_FILTERED.subVector(  0,5  ) ; //ft_l_ankle  ;  // yarp::math::pinv( map_l_fcToSens, 1E-6)  *  ft_l_ankle     ;
+    fc_r_c_to_robot      = map_r_fcToSens_PINV      * SENSORS_FILTERED.subVector(  6,11 ); //ft_r_ankle  ;     
 
-//  double toc_1 = locoman::utils::Toc(tic) ;
-//  std::cout << "tic-toc = " << toc_1 << " seconds" << std::endl ;
-    
-    // End of Filtering Sensors Section
-    //---------------------------------------------------------------------------------------------------------
-
-    yarp::sig::Vector fc_l_c_to_robot      = map_l_fcToSens_PINV      * SENSORS_FILTERED.subVector(  0,5  ) ; //ft_l_ankle  ;  // yarp::math::pinv( map_l_fcToSens, 1E-6)  *  ft_l_ankle     ;
-    yarp::sig::Vector fc_r_c_to_robot      = map_r_fcToSens_PINV      * SENSORS_FILTERED.subVector(  6,11 ); //ft_r_ankle  ;    
-    yarp::sig::Vector fc_l_c_hand_to_world = map_l_hand_fcToSens_PINV * SENSORS_FILTERED.subVector( 12,17 ); //ft_l_wrist  ;  // TODO :  verifica segno su sim e su robot
-    yarp::sig::Vector fc_r_c_hand_to_world = map_r_hand_fcToSens_PINV * SENSORS_FILTERED.subVector( 18,23 ); //ft_r_wrist  ;  // yarp::math::pinv( map_r_fcToSens, 1E-6)  *  ft_r_ankle     ;
-       
-    yarp::sig::Vector fc_l_c_to_world =  - 1.0 * fc_l_c_to_robot     ;
-    yarp::sig::Vector fc_r_c_to_world =  - 1.0 * fc_r_c_to_robot     ;
-    if(flag_robot ==1  && robot.idynutils.getRobotName() == "bigman"){  // Changing the sign again in case of walkman real robot
-          fc_l_c_to_world  = -1.0*fc_l_c_to_world ;                  // in the walkman (real) robot the feet sensors provide to_wolrd measures
-          fc_r_c_to_world  = -1.0*fc_r_c_to_world ;  // TODO :  verifica segno su sim e su robot
+    if(  !(flag_robot ==1  && robot.idynutils.getRobotName() == "bigman")  ){  // Changing the sign again in case of walkman real robot
+	  fc_l_c_to_world  = -1.0*fc_l_c_to_world ;                  // in the walkman (real) robot the feet sensors provide to_wolrd measures
+	  fc_r_c_to_world  = -1.0*fc_r_c_to_world ;  // TODO :  verifica segno su sim e su robot
     }
-    
     fc_l_c_to_world -= fc_offset_left   ; // =  - 1.0 * fc_l_c_to_robot  + fc_offset_left   ;
-    fc_r_c_to_world -= fc_offset_right  ; //=  - 1.0 * fc_r_c_to_robot  + fc_offset_right  ;
-    fc_l_c_hand_to_world -= fc_offset_left_hand  ;
-    fc_r_c_hand_to_world -= fc_offset_right_hand ;
-
-//     std::cout << " ft_l_ankle = " << ft_l_ankle.toString() << std::endl;
-//     std::cout << " ft_r_ankle = " << ft_r_ankle.toString() << std::endl;
-//     std::cout << " ft_l_wrist = " << ft_l_wrist.toString() << std::endl;
-//     std::cout << " ft_r_wrist = " << ft_r_wrist.toString() << std::endl;
-
+    fc_r_c_to_world -= fc_offset_right  ; // =  - 1.0 * fc_r_c_to_robot  + fc_offset_right  ;
     
-    //  TO Verify...
-    yarp::sig::Vector fc_to_world_0(size_fc) ;
-    yarp::sig::Vector fc_hand_to_world_0(size_fc) ;
-    fc_to_world_0.setSubvector(0, fc_l_c_to_world ) ;
-    fc_to_world_0.setSubvector(fc_l_c_to_world.length(), fc_r_c_to_world ) ;  
-    fc_hand_to_world_0.setSubvector(0, fc_l_c_hand_to_world ) ;
-    fc_hand_to_world_0.setSubvector(fc_l_c_hand_to_world.length(), fc_r_c_hand_to_world ) ;  
-
-  
-//-------------------------------------------------------------------------------------------------------------// 
-    // Fc filtering   
-    int counter_window = loop_counter% WINDOW_size ;
-    //  
-    FC_WINDOW.setCol( counter_window , fc_to_world_0 ) ;
-     //for(int k=0; k<fc_to_world_0.length() ; k++ ) {
-    //FC_SUM[k] = FC_SUM[k]+ fc_to_world_0[k]- FC_WINDOW[k][(counter_window+ 1)%WINDOW_size] ;}
-    FC_SUM = FC_SUM + fc_to_world_0 - 1.0*FC_WINDOW.getCol((counter_window+ 1)%WINDOW_size) ; 
+    fc_feet_to_world.setSubvector(0, fc_l_c_to_world ) ;
+    fc_feet_to_world.setSubvector(fc_l_c_to_world.length(), fc_r_c_to_world ) ; 
+    } // closing -if(i>0)- part
     
-    FC_FILTERED = FC_SUM / WINDOW_size ;  // to_world 
-    //
-    FC_HANDS_WINDOW.setCol( counter_window , fc_hand_to_world_0 ) ;
-    for(int k=0; k<fc_hand_to_world_0.length() ; k++ ){
-    FC_HANDS_SUM[k] = FC_HANDS_SUM[k]+ fc_hand_to_world_0[k]- FC_HANDS_WINDOW[k][(counter_window+ 1)%WINDOW_size]  ;}  
-    FC_HANDS_FILTERED = FC_HANDS_SUM / WINDOW_size ;  // to_world 
-    // End of the Filtering Section
-//-------------------------------------------------------------------------------------------------------------// 
-     
+    //---------------------------------------------------------------------------------------------------------
+    // 3) Computing Gradient and Hessian of V
+    Grad_V = locoman::utils::D_V_tot(fc_feet_to_world, normals, mu_feet_vect, f_min_vect, f_max_vect, E ) ;
+    H_V = locoman::utils::H_V_tot(fc_feet_to_world, normals, mu_feet_vect, f_min_vect, f_max_vect, E ) ;
     
-  // 
-  yarp::sig:: Vector FC_FILTERED_LEFT_sensor       = map_l_fcToSens * FC_FILTERED.subVector(0,11) ;
-  yarp::sig:: Vector FC_FILTERED_RIGHT_sensor      = map_r_fcToSens * FC_FILTERED.subVector(12,23) ;    
-  yarp::sig:: Vector FC_FILTERED_LEFT_HAND_sensor  = map_l_hand_fcToSens * FC_HANDS_FILTERED.subVector(0,11) ;
-  yarp::sig:: Vector FC_FILTERED_RIGHT_HAND_sensor = map_r_hand_fcToSens * FC_HANDS_FILTERED.subVector(12,23) ; 
-//     
-
+    // 4) Computing Newton step
     
-
-   d_fc_des_to_world  = FC_DES - FC_FILTERED ; // 
-   d_fc_hands_des_to_world = FC_HANDS_DES - FC_HANDS_FILTERED ; 
-
+    y_ -= yarp::math::luinv(H_V)* Grad_V;
+    d_fc_feet_opt  =  E*y_;
+    if(cout_print){  fc_feet_opt = fc_feet_to_world + d_fc_feet_opt ; 
+      std::cout << "fc_feet_opt = " << fc_feet_opt.toString() << std::endl ;      
+      std::cout << "d_fc_feet_opt = " << d_fc_feet_opt.toString() << std::endl ;
+      }
+    
+    // 5) Computing d_q //   
+    regu_filter = 1E7 ; 
+    d_q_opt = -1.0* locoman::utils::Pinv_Regularized( Rf_feet , regu_filter)* d_fc_feet_opt ;
    
+    // 6) Moving the robot !!
     
-  yarp::sig::Vector FC_to_send(size_fc*2,0.0);
-  FC_to_send.setSubvector(0, FC_DES) ;
-  FC_to_send.setSubvector(size_fc, FC_FILTERED) ;  
-   
-         // Yarp Port about contact forces 
-   yarp::sig::Vector &sending_fc_vect = sending_fc.prepare() ;
-   sending_fc_vect.resize( FC_to_send.size() ) ;
-   sending_fc_vect = FC_to_send ;
-   sending_fc.write() ;
-    
-    
-    std::cout << "ricevendo ... " << std::endl ;
-    if(!from_service_1_initted){   // if we are in the first loop...
-        yarp::sig::Vector *data = from_service_1.read(); //porta bloccante
-        if(data){ data_from_service_1 = *data; }
-    }
-    else {
-        yarp::sig::Vector *data = from_service_1.read(false); //porta non bloccante
-        if(data){ data_from_service_1 = *data; }
-    };
-        
-//---------------------------------------------------------------------
-  // End of Contact Forces Filtering
- 
-   //----------------------------------------------------------------------------------------- 
-  
- //  std::cout << "data_from_service_1 = " << data_from_service_1.toString() << std::endl ;
- 
-   // Using data from service to move....
-     
-  
-  yarp::sig::Vector d_q_move_new = data_from_service_1 ; // d_q_dsp_6 ; // d_q_dsp_5_m   ; // d_q_dsp_6 ; //
-     std::cout << " d_q_move_new.toString()  =  "<< std::endl << d_q_move_new.toString() << std::endl  ;  
+  if(cout_print){std::cout << " d_q_opt.toString()  =  "<< std::endl << d_q_opt.toString() << std::endl  ;  }
 
-  if(norm(d_q_move_new)>0.005){d_q_move_new =  0.005 *d_q_move_new/ norm(d_q_move_new) ; //d_q_dsp_7 ; //0.012 *d_q_move/ norm(d_q_move) ;
-  }  // 0.0018
-  if(norm(d_q_move_new)<0.0002){d_q_move_new =  0.0002 *d_q_move_new/ norm(d_q_move_new) ;
-  }   
-   std::cout << " d_q_move_new.toString_2()  =  "<< std::endl << d_q_move_new.toString() << std::endl  ;  
+  if(norm(d_q_opt)>0.005){d_q_opt =  0.005 *d_q_opt/ norm(d_q_opt) ; } 
+  if(norm(d_q_opt)<0.0002){d_q_opt =  0.0002 *d_q_opt/ norm(d_q_opt) ; }   
+  
+  if(cout_print){std::cout << " d_q_opt.toString_2()  =  "<< std::endl << d_q_opt.toString() << std::endl  ; }
 
    //------------------------------------------------------------------------
-  //   
    
-  double err_fc_feet  = norm( d_fc_des_to_world )  ; 
-  double err_fc_hands = norm( d_fc_des_to_world )  ; 
+   err_fc_feet  = norm( d_fc_feet_opt )  ; 
+   if(cout_print){std::cout << " err_fc_feet  =  "<< std::endl << err_fc_feet << std::endl  ; }
 
-
-    
-   
-  double err_min = 30.0 ; //10.0 ;
-  
-  double err_max = 150.0 ;  //40.0 ; 
-    
 //   char file_name[] = "err.m";   // writing
 //   std::ofstream err_cl ( file_name, std::ios::app );
 //   if( err_cl.is_open() )
 //   err_cl <<  err_fc_feet << std::endl;  
-
+    
+    alpha_V = locoman::utils::alpha_filter(err_fc_feet, err_min, err_max) ;  
+    q_ref_ToMove = q_senseRefFeedback +  (1.0/1.0)* alpha_V * d_q_opt  ; 
+    robot.move29(q_ref_ToMove) ; 
+  } // closing the -for- loop
   
-  //---------------------------------------------------- -------------------------------------------
-
-  double alpha = locoman::utils::alpha_filter(err_fc_feet, err_min, err_max) ;
-
-  std::cout << " err  =  "<< std::endl << err_fc_feet << std::endl  ;  
- 
-// q_current_open_loop =  q_current_open_loop +  (1.0/1.0)* alpha*d_q_move  ; 
-
-  yarp::sig::Vector q_ref_ToMove_NEW = q_senseRefFeedback +  (1.0/1.0)* alpha *  d_q_move_new  ; 
+  } // closing the -if(optimize_V)- part
   
-     
-  
-  
-  loop_counter++ ; 
-  double toc = locoman::utils::Toc(tic) ;
-  std::cout << "tic-toc = " << toc << " seconds" << std::endl ;
-  //----------------------------------------------
+   toc = locoman::utils::Toc(tic) ;
+  if(cout_print){std::cout << "tic-toc = " << toc << " seconds" << std::endl ;}
   char file_name[] = "tic_toc.txt";   // writing
   std::ofstream tictoc_cl ( file_name, std::ios::app );
   if( tictoc_cl.is_open() )
   tictoc_cl <<  toc << std::endl; 
+
+  loop_counter++ ;   
   
-   std::cout << "---------------------------------------------------------------------------" <<  std::endl ; 
-   
+ if(cout_print){std::cout << "---------------------------------------------------------------------------" <<  std::endl ; }
+   // END of the NEW code
+//-----------------------------------------------------------------------------------------
+
+  
+  
+  
+  
+  
+  
+  
+  
+  d_fc_des_to_world  = FC_DES - FC_FILTERED ; // 
+  d_fc_hands_des_to_world = FC_HANDS_DES - FC_HANDS_FILTERED ; 
    
    
   yarp::sig::Vector d_fc_r_hand  = d_fc_hands_des_to_world.subVector(12,23)  ;
@@ -1167,18 +1271,45 @@ void locoman_control_thread::run()
    
    
     //
-   std::cout << "---------------------------------------------------------------------------" <<  std::endl ; 
-   std::cout << " FC_DES_feet = " << std::endl << FC_DES.toString() << std::endl; 
-   std::cout << " FC_FILTERED_feet = " << std::endl << FC_FILTERED.toString() << std::endl; 
-   std::cout << " d_fc_des_to_world = " <<  std::endl << d_fc_des_to_world.toString() << std::endl;  
-   std::cout << " norm( d_fc_des_to_world ) = " <<  std::endl << norm( d_fc_des_to_world ) << std::endl;    
-   std::cout << "---------------------------------------------------------------------------" <<  std::endl ; 
-   std::cout << " FC_R_HAND_DES = " <<  std::endl << FC_HANDS_DES.subVector(12,23).toString() << std::endl;    
-   std::cout << " FC_R_HAND_FILTERED = " <<  std::endl << FC_HANDS_FILTERED.subVector(12,23) .toString() << std::endl;    
-   std::cout << " d_fc_r_hand = " <<  std::endl << d_fc_r_hand.toString() << std::endl;  
-   std::cout << " norm( d_fc_r_hand ) = " <<  std::endl << norm( d_fc_r_hand ) << std::endl;    
-   std::cout << "---------------------------------------------------------------------------" <<  std::endl ; 
-    
+//    std::cout << "---------------------------------------------------------------------------" <<  std::endl ; 
+//    std::cout << " FC_DES_feet = " << std::endl << FC_DES.toString() << std::endl; 
+//    std::cout << " FC_FILTERED_feet = " << std::endl << FC_FILTERED.toString() << std::endl; 
+//    std::cout << " d_fc_des_to_world = " <<  std::endl << d_fc_des_to_world.toString() << std::endl;  
+//    std::cout << " norm( d_fc_des_to_world ) = " <<  std::endl << norm( d_fc_des_to_world ) << std::endl;    
+//    std::cout << "---------------------------------------------------------------------------" <<  std::endl ; 
+//    std::cout << " FC_R_HAND_DES = " <<  std::endl << FC_HANDS_DES.subVector(12,23).toString() << std::endl;    
+//    std::cout << " FC_R_HAND_FILTERED = " <<  std::endl << FC_HANDS_FILTERED.subVector(12,23) .toString() << std::endl;    
+//    std::cout << " d_fc_r_hand = " <<  std::endl << d_fc_r_hand.toString() << std::endl;  
+//    std::cout << " norm( d_fc_r_hand ) = " <<  std::endl << norm( d_fc_r_hand ) << std::endl;    
+//    std::cout << "---------------------------------------------------------------------------" <<  std::endl ; 
+//     
+  
+//-------------------------------------------------------------------------------------------------------------// 
+//     // Fc filtering   
+//     int counter_window = loop_counter% WINDOW_size ;
+//     //  
+//     FC_WINDOW.setCol( counter_window , fc_to_world_0 ) ;
+//      //for(int k=0; k<fc_to_world_0.length() ; k++ ) {
+//     //FC_SUM[k] = FC_SUM[k]+ fc_to_world_0[k]- FC_WINDOW[k][(counter_window+ 1)%WINDOW_size] ;}
+//     FC_SUM = FC_SUM + fc_to_world_0 - 1.0*FC_WINDOW.getCol((counter_window+ 1)%WINDOW_size) ; 
+//     
+//     FC_FILTERED = FC_SUM / WINDOW_size ;  // to_world 
+//     //
+//     FC_HANDS_WINDOW.setCol( counter_window , fc_hand_to_world_0 ) ;
+//     for(int k=0; k<fc_hand_to_world_0.length() ; k++ ){
+//     FC_HANDS_SUM[k] = FC_HANDS_SUM[k]+ fc_hand_to_world_0[k]- FC_HANDS_WINDOW[k][(counter_window+ 1)%WINDOW_size]  ;}  
+//     FC_HANDS_FILTERED = FC_HANDS_SUM / WINDOW_size ;  // to_world 
+  // 
+  yarp::sig:: Vector FC_FILTERED_LEFT_sensor       = map_l_fcToSens * FC_FILTERED.subVector(0,11) ;
+  yarp::sig:: Vector FC_FILTERED_RIGHT_sensor      = map_r_fcToSens * FC_FILTERED.subVector(12,23) ;    
+  yarp::sig:: Vector FC_FILTERED_LEFT_HAND_sensor  = map_l_hand_fcToSens * FC_HANDS_FILTERED.subVector(0,11) ;
+  yarp::sig:: Vector FC_FILTERED_RIGHT_HAND_sensor = map_r_hand_fcToSens * FC_HANDS_FILTERED.subVector(12,23) ; 
+//    //     // End of the Filtering Section
+//-------------------------------------------------------------------------------------------------------------//  
+//    
+   
+   
+   
   //-----------------------------------------------------------------------------------------
   // Contact Forces
   fc_l_c1_filt = FC_FILTERED.subVector(0,2) ;// - fc_offset_left.subVector(0,2)  ;  // Applied from the robot to the world
@@ -1735,9 +1866,12 @@ void locoman_control_thread::run()
 //   yarp::sig::Vector d_q_dsp_6 = -1.0* locoman::utils::Pinv_Regularized( Rf_temp_2_filt, regu_filter)* d_fc_des_to_world ;
 //   std::cout << " d_q_dsp_6 qui =  "<< std::endl << d_q_dsp_6.toString() << std::endl  ;  
 
-    std::cout << " d_q_move_new qui =  "<< std::endl << d_q_move_new.toString() << std::endl  ;  
-
-   q_ref_ToMove_NEW = q_senseRefFeedback +  (1.0/1.0)* alpha *  d_q_move_new  ; 
+//     std::cout << " d_q_move_new qui =  "<< std::endl << d_q_move_new.toString() << std::endl  ;  
+// 
+//    q_ref_ToMove_NEW = q_senseRefFeedback +  (1.0/1.0)* alpha *  d_q_move_new  ; 
+//    
+   
+   
   //------------------------------------------------------------------------------
     //------------------------------------------------------------------------------
 
@@ -1883,6 +2017,8 @@ void locoman_control_thread::run()
   std::cout << " err  =  "<< std::endl << err << std::endl  ;  
   
    std::cout << " alpha  =  "<< std::endl << alpha << std::endl   ;  
+   
+    // q_ref_ToMove = q_senseRefFeedback +  (1.0/1.0)* alpha * d_q_move  ; 
   
 //   q_ref_ToMove = q_motor_side + q_offset +  (0.0/1.0)* alpha*d_q_move ;  //d_q_temp_var ; // alpha*d_q_aw_2_6 ;  // +  (1.0/5.0)*d_q_0_project ;        
 //   q_ref_ToMove = q_current    + q_offset +  (0.0/1.0)* alpha*d_q_move  ;  // on the real robot
@@ -1897,10 +2033,12 @@ void locoman_control_thread::run()
 
   //std::cout << "Double Stance Phase "<< std::endl ; 
  // q_ref_ToMove_NEW = q_senseRefFeedback +  (1.0/1.0)* alpha * d_q_dsp_6; // d_q_move  ; 
-  q_ref_ToMove_NEW = q_senseRefFeedback +  (1.0/1.0)* alpha *  d_q_move_new  ; 
- 
-  robot.move29( q_ref_ToMove_NEW ); // q_ref_ToMove);                 //  q_motor_side);//
+//   q_ref_ToMove_NEW = q_senseRefFeedback +  (1.0/1.0)* alpha *  d_q_move_new  ; 
+//  
+//   robot.move29( q_ref_ToMove_NEW ); // q_ref_ToMove);                 //  q_motor_side);//
 
+  
+  
   } // closing of the Double Stance Phase
 //----------------------------------------------------------------------------------
 else if (last_command =="feet_r_hand" )//|| last_command =="resume" ||            
@@ -2898,7 +3036,104 @@ else if (last_command =="sw_lf_fw")
      
 } // closing General Command part
   
+   
+  /*
+ //---------------------------------------------------- -------------------------------------------
+ // Debug Contact Force Optimization Functions
   
+  yarp::sig::Vector fc_i_dubug(3,0.0) ;
+  fc_i_dubug[0] = 1.0 ;
+  fc_i_dubug[1] = 2.0 ;
+  fc_i_dubug[2] = 3.0 ;
+  yarp::sig::Vector n_i_dubug(3,0.0) ;
+  n_i_dubug[2] = 1.0 ;
+  double mu_i_debug = 0.7 ;
+  double f_min_i_debug = 0.0 ;
+  double f_max_i_debug = 10.0 ;
+  
+  yarp::sig::Matrix E_i_debug(3,2) ;
+  yarp::sig::Matrix E_debug(6,2) ;
+  
+  E_i_debug[0][0] = 1.0 ;
+  E_i_debug[1][0] = 2.0 ;
+  E_i_debug[2][0] = 5.0 ;
+  
+  E_i_debug[0][1] = 4.0 ;
+  E_i_debug[1][1] = 4.0 ;
+  E_i_debug[2][1] = 2.0 ;
+  
+  E_debug[0][0] = 1.0 ;
+  E_debug[1][0] = 2.0 ;
+  E_debug[2][0] = 5.0 ;
+  E_debug[3][0] = 5.0 ;
+  E_debug[4][0] = 8.0 ;
+  E_debug[5][0] = 2.0 ;
+  
+  E_debug[0][1] = 4.0 ;
+  E_debug[1][1] = 4.0 ;
+  E_debug[2][1] = 2.0 ;
+  E_debug[3][1] = 5.0 ;
+  E_debug[4][1] = 3.0 ;
+  E_debug[5][1] = 5.0 ;
+  
+  
+  yarp::sig::Vector sigma_i_debug = locoman::utils::sigma_i(  fc_i_dubug, n_i_dubug, mu_i_debug,  f_min_i_debug, f_max_i_debug ) ; 
+  double  V_i_debug = locoman::utils::V_i(  fc_i_dubug, n_i_dubug, mu_i_debug,  f_min_i_debug, f_max_i_debug ) ; 
+
+  std::cout << " sigma_i_debug =  "<< std::endl << sigma_i_debug.toString() << std::endl  ; 
+  std::cout << " V_i_debug =  "<< std::endl << V_i_debug << std::endl  ; 
+  
+  yarp::sig::Vector fc_vect_debug(6,0.0) ;
+  fc_vect_debug[0] = 1.0 ;
+  fc_vect_debug[1] = 2.0 ;
+  fc_vect_debug[2] = 3.0 ;
+  fc_vect_debug[3] = 3.0 ;
+  fc_vect_debug[4] = 4.0 ;
+  fc_vect_debug[5] = 5.0 ;
+  
+  yarp::sig::Vector n_vect_debug(6,0.0) ;
+  n_vect_debug[2] = 1.0 ;
+    n_vect_debug[5] = 1.0 ;
+
+  yarp::sig::Vector mu_vect_debug(2,0.0) ;
+  mu_vect_debug[0] = 0.7 ;
+  mu_vect_debug[1] = 0.9 ;
+  
+  yarp::sig::Vector f_min_vect_debug(2,0.0 );
+  yarp::sig::Vector f_max_vect_debug(2, 0.0)  ;
+  f_max_vect_debug[0] = 10.001 ;
+  f_max_vect_debug[1] = 7.001 ;
+  
+  yarp::sig::Vector sigma_tot_debug = locoman::utils::sigma_tot(  fc_vect_debug, n_vect_debug, mu_vect_debug,  f_min_vect_debug, f_max_vect_debug ) ; 
+  double V_tot_debug = locoman::utils::V_tot(  fc_vect_debug, n_vect_debug, mu_vect_debug,  f_min_vect_debug, f_max_vect_debug ) ; 
+
+  std::cout << " sigma_tot_debug =  "<< std::endl << sigma_tot_debug.toString() << std::endl  ; 
+  std::cout << " V_tot_debug =  "<< std::endl << V_tot_debug  << std::endl  ; 
+
+  
+  yarp::sig::Vector D_V_i_debug = locoman::utils::D_V_i(  fc_i_dubug, n_i_dubug, mu_i_debug,  f_min_i_debug, f_max_i_debug , E_i_debug) ; 
+  yarp::sig::Vector D_V_tot_debug = locoman::utils::D_V_tot(  fc_vect_debug, n_vect_debug, mu_vect_debug, 
+							      f_min_vect_debug, f_max_vect_debug , E_debug) ; 
+  
+  std::cout << " D_V_i_debug =  "<< std::endl << D_V_i_debug.toString() << std::endl  ; 
+  std::cout << " D_V_tot_debug =  "<< std::endl << D_V_tot_debug.toString()  << std::endl  ; 
+  
+    
+  yarp::sig::Matrix H_V_i_debug = locoman::utils::H_V_i(  fc_i_dubug, n_i_dubug, mu_i_debug,  f_min_i_debug, f_max_i_debug , E_i_debug) ; 
+ 
+  yarp::sig::Matrix H_V_tot_debug = locoman::utils::H_V_tot(  fc_vect_debug, n_vect_debug, mu_vect_debug, 
+							      f_min_vect_debug, f_max_vect_debug , E_debug) ; 
+  
+  std::cout << " H_V_i_debug =  "<< std::endl << H_V_i_debug.toString() << std::endl  ; 
+  std::cout << " H_V_tot_debug =  "<< std::endl << H_V_tot_debug.toString()  << std::endl  ; 
+   
+  char vai_2 ;
+  std::cout << " waiting for a keyboard input !!! " << std::endl ;
+  std::cin >> vai_2 ;
+  
+  // End of the debug section for sigma, V, D_V, H_V  
+  //------------------------------------------------------------------------------------------
+  */
   
   
  // desired contact force definition
