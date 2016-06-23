@@ -21,11 +21,12 @@ private:
     yarp::os::BufferedPort<yarp::sig::Vector> to_service_2 ;
     yarp::os::BufferedPort<yarp::sig::Vector> sending_q    ;
     yarp::os::BufferedPort<yarp::sig::Vector> sending_fc    ;
-    
-    yarp::os::BufferedPort<yarp::sig::Vector> receiving_Rf;
-    yarp::sig::Vector *Rf_received ;
-    bool receiving_Rf_initted ;
-    yarp::sig::Vector Rf_data;
+   
+    //prototype
+//     yarp::os::BufferedPort<yarp::sig::Vector> receiving_Rf;
+//     yarp::sig::Vector *Rf_received ;
+//     bool receiving_Rf_initted ;
+//     yarp::sig::Vector Rf_data;
     
 //     yarp::os::BufferedPort<yarp::sig::Matrix> receiving_Rf;
 //     yarp::sig::Matrix *Rf_received ;
@@ -120,12 +121,13 @@ public:
     yarp::sig::Vector mu_l_foot_vect ; // one for each contact point
     yarp::sig::Vector mu_r_foot_vect ; // one for each contact point
     yarp::sig::Vector mu_feet_vect ;         // one for each contact point
-    yarp::sig::Vector f_min_vect ;  
-    yarp::sig::Vector f_max_vect ;  
+    yarp::sig::Vector f_min_feet_vect ;  
+    yarp::sig::Vector f_max_feet_vect ;  
     yarp::sig::Vector fc_feet_opt ;
     yarp::sig::Vector d_fc_feet_opt ;
-  //  yarp::sig::Vector fc_feet_V ;   
-    yarp::sig::Vector normals ; 
+  
+    
+    yarp::sig::Vector normals_feet ; 
       
     yarp::sig::Vector Sensor_Collection;
     yarp::sig::Vector Sensor_Collection_Offset ;
@@ -191,6 +193,9 @@ public:
     yarp::sig::Vector FC_HANDS_FILTERED ;
     yarp::sig::Matrix FC_HANDS_WINDOW ;  //    yarp::sig::Matrix FC_WINDOW(FC_size, WINDOW_filter ) ;
     
+    yarp::sig::Vector ones_vect_4 ;
+    yarp::sig::Vector ones_vect_8 ;
+	
     yarp::sig::Vector zero_3 ;
     yarp::sig::Matrix Zeros_6_6 ;
     yarp::sig::Matrix Eye_6 ;
