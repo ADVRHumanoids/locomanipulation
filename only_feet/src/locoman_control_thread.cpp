@@ -24,7 +24,7 @@ locoman_control_thread::locoman_control_thread( std::string module_prefix,
                              			yarp::os::ResourceFinder rf, 
                              			std::shared_ptr< paramHelp::ParamHelperServer > ph ) :
     control_thread( module_prefix, rf, ph ),  
-    size_q(robot.getNumberOfKinematicJoints()),
+    size_q(locoman::utils::getNumberOfKinematicJoints(robot)),
     q_senseRefFeedback(size_q, 0.0) ,
     d_q_opt(size_q, 0.0)  ,
     command_interface(module_prefix), 
@@ -497,7 +497,7 @@ bool locoman_control_thread::custom_init()
     
   link_locoman_params();  
   model.setFloatingBaseLink("Waist");
-  yarp::sig::Vector q_current(robot.getNumberOfKinematicJoints(),0.0) ; // = robot.sensePosition();
+  yarp::sig::Vector q_current(locoman::utils::getNumberOfKinematicJoints(robot),0.0) ; // = robot.sensePosition();
   robot.idynutils.updateiDyn3Model(q_current, true);    
   robot.setPositionDirectMode();    
    
@@ -851,8 +851,8 @@ bool locoman_control_thread::custom_init()
   //-----------------------------
   // TODO: cleaning some variables in homing section
   yarp::sig::Vector q_motor_0 =locoman::utils::senseMotorPosition(robot, flag_robot) ;                  
-  yarp::sig::Vector q_des(robot.getNumberOfKinematicJoints() ) ;     
-  yarp::sig::Vector d_q_des(robot.getNumberOfKinematicJoints() ) ;     
+  yarp::sig::Vector q_des(locoman::utils::getNumberOfKinematicJoints(robot) ) ;     
+  yarp::sig::Vector d_q_des(locoman::utils::getNumberOfKinematicJoints(robot) ) ;     
   yarp::sig::Vector q_motor_act = locoman::utils::senseMotorPosition(robot, flag_robot) ; 
   
   double steps = 380.0 ;  // slower on the real robot for safety 
@@ -867,7 +867,7 @@ bool locoman_control_thread::custom_init()
 //                             right_leg_configuration ,  //right_leg_configuration
 //                             left_leg_configuration  ,  //left_leg_configuration
 //                             q_des                   );   
-    robot.fromRobotToIdyn29(  right_arm_config_0 ,
+    robot.fromRobotToIdyn(  right_arm_config_0 ,
                             left_arm_config_0  ,
                             torso_config_0     ,
                             right_leg_config_0 ,
@@ -883,7 +883,7 @@ bool locoman_control_thread::custom_init()
    
   // q_ Offset Evaluation Section
   int dim_offeset = 1000    ; 
-  yarp::sig::Matrix offset_window(robot.getNumberOfKinematicJoints(), dim_offeset);
+  yarp::sig::Matrix offset_window(locoman::utils::getNumberOfKinematicJoints(robot), dim_offeset);
   for(int k=0; k<dim_offeset ; k++ ){
        q_current += locoman::utils::sense_position_no_hands(robot); //if sense returns motorPosition       
        usleep(1*1000) ;  
@@ -1236,7 +1236,7 @@ void locoman_control_thread::run()
     
     alpha_V = locoman::utils::alpha_filter(err_fc_feet, err_min, err_max) ;  
     q_ref_ToMove = q_senseRefFeedback +  (1.0/1.0)* alpha_V * d_q_opt  ; 
-    robot.move29(q_ref_ToMove) ; 
+    robot.moveNoHead(q_ref_ToMove) ; 
   } // closing the -for- loop optimizing the V
   
   } // closing the -if(optimize_V)- part
