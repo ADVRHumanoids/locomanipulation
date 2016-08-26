@@ -25,7 +25,18 @@ locoman_control_thread::locoman_control_thread( std::string module_prefix,
                              			std::shared_ptr< paramHelp::ParamHelperServer > ph ) :
     control_thread( module_prefix, rf, ph ),  
     size_q(locoman::utils::getNumberOfKinematicJoints(robot)),
-    q_senseRefFeedback(size_q, 0.0) ,
+   
+   // q_senseRefFeedback(size_q, 0.0) ,  // this should be removed
+     
+    q_sense(size_q,0.0),
+    q_current(size_q, 0.0),
+    q_offset(size_q, 0.0),   // q_current = q_sense + q_offset
+  
+    q_motor_0(size_q, 0.0), //=locoman::utils::senseMotorPosition(robot, flag_robot) ;                  
+    //q_motor_act(size_q, 0.0),
+    q_des(size_q, 0.0),         //(locoman::utils::getNumberOfKinematicJoints(robot) ) ;     
+    d_q_des(size_q, 0.0),      //(locoman::utils::getNumberOfKinematicJoints(robot) ) ;     
+    
     d_q_opt(size_q, 0.0)  ,
     command_interface(module_prefix), 
     loop_counter(0) ,
@@ -68,6 +79,17 @@ locoman_control_thread::locoman_control_thread( std::string module_prefix,
     ft_r_ankle(6,0.0) ,
     ft_l_wrist(6,0.0) ,
     ft_r_wrist(6,0.0) ,
+ 
+  fc_sense_left(12, 0.0) ,
+  fc_sense_right(12, 0.0) ,
+  fc_sense_left_hand(12, 0.0) ,
+  fc_sense_right_hand(12, 0.0) ,
+
+  fc_current_left(12, 0.0) ,
+  fc_current_right(12, 0.0) ,
+  fc_current_left_hand(12, 0.0) ,
+  fc_current_right_hand(12, 0.0) ,
+    
     fc_offset_left(12, 0.0) ,
     fc_offset_right(12, 0.0) ,
     fc_offset_left_hand(12, 0.0) ,
@@ -124,8 +146,8 @@ locoman_control_thread::locoman_control_thread( std::string module_prefix,
   fc_r3_hand_filt(3, 0.0) , // = FC_HANDS_FILTERED.subVector(18,20)  ; 
   fc_r4_hand_filt(3, 0.0) , // = FC_HANDS_FILTERED.subVector(21,23)  ;   
       
-  fc_l_c_to_robot(12, 0.0) ,
-  fc_r_c_to_robot(12, 0.0) ,
+ // fc_l_c_to_robot(12, 0.0) ,
+ // fc_r_c_to_robot(12, 0.0) ,
   fc_l_c_hand_to_world(12, 0.0 ) ,
   fc_r_c_hand_to_world(12, 0.0 ) ,
   
@@ -399,7 +421,7 @@ locoman_control_thread::locoman_control_thread( std::string module_prefix,
     right_leg_config_1.resize(right_leg_joints);
     //
     //  Simulator-To-Robot Switch
-    flag_robot = 0 ;
+    flag_robot = 1 ;
     flag_simulator = 1-flag_robot ;
     //
     //-----------------------------------------------
@@ -497,7 +519,7 @@ bool locoman_control_thread::custom_init()
     
   link_locoman_params();  
   model.setFloatingBaseLink("Waist");
-  yarp::sig::Vector q_current(locoman::utils::getNumberOfKinematicJoints(robot),0.0) ; // = robot.sensePosition();
+  q_current = locoman::utils::senseMotorPosition(robot, flag_robot) ; //(locoman::utils::getNumberOfKinematicJoints(robot),0.0) ; // = robot.sensePosition();
   robot.idynutils.updateiDyn3Model(q_current, true);    
   robot.setPositionDirectMode();    
    
@@ -850,10 +872,10 @@ bool locoman_control_thread::custom_init()
 
   //-----------------------------
   // TODO: cleaning some variables in homing section
-  yarp::sig::Vector q_motor_0 =locoman::utils::senseMotorPosition(robot, flag_robot) ;                  
-  yarp::sig::Vector q_des(locoman::utils::getNumberOfKinematicJoints(robot) ) ;     
-  yarp::sig::Vector d_q_des(locoman::utils::getNumberOfKinematicJoints(robot) ) ;     
-  yarp::sig::Vector q_motor_act = locoman::utils::senseMotorPosition(robot, flag_robot) ; 
+//   yarp::sig::Vector q_motor_0 =locoman::utils::senseMotorPosition(robot, flag_robot) ;                  
+//   yarp::sig::Vector q_des(locoman::utils::getNumberOfKinematicJoints(robot) ) ;     
+//   yarp::sig::Vector d_q_des(locoman::utils::getNumberOfKinematicJoints(robot) ) ;     
+//   yarp::sig::Vector q_motor_act = locoman::utils::senseMotorPosition(robot, flag_robot) ; 
   
   double steps = 380.0 ;  // slower on the real robot for safety 
   if(flag_simulator){steps = 100.0 ; } //faster on the simulator
@@ -873,30 +895,29 @@ bool locoman_control_thread::custom_init()
                             right_leg_config_0 ,
                             left_leg_config_0  ,
                             q_des              );   
-  
+    
   q_motor_0 = locoman::utils::senseMotorPosition(robot, flag_robot) ; // this function uses manually imposed joint stiffness values
-  d_q_des = (q_des - q_motor_0); //
-  locoman::utils::Joint_Trajectory(robot, flag_robot, q_motor_0, q_des, steps  ) ;   
-  std::cout << " final error =  " <<  norm(q_motor_act- q_des) << std::endl;     
+  //d_q_des = (q_des - q_motor_0); //
+  locoman::utils::Joint_Trajectory(robot, flag_robot, q_motor_0, q_des, steps  ) ;   // this function performes a 'move' on the robot
+ 
+  //std::cout << " q_des =  " <<  q_des.toString() << std::endl;     
+
+  q_sense =  locoman::utils::senseMotorPosition(robot, flag_robot) ;
+  std::cout << " initial error =  " <<  norm(q_motor_0 - q_des) << std::endl;     
+  std::cout << " final error =  " <<  norm(q_sense - q_des) << std::endl;     
   usleep(100*1000) ; // usleep(milliseconds*1000)
   // robot.left_arm.move(q_ref_ToMove_left_arm);  
    
-  // q_ Offset Evaluation Section
-  int dim_offeset = 1000    ; 
-  yarp::sig::Matrix offset_window(locoman::utils::getNumberOfKinematicJoints(robot), dim_offeset);
-  for(int k=0; k<dim_offeset ; k++ ){
-       q_current += locoman::utils::sense_position_no_hands(robot); //if sense returns motorPosition       
-       usleep(1*1000) ;  
-     }   
-  q_current = q_current/dim_offeset ;  
-  yarp::sig::Vector q_motor_init = q_des  ;
-  q_offset = q_motor_init - q_current ;
-  // end of the Homing Section
-  //-------------------------------------------
-
+  //--------------------------------------------------------------------------------------------------------------
+  
   //-----------------------------------------------------------
   // Evaluating offset for contact forces
   int dim_fc_offset = 1000 ;  
+ 
+  fc_offset_left.zero()  ;
+  fc_offset_right.zero() ;
+  fc_offset_left_hand.zero() ;
+  fc_offset_right_hand.zero() ;
  
   for(int k=0; k<dim_fc_offset ; k++ ){
   robot.senseftSensor("l_leg_ft", ft_l_ankle) ;
@@ -920,48 +941,66 @@ bool locoman_control_thread::custom_init()
   Sensor_Collection_Offset.setSubvector( 12 , map_l_hand_fcToSens * fc_offset_left_hand  ) ;
   Sensor_Collection_Offset.setSubvector( 18 , map_r_hand_fcToSens * fc_offset_right_hand ) ;
   
+  //---------------------------------
   
-  /*
-  yarp::sig::Vector  sensor_l_foot_offset  = map_l_fcToSens * fc_offset_left ;
-  yarp::sig::Vector  sensor_r_foot_offset  = map_l_fcToSens * fc_offset_left ;
-  yarp::sig::Vector  sensor_l_hand_offset  = map_l_fcToSens * fc_offset_left ;
-  yarp::sig::Vector  sensor_r_hand_offset  = map_l_fcToSens * fc_offset_left ; */
+  fc_sense_left  = map_l_fcToSens_PINV * ft_l_ankle ;
+  fc_sense_right = map_r_fcToSens_PINV * ft_r_ankle ; 
+  fc_sense_left_hand  = map_l_hand_fcToSens_PINV * ft_l_wrist  ; 
+  fc_sense_right_hand = map_r_hand_fcToSens_PINV * ft_r_wrist  ; 
+
+  fc_current_left  = fc_sense_left  - fc_offset_left ;
+  fc_current_right = fc_sense_right - fc_offset_right ; 
+  fc_current_left_hand  = fc_sense_left_hand  - fc_offset_left_hand  ; 
+  fc_current_right_hand = fc_sense_right_hand - fc_offset_right_hand  ;  
   
-  
-//   //  Fillin
-//   yarp::sig::Vector temp(24, 0.0) ;
-//   for(int k=0; k<WINDOW_size ; k++ ){
-//   robot.senseftSensor("l_leg_ft", ft_l_ankle) ;
-//   robot.senseftSensor("r_leg_ft", ft_r_ankle) ;
-//   robot.senseftSensor("l_arm_ft", ft_l_wrist) ;
-//   robot.senseftSensor("r_arm_ft", ft_r_wrist) ;  
-//   temp.setSubvector(0,ft_l_ankle) ;
-//   temp.setSubvector(6,ft_r_ankle) ;
-//   temp.setSubvector(12,ft_l_wrist) ;
-//   temp.setSubvector(18,ft_r_wrist) ;
-//   SENSORS_WINDOW.setCol(k,temp) ;
-//   usleep(1*1000) ; 
-//   }
-//   //FC_WINDOW
-  
+  std::cout << " fc_sense_left = "  << fc_sense_left.toString() << std::endl;
+  std::cout << " fc_sense_right = " << fc_sense_right.toString() << std::endl;
+  std::cout << " fc_sense_left_hand = "  << fc_sense_left_hand.toString() << std::endl;
+  std::cout << " fc_sense_right_hand = " << fc_sense_right_hand.toString() << std::endl;
  
   std::cout << " fc_offset_left = "  << fc_offset_left.toString() << std::endl;
   std::cout << " fc_offset_right = " << fc_offset_right.toString() << std::endl;
   std::cout << " fc_offset_left_hand = "  << fc_offset_left_hand.toString() << std::endl;
   std::cout << " fc_offset_right_hand = " << fc_offset_right_hand.toString() << std::endl;
  
-//   std::cout << " Sensor_Collection_Offset = " << Sensor_Collection_Offset.toString() << std::endl;
-//   
-//   std::cout << " ft_l_ankle = "  << ft_l_ankle.toString() << std::endl;
-//   std::cout << " ft_r_ankle = " << ft_r_ankle.toString() << std::endl;
-//   std::cout << " ft_l_wrist = "  << ft_l_wrist.toString() << std::endl;
-//   std::cout << " ft_r_wrist = " << ft_r_wrist.toString() << std::endl;  
+  std::cout << " fc_current_left = "  << fc_current_left.toString() << std::endl;
+  std::cout << " fc_current_right = " << fc_current_right.toString() << std::endl;
+  std::cout << " fc_current_left_hand = "  << fc_current_left_hand.toString() << std::endl;
+  std::cout << " fc_current_right_hand = " << fc_current_right_hand.toString() << std::endl;
   
+//   std::cout << " Sensor_Collection_Offset = " << Sensor_Collection_Offset.toString() << std::endl;
+
+   //------------------------------------------------------------------------------------------
+  char vai_1 ;
+  std::cout << " Put the Robot down on the terrain and press a key !!! " << std::endl ;
+  //std::cout << " waiting for a keyboard input !!! " << std::endl ;
+  std::cin >> vai_1 ;
+//  //-------------------
+  
+  // q_ Offset Evaluation Section
+  int dim_offeset = 1000    ; 
+  yarp::sig::Matrix offset_window(locoman::utils::getNumberOfKinematicJoints(robot), dim_offeset);
+  q_current.zero();
+  for(int k=0; k<dim_offeset ; k++ ){
+       q_current += locoman::utils::sense_position_no_hands(robot); //if sense returns motorPosition       
+       usleep(1*1000) ;  
+     }   
+  q_current = q_current/dim_offeset ;  
+  
+  // yarp::sig::Vector q_motor_init = q_des  ;
+  q_offset = q_des - q_current ;
+  // end of the Homing Section
+  
+  q_sense =  locoman::utils::senseMotorPosition(robot, flag_robot) ;
+  q_current = q_sense + q_offset ; 
+  std::cout << " final error offset =  " <<  norm(q_current - q_des) << std::endl;     
+
+  //-------------------------------------------
   
   //------------------------------------------------------------------------------------------
-  char vai ;
-  std::cout << " waiting for a keyboard input !!! " << std::endl ;
-  std::cin >> vai ;
+  char vai_2 ;
+  std::cout << " waiting for a keyboard input before starting the Control Loop !!! " << std::endl ;
+  std::cin >> vai_2 ;
 //  //------------------------------------------------------------
 //  //Homing to config  _0
 //  robot.fromRobotToIdyn29(  right_arm_config_0 ,
@@ -1010,8 +1049,6 @@ bool locoman_control_thread::custom_init()
 
 
 
-
-
 //--------------------------------------------------------------------------
 //--------------                      --------------------------------------
 //--------------    !!!   RUN !!!     --------------------------------------
@@ -1025,8 +1062,12 @@ void locoman_control_thread::run()
   tic = locoman::utils::Tic() ;
   //--------------------------------------------------------------------//
   // Getting Robot Configuration
-  q_senseRefFeedback =  locoman::utils::senseMotorPosition( robot, flag_robot ) ;            // Ok, verified! We can use it instead of q_sensed + offset                 
-  robot.idynutils.updateiDyn3Model( q_senseRefFeedback, true ); //update model first   
+  // q_sense =  locoman::utils::senseMotorPosition( robot, flag_robot ) ;            // Ok, verified! We can use it instead of q_sensed + offset                 
+  // q_current = q_sense + q_offset ;
+  
+  // q_current was updated during the init, considering also q_offset
+  // q_current will be updated at every move
+  robot.idynutils.updateiDyn3Model( q_current, true ); //update model first   
   //--------------------------------------------------------------------//
   //Getting Force/Torque Sensor Measures
   if(!robot.senseftSensor("l_leg_ft", ft_l_ankle)) std::cout << "ERROR READING SENSOR l_ankle" << std::endl; 
@@ -1044,27 +1085,33 @@ void locoman_control_thread::run()
   SENSORS_WINDOW.setCol( count_sensor , Sensor_Collection ) ;
   SENSORS_SUM = SENSORS_SUM + Sensor_Collection -1.0 * SENSORS_WINDOW.getCol((count_sensor+ 1)%WINDOW_size) ; 
   SENSORS_FILTERED = SENSORS_SUM / (WINDOW_size-1.0) ;
-  SENSORS_FILTERED -= Sensor_Collection_Offset ;  
+ // SENSORS_FILTERED -= Sensor_Collection_Offset ;  
   count_sensor += 1 ;
   // End of Filtering Sensors Section
   
   //---------------------------------------------------------------------------------------------------------
   // Contact Force Vector Computation Section
   
-  fc_l_c_to_robot      = map_l_fcToSens_PINV      * SENSORS_FILTERED.subVector(  0,5  ) ; //ft_l_ankle  ;  // yarp::math::pinv( map_l_fcToSens, 1E-6)  *  ft_l_ankle     ;
-  fc_r_c_to_robot      = map_r_fcToSens_PINV      * SENSORS_FILTERED.subVector(  6,11 ); //ft_r_ankle  ;    
+  // FEET
+  fc_l_c_to_world = map_l_fcToSens_PINV * SENSORS_FILTERED.subVector(  0,5  ) ; //ft_l_ankle  ;  // yarp::math::pinv( map_l_fcToSens, 1E-6)  *  ft_l_ankle     ;
+  fc_r_c_to_world = map_r_fcToSens_PINV * SENSORS_FILTERED.subVector(  6,11 ) ; //ft_r_ankle  ;    
 
-  if(  !(flag_robot ==1  && robot.idynutils.getRobotName() == "bigman")  ){  // Changing the sign again in case of walkman real robot
+  if(  !(flag_robot ==1  && robot.idynutils.getRobotName() == "bigman")  ){  // Changing the sign again if we are not on the walkman real robot
 	fc_l_c_to_world  = -1.0*fc_l_c_to_world ;                  // in the walkman (real) robot the feet sensors provide to_wolrd measures
-	fc_r_c_to_world  = -1.0*fc_r_c_to_world ;  // TODO :  verifica segno su sim e su robot
+	fc_r_c_to_world  = -1.0*fc_r_c_to_world ; 
   }
-  fc_l_c_to_world -= fc_offset_left   ; // =  - 1.0 * fc_l_c_to_robot  + fc_offset_left   ;
-  fc_r_c_to_world -= fc_offset_right  ; // =  - 1.0 * fc_r_c_to_robot  + fc_offset_right  ;
   
-  fc_feet_to_world.setSubvector(0, fc_l_c_to_world ) ;
-  fc_feet_to_world.setSubvector(fc_l_c_to_world.length(), fc_r_c_to_world ) ; 
+  fc_sense_left  = fc_l_c_to_world ;
+  fc_sense_right = fc_r_c_to_world ;
+ 
+  fc_current_left  = fc_sense_left  - fc_offset_left   ; 
+  fc_current_right = fc_sense_right - fc_offset_right  ; 
+  
+  fc_feet_to_world.setSubvector(0, fc_current_left ) ;
+  fc_feet_to_world.setSubvector(fc_current_right.length(), fc_r_c_to_world ) ; 
     
   //-------------------------------
+  // HANDS
   fc_l_c_hand_to_world = map_l_hand_fcToSens_PINV * SENSORS_FILTERED.subVector( 12,17 ); //ft_l_wrist  ;  // TODO :  verifica segno su sim e su robot
   fc_r_c_hand_to_world = map_r_hand_fcToSens_PINV * SENSORS_FILTERED.subVector( 18,23 ); //ft_r_wrist  ;  // yarp::math::pinv( map_r_fcToSens, 1E-6)  *  ft_r_ankle     ;
   fc_l_c_hand_to_world -= fc_offset_left_hand  ;
@@ -1073,26 +1120,31 @@ void locoman_control_thread::run()
   fc_hand_to_world.setSubvector(0, fc_l_c_hand_to_world ) ;
   fc_hand_to_world.setSubvector(fc_l_c_hand_to_world.length(), fc_r_c_hand_to_world ) ;  
   //---------------------------
+  
   FC_to_world.setSubvector(0, fc_feet_to_world) ;
   FC_to_world.setSubvector(fc_feet_to_world.length(), fc_hand_to_world) ;  
 
   // End of Contact Force Vector Computation Section
   //----------------------------------------------------------------------------------------
   
+    if(cout_print){std::cout << "fc_feet_to_world = " << fc_feet_to_world.toString() << std::endl  ;}
+
+  
+  
   
   //---------------------------------------------------------------------------------------------------------
   // Yarp Ports: Sending Robot Configuration and Contact Forces 
   //
 //   yarp::sig::Vector& v_to_service_2 = to_service_2.prepare();  // generic vector to service_2  
-//   v_to_service_2.resize( q_senseRefFeedback.size() ) ; 
-//   v_to_service_2 = q_senseRefFeedback ;
+//   v_to_service_2.resize( q_current.size() ) ; 
+//   v_to_service_2 = q_current ;
 //   to_service_2.write() ;
       
   yarp::sig::Vector &sending_q_vect = sending_q.prepare() ; // 
-  sending_q_vect.resize( q_senseRefFeedback.size() ) ;
-  sending_q_vect = q_senseRefFeedback ;
+  sending_q_vect.resize( q_current.size() ) ;
+  sending_q_vect = q_current ;
   sending_q.write() ;
-  if(cout_print){std::cout << " q_senseRefFeedback = " << q_senseRefFeedback.toString() << std::endl ;}
+  if(cout_print){std::cout << " q_current = " << q_current.toString() << std::endl ;}
 
   yarp::sig::Vector &sending_fc_vect = sending_fc.prepare() ;
   sending_fc_vect.resize( FC_to_world.size() ) ;
@@ -1163,8 +1215,8 @@ void locoman_control_thread::run()
   
   for(int i = 0; i < n_loop_V; i++){  // Contact Force Optimization Loop
     if(i>0){ // re-Sense the force-torque sensors from the second loop
-    // 1) Sensing new q and Fc   
-    q_senseRefFeedback =  locoman::utils::senseMotorPosition( robot, flag_robot ) ;  
+    // 1) Sensing new Fc   
+    
     if(!robot.senseftSensor("l_leg_ft", ft_l_ankle)) std::cout << "ERROR READING SENSOR l_ankle" << std::endl; 
     if(!robot.senseftSensor("r_leg_ft", ft_r_ankle)) std::cout << "ERROR READING SENSOR r_ankle" << std::endl;     
     if(!robot.senseftSensor("l_arm_ft", ft_l_wrist)) std::cout << "ERROR READING SENSOR l_wrist" << std::endl; 
@@ -1180,21 +1232,25 @@ void locoman_control_thread::run()
     SENSORS_WINDOW.setCol( count_sensor , Sensor_Collection ) ;
     SENSORS_SUM = SENSORS_SUM + Sensor_Collection -1.0 * SENSORS_WINDOW.getCol((count_sensor+ 1)%WINDOW_size) ; 
     SENSORS_FILTERED = SENSORS_SUM / (WINDOW_size-1.0) ;
-    SENSORS_FILTERED -= Sensor_Collection_Offset ;  // READY to be sent for computations.... !!!
+    //SENSORS_FILTERED -= Sensor_Collection_Offset ;  
     count_sensor +=   1 ;
         // 2.1 converting to contact force componenets  
-    fc_l_c_to_robot      = map_l_fcToSens_PINV      * SENSORS_FILTERED.subVector(  0,5  ) ; //ft_l_ankle  ;  // yarp::math::pinv( map_l_fcToSens, 1E-6)  *  ft_l_ankle     ;
-    fc_r_c_to_robot      = map_r_fcToSens_PINV      * SENSORS_FILTERED.subVector(  6,11 ); //ft_r_ankle  ;     
+    fc_l_c_to_world = map_l_fcToSens_PINV * SENSORS_FILTERED.subVector(  0,5  ) ; //ft_l_ankle  ;  // yarp::math::pinv( map_l_fcToSens, 1E-6)  *  ft_l_ankle     ;
+    fc_r_c_to_world = map_r_fcToSens_PINV * SENSORS_FILTERED.subVector(  6,11 ) ; //ft_r_ankle  ;    
 
-    if(  !(flag_robot ==1  && robot.idynutils.getRobotName() == "bigman")  ){  // Changing the sign again in case of walkman real robot
-	  fc_l_c_to_world  = -1.0*fc_l_c_to_world ;                  // in the walkman (real) robot the feet sensors provide to_wolrd measures
-	  fc_r_c_to_world  = -1.0*fc_r_c_to_world ;  // TODO :  verifica segno su sim e su robot
+    if(  !(flag_robot ==1  && robot.idynutils.getRobotName() == "bigman")  ){  // Changing the sign again if we are not on the walkman real robot
+    fc_l_c_to_world  = -1.0*fc_l_c_to_world ;                  // in the walkman (real) robot the feet sensors provide to_wolrd measures
+    fc_r_c_to_world  = -1.0*fc_r_c_to_world ; 
     }
-    fc_l_c_to_world -= fc_offset_left   ; // =  - 1.0 * fc_l_c_to_robot  + fc_offset_left   ;
-    fc_r_c_to_world -= fc_offset_right  ; // =  - 1.0 * fc_r_c_to_robot  + fc_offset_right  ;
+  
+    fc_sense_left  = fc_l_c_to_world ;
+    fc_sense_right = fc_r_c_to_world ;
     
-    fc_feet_to_world.setSubvector(0, fc_l_c_to_world ) ;
-    fc_feet_to_world.setSubvector(fc_l_c_to_world.length(), fc_r_c_to_world ) ; 
+    fc_current_left  = fc_sense_left  - fc_offset_left   ; 
+    fc_current_right = fc_sense_right - fc_offset_right  ; 
+    
+    fc_feet_to_world.setSubvector(0, fc_current_left ) ;
+    fc_feet_to_world.setSubvector(fc_current_right.length(), fc_r_c_to_world ) ; 
     } // closing -if(i>0)- part
     
     //---------------------------------------------------------------------------------------------------------
@@ -1235,9 +1291,11 @@ void locoman_control_thread::run()
 //   err_cl <<  err_fc_feet << std::endl;  
     
     alpha_V = locoman::utils::alpha_filter(err_fc_feet, err_min, err_max) ;  
-    q_ref_ToMove = q_senseRefFeedback +  (1.0/1.0)* alpha_V * d_q_opt  ; 
-    robot.moveNoHead(q_ref_ToMove) ; 
-  } // closing the -for- loop optimizing the V
+    q_ref_ToMove = q_current +  (1.0/1.0)* alpha_V * d_q_opt  ; 
+    // robot.moveNoHead(q_ref_ToMove) ; 
+    // q_current = q_current +  (1.0/1.0)* alpha_V * d_q_opt 
+      
+} // closing the -for- loop optimizing the V
   
   } // closing the -if(optimize_V)- part
   

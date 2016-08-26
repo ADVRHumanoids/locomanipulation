@@ -138,10 +138,16 @@ public:
     yarp::sig::Vector fc_offset_left_hand ;
     yarp::sig::Vector fc_offset_right_hand ;    
     
+    //yarp::sig::Vector q_senseRefFeedback ;
+    
     yarp::sig::Vector q_offset  ;  
-    yarp::sig::Vector q_current_open_loop  ;  
-
-    yarp::sig::Vector q_senseRefFeedback ;
+    yarp::sig::Vector q_sense   ;
+    yarp::sig::Vector q_current  ;  
+    
+    yarp::sig::Vector q_motor_0 ; //=locoman::utils::senseMotorPosition(robot, flag_robot) ;                  
+    yarp::sig::Vector q_des ; //(locoman::utils::getNumberOfKinematicJoints(robot) ) ;     
+    yarp::sig::Vector d_q_des ; //(locoman::utils::getNumberOfKinematicJoints(robot) ) ;     
+    //yarp::sig::Vector q_motor_act ;
     
     yarp::sig::Vector d_q_opt ; 
 
@@ -214,8 +220,8 @@ public:
     yarp::sig::Vector ft_l_wrist ;
     yarp::sig::Vector ft_r_wrist ;
     
-    yarp::sig::Vector fc_l_c_to_robot       ; //  
-    yarp::sig::Vector fc_r_c_to_robot       ; // 
+   // yarp::sig::Vector fc_l_c_to_robot       ; //  
+   // yarp::sig::Vector fc_r_c_to_robot       ; // 
     yarp::sig::Vector fc_l_c_hand_to_world  ; // 
     yarp::sig::Vector fc_r_c_hand_to_world  ; // 
     
@@ -259,6 +265,16 @@ public:
     yarp::sig::Matrix map_r_fcToSens_PINV ;
     yarp::sig::Matrix map_l_hand_fcToSens_PINV ;
     yarp::sig::Matrix map_r_hand_fcToSens_PINV ;
+  
+  yarp::sig::Vector fc_sense_left  ;// = map_l_fcToSens_PINV * ft_l_ankle ;
+  yarp::sig::Vector fc_sense_right ;//= map_r_fcToSens_PINV * ft_r_ankle ; 
+  yarp::sig::Vector fc_sense_left_hand ;// = map_l_hand_fcToSens_PINV * ft_l_wrist  ; 
+  yarp::sig::Vector fc_sense_right_hand ;//= map_r_hand_fcToSens_PINV * ft_r_wrist  ; 
+
+  yarp::sig::Vector fc_current_left  ;//= fc_sense_left  - fc_offset_left ;
+  yarp::sig::Vector fc_current_right ;//= fc_sense_right - fc_offset_right ; 
+  yarp::sig::Vector fc_current_left_hand ;// = fc_sense_left_hand  - fc_offset_left_hand  ; 
+  yarp::sig::Vector fc_current_right_hand ;//= fc_sense_right_hand - fc_offset_right_hand  ;  
 
   yarp::sig::Vector fc_l_c1_filt ; //= FC_FILTERED.subVector(0,2)  ;  // Applied from the robot to the world
   yarp::sig::Vector fc_l_c2_filt ; //= FC_FILTERED.subVector(3,5)  ;
