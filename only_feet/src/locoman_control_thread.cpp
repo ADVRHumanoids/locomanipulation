@@ -95,9 +95,9 @@ locoman_control_thread::locoman_control_thread( std::string module_prefix,
     fc_offset_left_hand(12, 0.0) ,
     fc_offset_right_hand(12, 0.0),
     
-    Grad_V(size_q, 0.0) ,
+    Grad_V_k(size_q, 0.0) ,
     y_(size_q, 0.0) ,
-    H_V(size_q, size_q)  ,
+    H_V_k(size_q, size_q)  ,
     E(48, size_q) ,
     
     Rf_feet(24, size_q ) , 
@@ -661,7 +661,7 @@ bool locoman_control_thread::custom_init()
   SENSORS_WINDOW.zero() ;
   Rf_feet.zero() ; 
   //Rf_data.zero();
-  H_V.zero()  ;
+  H_V_k.zero()  ;
   E.zero() ; 
   //
   normals_feet[2]  = 1.0 ;
@@ -1210,65 +1210,79 @@ void locoman_control_thread::run()
     std::cout << "E.cols() = " << E.cols() << std::endl ;
   y_.resize(E.cols()) ;
   y_.zero() ;
+
+
+  //-----------------------------------------------------------
+  // Optimal Contact Force Computation
   
   n_loop_V = 1 ;
   
-  for(int i = 0; i < n_loop_V; i++){  // Contact Force Optimization Loop
-    if(i>0){ // re-Sense the force-torque sensors from the second loop
-    std::cout << "n_loop_V = " << i << std::endl ;
-     // 1) Sensing new Fc   
-    
-    if(!robot.senseftSensor("l_leg_ft", ft_l_ankle)) std::cout << "ERROR READING SENSOR l_ankle" << std::endl; 
-    if(!robot.senseftSensor("r_leg_ft", ft_r_ankle)) std::cout << "ERROR READING SENSOR r_ankle" << std::endl;     
-    if(!robot.senseftSensor("l_arm_ft", ft_l_wrist)) std::cout << "ERROR READING SENSOR l_wrist" << std::endl; 
-    if(!robot.senseftSensor("r_arm_ft", ft_r_wrist)) std::cout << "ERROR READING SENSOR r_wrist" << std::endl;        
-    //---------------------------------------------------------------------------------------------------------
-    // 2) Low_Pass Filter to Fc
-    Sensor_Collection.setSubvector( 0, ft_l_ankle )  ;
-    Sensor_Collection.setSubvector( 6, ft_r_ankle )  ;
-    Sensor_Collection.setSubvector(12, ft_l_wrist )  ;
-    Sensor_Collection.setSubvector(18, ft_r_wrist )  ;
-    
-    count_sensor = count_sensor% WINDOW_size ;
-    SENSORS_WINDOW.setCol( count_sensor , Sensor_Collection ) ;
-    SENSORS_SUM = SENSORS_SUM + Sensor_Collection -1.0 * SENSORS_WINDOW.getCol((count_sensor+ 1)%WINDOW_size) ; 
-    SENSORS_FILTERED = SENSORS_SUM / (WINDOW_size-1.0) ;
-    //SENSORS_FILTERED -= Sensor_Collection_Offset ;  
-    count_sensor += 1 ;
-    // 2.1 converting to contact force componenets  
-    fc_l_c_to_world = map_l_fcToSens_PINV * SENSORS_FILTERED.subVector(  0,5  ) ; //ft_l_ankle  ;  // yarp::math::pinv( map_l_fcToSens, 1E-6)  *  ft_l_ankle     ;
-    fc_r_c_to_world = map_r_fcToSens_PINV * SENSORS_FILTERED.subVector(  6,11 ) ; //ft_r_ankle  ;    
-
-    if(  !(flag_robot ==1  && robot.idynutils.getRobotName() == "bigman")  ){  // Changing the sign again if we are not on the walkman real robot
-    fc_l_c_to_world  = -1.0*fc_l_c_to_world ;      // in the walkman (real) robot the feet sensors provide to_wolrd measures
-    fc_r_c_to_world  = -1.0*fc_r_c_to_world ; 
-    }
+  y_k = y_ ;
+  fc_feet_k = fc_feet_to_world ;
   
-    fc_sense_left  = fc_l_c_to_world ;
-    fc_sense_right = fc_r_c_to_world ;
-    
-    fc_current_left  = fc_sense_left  - fc_offset_left   ; 
-    fc_current_right = fc_sense_right - fc_offset_right  ; 
-    
-    fc_feet_to_world.setSubvector(0, fc_current_left ) ;
-    fc_feet_to_world.setSubvector(fc_current_right.length(), fc_r_c_to_world ) ; 
-    } // closing -if(i>0)- part
-    
-    //---------------------------------------------------------------------------------------------------------
+  for(int i = 0; i < n_loop_V; i++){  // Optimal Contact Force Computation Loop
+//     if(i>0){ // re-Sense the force-torque sensors from the second loop
+//     std::cout << "n_loop_V = " << i << std::endl ;
+//      // 1) Sensing new Fc   
+//     
+//     if(!robot.senseftSensor("l_leg_ft", ft_l_ankle)) std::cout << "ERROR READING SENSOR l_ankle" << std::endl; 
+//     if(!robot.senseftSensor("r_leg_ft", ft_r_ankle)) std::cout << "ERROR READING SENSOR r_ankle" << std::endl;     
+//     if(!robot.senseftSensor("l_arm_ft", ft_l_wrist)) std::cout << "ERROR READING SENSOR l_wrist" << std::endl; 
+//     if(!robot.senseftSensor("r_arm_ft", ft_r_wrist)) std::cout << "ERROR READING SENSOR r_wrist" << std::endl;        
+//     //---------------------------------------------------------------------------------------------------------
+//     // 2) Low_Pass Filter to Fc
+//     Sensor_Collection.setSubvector( 0, ft_l_ankle )  ;
+//     Sensor_Collection.setSubvector( 6, ft_r_ankle )  ;
+//     Sensor_Collection.setSubvector(12, ft_l_wrist )  ;
+//     Sensor_Collection.setSubvector(18, ft_r_wrist )  ;
+//     
+//     count_sensor = count_sensor% WINDOW_size ;
+//     SENSORS_WINDOW.setCol( count_sensor , Sensor_Collection ) ;
+//     SENSORS_SUM = SENSORS_SUM + Sensor_Collection -1.0 * SENSORS_WINDOW.getCol((count_sensor+ 1)%WINDOW_size) ; 
+//     SENSORS_FILTERED = SENSORS_SUM / (WINDOW_size-1.0) ;
+//     //SENSORS_FILTERED -= Sensor_Collection_Offset ;  
+//     count_sensor += 1 ;
+//     // 2.1 converting to contact force componenets  
+//     fc_l_c_to_world = map_l_fcToSens_PINV * SENSORS_FILTERED.subVector(  0,5  ) ; //ft_l_ankle  ;  // yarp::math::pinv( map_l_fcToSens, 1E-6)  *  ft_l_ankle     ;
+//     fc_r_c_to_world = map_r_fcToSens_PINV * SENSORS_FILTERED.subVector(  6,11 ) ; //ft_r_ankle  ;    
+// 
+//     if(  !(flag_robot ==1  && robot.idynutils.getRobotName() == "bigman")  ){  // Changing the sign again if we are not on the walkman real robot
+//     fc_l_c_to_world  = -1.0*fc_l_c_to_world ;      // in the walkman (real) robot the feet sensors provide to_wolrd measures
+//     fc_r_c_to_world  = -1.0*fc_r_c_to_world ; 
+//     }
+//   
+//     fc_sense_left  = fc_l_c_to_world ;
+//     fc_sense_right = fc_r_c_to_world ;
+//     
+//     fc_current_left  = fc_sense_left  - fc_offset_left   ; 
+//     fc_current_right = fc_sense_right - fc_offset_right  ; 
+//     
+//     fc_feet_to_world.setSubvector(0, fc_current_left ) ;
+//     fc_feet_to_world.setSubvector(fc_current_right.length(), fc_r_c_to_world ) ; 
+//     } // closing -if(i>0)- part
+ 
     // 3) Computing Gradient and Hessian of V
-    Grad_V = locoman::utils::D_V_tot(fc_feet_to_world, normals_feet, mu_feet_vect, f_min_feet_vect, f_max_feet_vect, E ) ;
-    H_V = locoman::utils::H_V_tot(fc_feet_to_world, normals_feet, mu_feet_vect, f_min_feet_vect, f_max_feet_vect, E ) ;
+    Grad_V_k = locoman::utils::D_V_tot(fc_feet_k, normals_feet, mu_feet_vect, f_min_feet_vect, f_max_feet_vect, E ) ;
+    H_V_k    = locoman::utils::H_V_tot(fc_feet_k, normals_feet, mu_feet_vect, f_min_feet_vect, f_max_feet_vect, E ) ;
     
     // 4) Computing Newton step
+    y_k_1 = y_k - 1.0* yarp::math::luinv(H_V_k)* Grad_V_k ;
+    fc_feet_k_1 = fc_feet_k + E*y_k_1 ;
     
-    y_ -= yarp::math::luinv(H_V)* Grad_V;
-    d_fc_feet_opt  =  E*y_;
-    if(cout_print){  fc_feet_opt = fc_feet_to_world + d_fc_feet_opt ; 
+    y_k = y_k_1 ;
+    fc_feet_k = fc_feet_k_1 ;
+       
+} // closing the -for- loop optimizing the V
+  
+  fc_feet_opt   = fc_feet_k_1 ;
+  d_fc_feet_opt = fc_feet_opt -1.0*fc_feet_to_world;
+  
+  if(cout_print){  // fc_feet_opt = fc_feet_to_world + d_fc_feet_opt ; 
       std::cout << "fc_feet_opt = " << fc_feet_opt.toString() << std::endl ;      
       std::cout << "d_fc_feet_opt = " << d_fc_feet_opt.toString() << std::endl ;
       }
-    
-    // 5) Computing d_q //   
+
+   // 5) Computing d_q //   
     regu_filter = 1E7 ; 
     d_q_opt = -1.0* locoman::utils::Pinv_Regularized( Rf_feet , regu_filter)* d_fc_feet_opt ;
    
@@ -1301,10 +1315,16 @@ void locoman_control_thread::run()
     q_ref_ToMove = q_current +  (1.0/1.0)* alpha_V * d_q_opt  ; 
     //robot.moveNoHead(q_ref_ToMove) ; 
     //q_current = q_current +  (1.0/1.0)* alpha_V * d_q_opt ;
-      
-} // closing the -for- loop optimizing the V
+  
   
   } // closing the -if(optimize_V)- part
+  
+  
+  
+  
+  
+  
+  
   
    toc = locoman::utils::Toc(tic) ;
   if(1){std::cout << "tic-toc = " << toc << " seconds" << std::endl ;}

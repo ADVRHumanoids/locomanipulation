@@ -112,10 +112,12 @@ public:
     double alpha_V = 0.0;
 
        
-    yarp::sig::Vector Grad_V ;
-    yarp::sig::Matrix H_V  ;
+    yarp::sig::Vector Grad_V_k ;
+    yarp::sig::Matrix H_V_k  ;
     yarp::sig::Matrix E ; 
     yarp::sig::Vector y_ ;
+    yarp::sig::Vector y_k ;
+    yarp::sig::Vector y_k_1 ;
  
     yarp::sig::Matrix Rf_feet ; // 
     yarp::sig::Vector mu_l_foot_vect ; // one for each contact point
@@ -125,7 +127,8 @@ public:
     yarp::sig::Vector f_max_feet_vect ;  
     yarp::sig::Vector fc_feet_opt ;
     yarp::sig::Vector d_fc_feet_opt ;
-  
+    yarp::sig::Vector fc_feet_k ;
+    yarp::sig::Vector fc_feet_k_1 ;
     
     yarp::sig::Vector normals_feet ; 
       
