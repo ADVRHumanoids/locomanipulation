@@ -1126,11 +1126,7 @@ void locoman_control_thread::run()
 
   // End of Contact Force Vector Computation Section
   //----------------------------------------------------------------------------------------
-  
-    if(cout_print){std::cout << "fc_feet_to_world = " << fc_feet_to_world.toString() << std::endl  ;}
-
-  
-  
+   
   
   //---------------------------------------------------------------------------------------------------------
   // Yarp Ports: Sending Robot Configuration and Contact Forces 
@@ -1165,8 +1161,7 @@ void locoman_control_thread::run()
   else { Rf_received = receiving_Rf.read(false); //porta non bloccante
       if(Rf_received){ Rf_data = *Rf_received; }
   }; */ 
-  
-  
+
   
   if(!receiving_Matrix_initted){ Matrix_received = receiving_Matrix.read();  // if we are in the first loop... 
       if(Matrix_received){ Matrix_data = *Matrix_received;
@@ -1176,14 +1171,15 @@ void locoman_control_thread::run()
       if(Matrix_received){Matrix_data = *Matrix_received; }
   };  
   
+  Rf_feet = Matrix_data;
   if(cout_print){
-    std::cout << "Matrix_data.rows() = " << Matrix_data.rows() << std::endl ;
-    std::cout << "Matrix_data.cols() = " << Matrix_data.cols() << std::endl ;
-  }   
+    std::cout << "Rf_feet.rows() = " << Rf_feet.rows() << std::endl ;
+    std::cout << "Rf_feet.cols() = " << Rf_feet.cols() << std::endl ;
+    //  std::cout << "Rf_feet.toString() = " << Rf_feet.toString() << std::endl ;    
+}   
   
   // End of the YARP Port Section
   //---------------------------------------------------------------------
-
      
   err_min = 30.0 ; //10.0 ;
   err_max = 150.0 ;  //40.0 ; 
@@ -1203,19 +1199,24 @@ void locoman_control_thread::run()
    f_max_feet_vect = 2.0*mg*ones_vect_8;
  
   
-  optimize_V = 0 ; 
+  optimize_V = 1 ; 
   
   if(optimize_V){
     
   E = locoman::utils::orth_SVD(Rf_feet) ;
+
+  //std::cout << " E.toString() = " <<  E.toString() << std::endl ;    
+    std::cout << "E.rows() = " << E.rows() << std::endl ;
+    std::cout << "E.cols() = " << E.cols() << std::endl ;
   y_.resize(E.cols()) ;
   y_.zero() ;
   
-  n_loop_V = 5 ;
+  n_loop_V = 1 ;
   
   for(int i = 0; i < n_loop_V; i++){  // Contact Force Optimization Loop
     if(i>0){ // re-Sense the force-torque sensors from the second loop
-    // 1) Sensing new Fc   
+    std::cout << "n_loop_V = " << i << std::endl ;
+     // 1) Sensing new Fc   
     
     if(!robot.senseftSensor("l_leg_ft", ft_l_ankle)) std::cout << "ERROR READING SENSOR l_ankle" << std::endl; 
     if(!robot.senseftSensor("r_leg_ft", ft_r_ankle)) std::cout << "ERROR READING SENSOR r_ankle" << std::endl;     
@@ -1233,13 +1234,13 @@ void locoman_control_thread::run()
     SENSORS_SUM = SENSORS_SUM + Sensor_Collection -1.0 * SENSORS_WINDOW.getCol((count_sensor+ 1)%WINDOW_size) ; 
     SENSORS_FILTERED = SENSORS_SUM / (WINDOW_size-1.0) ;
     //SENSORS_FILTERED -= Sensor_Collection_Offset ;  
-    count_sensor +=   1 ;
-        // 2.1 converting to contact force componenets  
+    count_sensor += 1 ;
+    // 2.1 converting to contact force componenets  
     fc_l_c_to_world = map_l_fcToSens_PINV * SENSORS_FILTERED.subVector(  0,5  ) ; //ft_l_ankle  ;  // yarp::math::pinv( map_l_fcToSens, 1E-6)  *  ft_l_ankle     ;
     fc_r_c_to_world = map_r_fcToSens_PINV * SENSORS_FILTERED.subVector(  6,11 ) ; //ft_r_ankle  ;    
 
     if(  !(flag_robot ==1  && robot.idynutils.getRobotName() == "bigman")  ){  // Changing the sign again if we are not on the walkman real robot
-    fc_l_c_to_world  = -1.0*fc_l_c_to_world ;                  // in the walkman (real) robot the feet sensors provide to_wolrd measures
+    fc_l_c_to_world  = -1.0*fc_l_c_to_world ;      // in the walkman (real) robot the feet sensors provide to_wolrd measures
     fc_r_c_to_world  = -1.0*fc_r_c_to_world ; 
     }
   
@@ -1275,25 +1276,31 @@ void locoman_control_thread::run()
     
   if(cout_print){std::cout << " d_q_opt.toString()  =  "<< std::endl << d_q_opt.toString() << std::endl  ;  }
 
-  if(norm(d_q_opt)>0.005){d_q_opt =  0.005 *d_q_opt/ norm(d_q_opt) ; } 
-  if(norm(d_q_opt)<0.0002){d_q_opt =  0.0002 *d_q_opt/ norm(d_q_opt) ; }   
+  double norm_d_q_opt = norm(d_q_opt);
+  if(norm_d_q_opt<0.00001){norm_d_q_opt=0.00001 ; }
+  
+  if(norm(d_q_opt)>0.005){d_q_opt =  0.005 *d_q_opt/ norm_d_q_opt ; } 
+  if(norm(d_q_opt)<0.0002){d_q_opt =  0.0002 *d_q_opt/ norm_d_q_opt ; }   
   
   if(cout_print){std::cout << " d_q_opt.toString_2()  =  "<< std::endl << d_q_opt.toString() << std::endl  ; }
 
    //------------------------------------------------------------------------
    
    err_fc_feet  = norm( d_fc_feet_opt )  ; 
-   if(cout_print){std::cout << " err_fc_feet  =  "<< std::endl << err_fc_feet << std::endl  ; }
+   alpha_V = locoman::utils::alpha_filter(err_fc_feet, err_min, err_max) ;  
+
+   if(cout_print){std::cout << " err_fc_feet  =  "<< std::endl << err_fc_feet << std::endl  ; 
+       std::cout << " alpha_V  =  "<< std::endl << alpha_V << std::endl  ; 
+     }
 
 //   char file_name[] = "err.m";   // writing
 //   std::ofstream err_cl ( file_name, std::ios::app );
 //   if( err_cl.is_open() )
 //   err_cl <<  err_fc_feet << std::endl;  
     
-    alpha_V = locoman::utils::alpha_filter(err_fc_feet, err_min, err_max) ;  
     q_ref_ToMove = q_current +  (1.0/1.0)* alpha_V * d_q_opt  ; 
-    // robot.moveNoHead(q_ref_ToMove) ; 
-    // q_current = q_current +  (1.0/1.0)* alpha_V * d_q_opt 
+    //robot.moveNoHead(q_ref_ToMove) ; 
+    //q_current = q_current +  (1.0/1.0)* alpha_V * d_q_opt ;
       
 } // closing the -for- loop optimizing the V
   
