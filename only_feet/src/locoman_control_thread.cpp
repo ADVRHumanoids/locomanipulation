@@ -1215,7 +1215,7 @@ void locoman_control_thread::run()
   //-----------------------------------------------------------
   // Optimal Contact Force Computation
   
-  n_loop_V = 1 ;
+  n_loop_V = 1 ; //10
   
   y_k = y_ ;
   fc_feet_k = fc_feet_to_world ;
@@ -1269,10 +1269,21 @@ void locoman_control_thread::run()
     y_k_1 = y_k - 1.0* yarp::math::luinv(H_V_k)* Grad_V_k ;
     fc_feet_k_1 = fc_feet_k + E*y_k_1 ;
     
+    
+   std::cout << "fc_feet_to_world = " << fc_feet_to_world.toString() << std::endl ;
+
+   std::cout << "n_loop_V = " << i << std::endl ;      
+   std::cout << "fc_feet_k_1 = " << fc_feet_k_1.toString() << std::endl ;
+    
+//   char vai_k ;
+//   std::cout << " press a key !!! " << std::endl ;
+//   std::cin >> vai_k ;
+//     
     y_k = y_k_1 ;
     fc_feet_k = fc_feet_k_1 ;
-       
-} // closing the -for- loop optimizing the V
+          
+    
+  } // closing the -for- loop optimizing the V
   
   fc_feet_opt   = fc_feet_k_1 ;
   d_fc_feet_opt = fc_feet_opt -1.0*fc_feet_to_world;
@@ -1312,6 +1323,9 @@ void locoman_control_thread::run()
 //   if( err_cl.is_open() )
 //   err_cl <<  err_fc_feet << std::endl;  
     
+           std::cout << " FC_DES[0]  =  "<< std::endl << FC_DES[0]  << std::endl  ; 
+
+    
     q_ref_ToMove = q_current +  (1.0/1.0)* alpha_V * d_q_opt  ; 
     //robot.moveNoHead(q_ref_ToMove) ; 
     //q_current = q_current +  (1.0/1.0)* alpha_V * d_q_opt ;
@@ -1322,9 +1336,7 @@ void locoman_control_thread::run()
   
   
   
-  
-  
-  
+ 
   
    toc = locoman::utils::Toc(tic) ;
   if(1){std::cout << "tic-toc = " << toc << " seconds" << std::endl ;}
@@ -1342,37 +1354,51 @@ void locoman_control_thread::run()
 
    // prototype for the input-guided state machine
 
-// /*   
-//      std::string command  ; //
-//   if(bool ifCommand = command_interface.getCommand(command) ){
-//     
-//     // do something... e.g record a configuration
-// //  /*      //  if(command!=last_command){
-// //   //std::cout << " ifCommand  =  "<< std::endl << ifCommand << std::endl  ; 
-// //    // */
-//   }*/
-//   
-//  if (last_command=="pause")
-//   {  }
-//   else if (last_command =="start" || last_command =="resume" ||
-//            last_command =="to_rg" || last_command =="to_lf" || last_command =="to_cr" || last_command =="center"  )
-//   {  // Double Stance Phase  
-// 
-//     if (last_command =="to_rg")
-//      {
-//         locoman::utils::FC_DES_right(FC_DES, mg) ;  // all the weight on the right foot
-//      }
-//      else if (last_command =="to_lf")
-//      { 
-//         locoman::utils::FC_DES_left(FC_DES, mg) ; // all the weight on the left foot
-//        //std::cout << " CoM_w_0  =  "<< std::endl << CoM_w_0.toString() << std::endl  ; 
-// 
-//      }
-//     else if (last_command =="to_cr" || last_command =="center")
-//      { 
-//         locoman::utils::FC_DES_center(FC_DES, mg) ;  // half weight on the right, half on the left foot
-//      }
+   
+     std::string command  ; //
+  if(bool ifCommand = command_interface.getCommand(command) ){
+      std::cout << " last_command  =  "<< std::endl << last_command << std::endl  ; 
+      std::cout << " command  =  "<< std::endl << command << std::endl  ; 
 
+    // do something... e.g record a configuration
+ 
+  if(command!=last_command){
+  std::cout << " ifCommand  =  "<< std::endl << ifCommand << std::endl  ; 
+   last_command = command ;
+     std::cout << " last_command  =  "<< std::endl << last_command << std::endl  ; 
+  }
+  
+ if (last_command=="pause")
+  {  }
+  else if (last_command =="start" || last_command =="resume" ||
+           last_command =="to_rg" || last_command =="to_lf" || last_command =="to_cr" || last_command =="center"  )
+  {  // Double Stance Phase  
+
+    if (last_command =="to_rg")
+     {
+           FC_DES[0] =  100.0 ;
+      std::cout << " FC_DES[0]   =  "<< std::endl << FC_DES[0]  << std::endl  ; 
+
+         std::cout << " last_command =='to_rg' "<< std::endl; 
+        //locoman::utils::FC_DES_right(FC_DES, mg) ;  // all the weight on the right foot
+     }
+     else if (last_command =="to_lf")
+     {  
+    FC_DES[0] = -100.0 ;
+
+       std::cout << " last_command =='to_lf' "<< std::endl; 
+        //locoman::utils::FC_DES_left(FC_DES, mg) ; // all the weight on the left foot
+       //std::cout << " CoM_w_0  =  "<< std::endl << CoM_w_0.toString() << std::endl  ; 
+
+     }
+    else if (last_command =="to_cr" ) // || last_command =="center"
+     { 
+           std::cout << " last_command =='to_cr' "<< std::endl; 
+	FC_DES[0] = 0.1 ;
+        //locoman::utils::FC_DES_center(FC_DES, mg) ;  // half weight on the right, half on the left foot
+     }
+  }
+  }
 
 } // END of the -run- loop
 
@@ -3430,7 +3456,7 @@ void locoman_control_thread::run()
   //---------------------------------------------------------------------------// 
     */
   
-    
+
 
 
 
