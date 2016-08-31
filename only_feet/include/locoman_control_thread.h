@@ -169,7 +169,7 @@ public:
 
     int FC_HANDS_size ;
     
-    std::string last_command = "pause" ;
+    std::string last_command ; //= "pause" ;
     
     //--------------
     yarp::sig::Vector CoM_waist_cmd  ;  
@@ -184,8 +184,7 @@ public:
     yarp::sig::Vector CoM_w_cmd ;  // variables registered at command time
     yarp::sig::Vector CoM_w_up ;
     yarp::sig::Vector CoM_w_dw ;
-    
-    
+       
     yarp::sig::Matrix T_w_l1_cmd ; 
     yarp::sig::Matrix T_w_r1_cmd ; 
     

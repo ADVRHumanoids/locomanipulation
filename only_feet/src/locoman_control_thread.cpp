@@ -1237,7 +1237,7 @@ void locoman_control_thread::run()
   if(cout_print){
     std::cout << "Big_Rf_new.rows() = " << Big_Rf_new.rows() << std::endl ;
     std::cout << "Big_Rf_new.cols() = " << Big_Rf_new.cols() << std::endl ;
-   // std::cout << "Big_Rf_new.toString() = " << Big_Rf_new.toString() << std::endl ;    
+   //std::cout << "Big_Rf_new.toString() = " << Big_Rf_new.toString() << std::endl ;    
    } 
   
   
@@ -1412,12 +1412,14 @@ void locoman_control_thread::run()
 
     // do something... e.g record a configuration
  
-  if(command!=last_command){
-  //std::cout << " ifCommand  =  "<< std::endl << ifCommand << std::endl  ; 
-   last_command = command ;
-  //   std::cout << " last_command  =  "<< std::endl << last_command << std::endl  ; 
+    if(command!=last_command){
+    //std::cout << " ifCommand  =  "<< std::endl << ifCommand << std::endl  ; 
+    last_command = command ;
+    //   std::cout << " last_command  =  "<< std::endl << last_command << std::endl  ; 
+    }
   }
   
+ std::cout << " last_command  =  "<< std::endl << last_command << std::endl  ;  
  if (last_command=="pause")
   {  }
   else //if (last_command =="start" || last_command =="resume" ||
@@ -1500,6 +1502,25 @@ void locoman_control_thread::run()
                                         ) ;  
     }
      
+/*    else if (last_command =="prepare_rg_up")
+     {
+     // Touching the world with the feet and the hands
+     // this command will remove the weight from the right foot
+
+    yarp::sig::Vector FC_DES_prepare_rg_up_feet(24,0.0) ;
+    yarp::sig::Vector FC_DES_prepare_rg_up_hands(24,0.0) ;
+    double temp_1 = (2.0/3.0)*mg ;
+    double temp_2 = (1.0/3.0)*mg ;
+    locoman::utils::FC_DES_left( FC_DES_prepare_rg_up_feet, temp_1) ;
+    locoman::utils::FC_DES_center(FC_DES_prepare_rg_up_hands , temp_2 ) ;
+    //FC_DES_prepare_rg_up.subVector(0,23) ;
+    
+    std::cout << " FC_DES_prepare_rg_up_feet  = "<< std::endl <<FC_DES_prepare_rg_up_feet.toString() << std::endl ; 
+    std::cout << " FC_DES_prepare_rg_up_hands = "<< std::endl <<FC_DES_prepare_rg_up_hands.toString() << std::endl ; 
+
+    } */ 
+     
+     
     // MOVING THE ROBOT TO  --- REF_TO_MOVE --- CONFIGURATION
   
   double norm_d_q_move = norm(d_q_move);
@@ -1511,10 +1532,9 @@ void locoman_control_thread::run()
   //robot.moveNoHead(q_ref_ToMove) ; 
   //q_current = q_ref_ToMove ; //q_current +  (1.0/1.0)* alpha_V * d_q_opt ;
   
-    
   
   }
-  }
+  
 
 } // END of the -run- loop
 
