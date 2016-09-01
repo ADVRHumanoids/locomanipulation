@@ -38,6 +38,8 @@ locoman_control_thread::locoman_control_thread( std::string module_prefix,
     d_q_des(size_q, 0.0),      //(locoman::utils::getNumberOfKinematicJoints(robot) ) ;     
     
     d_q_opt(size_q, 0.0)  ,
+    d_q_move(size_q, 0.0)  ,
+    
     command_interface(module_prefix), 
     loop_counter(0) ,
     count_sensor(0) ,
@@ -52,6 +54,10 @@ locoman_control_thread::locoman_control_thread( std::string module_prefix,
     FC_DES_RIGHT_sensor(6,0.0),
     FC_FILTERED(FC_size),
     FC_WINDOW(FC_size, WINDOW_size ) ,
+    
+    FC_DES_prepare_rg_up_feet(24,0.0) ,
+    FC_DES_prepare_rg_up_hands(24,0.0) ,
+    d_fc_f_h(48, 0.0) ,
     
     SENSORS_WINDOW(24,WINDOW_size),
     SENSORS_SUM(24, 0.0), 
@@ -1385,7 +1391,7 @@ void locoman_control_thread::run()
   
   
   q_ref_ToMove = q_current +  (1.0/1.0)* alpha_V * d_q_opt  ; 
-  yarp::sig::Vector d_q_move =  d_q_opt ;
+  d_q_move =  d_q_opt ;
  
   
    toc = locoman::utils::Toc(tic) ;
@@ -1502,23 +1508,34 @@ void locoman_control_thread::run()
                                         ) ;  
     }
      
-/*    else if (last_command =="prepare_rg_up")
+    else if (last_command =="prepare_rg_up")
      {
      // Touching the world with the feet and the hands
      // this command will remove the weight from the right foot
 
-    yarp::sig::Vector FC_DES_prepare_rg_up_feet(24,0.0) ;
-    yarp::sig::Vector FC_DES_prepare_rg_up_hands(24,0.0) ;
-    double temp_1 = (2.0/3.0)*mg ;
-    double temp_2 = (1.0/3.0)*mg ;
-    locoman::utils::FC_DES_left( FC_DES_prepare_rg_up_feet, temp_1) ;
-    locoman::utils::FC_DES_center(FC_DES_prepare_rg_up_hands , temp_2 ) ;
-    //FC_DES_prepare_rg_up.subVector(0,23) ;
-    
-    std::cout << " FC_DES_prepare_rg_up_feet  = "<< std::endl <<FC_DES_prepare_rg_up_feet.toString() << std::endl ; 
-    std::cout << " FC_DES_prepare_rg_up_hands = "<< std::endl <<FC_DES_prepare_rg_up_hands.toString() << std::endl ; 
+//     FC_DES_prepare_rg_up_feet(24,0.0) ;
+//     FC_DES_prepare_rg_up_hands(24,0.0) ;
+    double mg_foot = (2.0/3.0)*mg ;
+    double mg_hands = (1.0/3.0)*mg ;
+    locoman::utils::FC_DES_left(  FC_DES_prepare_rg_up_feet, mg_foot    ) ;
+    locoman::utils::FC_DES_center(FC_DES_prepare_rg_up_hands , mg_hands ) ;
+    //
+    // std::cout << " FC_DES_prepare_rg_up_feet  = "<< std::endl <<FC_DES_prepare_rg_up_feet.toString() << std::endl ; 
+    // std::cout << " FC_DES_prepare_rg_up_hands = "<< std::endl <<FC_DES_prepare_rg_up_hands.toString() << std::endl ; 
 
-    } */ 
+    d_fc_f_h = FC_DES_prepare_rg_up_feet -1.0*fc_feet_to_world;
+  
+    if(cout_print){  // fc_feet_opt = fc_feet_to_world + d_fc_feet_opt ; 
+      std::cout << "FC_DES_prepare_rg_up_feet = " << FC_DES_prepare_rg_up_feet.toString() << std::endl ;      
+      std::cout << "d_fc_f_h = " << d_fc_f_h.toString() << std::endl ;
+      }
+   
+    regu_filter = 1E7 ; 
+    d_q_move = -1.0* locoman::utils::Pinv_Regularized( Big_Rf_new , regu_filter)* d_fc_f_h ;
+
+    }  
+     
+     
      
      
     // MOVING THE ROBOT TO  --- REF_TO_MOVE --- CONFIGURATION

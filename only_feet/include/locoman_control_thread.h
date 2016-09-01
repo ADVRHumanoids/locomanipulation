@@ -143,6 +143,8 @@ public:
     yarp::sig::Vector fc_feet_k ;
     yarp::sig::Vector fc_feet_k_1 ;
     
+    yarp::sig::Vector d_fc_f_h ; 
+    
     yarp::sig::Vector normals_feet ; 
       
     yarp::sig::Vector Sensor_Collection;
@@ -166,10 +168,11 @@ public:
     //yarp::sig::Vector q_motor_act ;
     
     yarp::sig::Vector d_q_opt ; 
+    yarp::sig::Vector d_q_move ;
 
     int FC_HANDS_size ;
     
-    std::string last_command ; //= "pause" ;
+    std::string last_command = "pause" ;
     
     //--------------
     yarp::sig::Vector CoM_waist_cmd  ;  
@@ -213,6 +216,9 @@ public:
     yarp::sig::Vector FC_HANDS_SUM ;
     yarp::sig::Vector FC_HANDS_FILTERED ;
     yarp::sig::Matrix FC_HANDS_WINDOW ;  //    yarp::sig::Matrix FC_WINDOW(FC_size, WINDOW_filter ) ;
+    
+    yarp::sig::Vector FC_DES_prepare_rg_up_feet ;
+    yarp::sig::Vector FC_DES_prepare_rg_up_hands ;
     
     yarp::sig::Vector ones_vect_4 ;
     yarp::sig::Vector ones_vect_8 ;
