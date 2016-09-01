@@ -119,7 +119,7 @@ locoman_control_thread::locoman_control_thread( std::string module_prefix,
     
     fc_feet_opt(24,  0.0) ,
     d_fc_feet_opt(24, 0.0) ,
-    //fc_feet_V(24, 0.0) ,   
+    d_fc_feet_des(24, 0.0) ,   
     normals_feet(24, 0.0) , 
     
     Sensor_Collection_Offset(24, 0.0) ,
@@ -1290,78 +1290,25 @@ void locoman_control_thread::run()
   fc_feet_k = fc_feet_to_world ;
   
   for(int i = 0; i < n_loop_V; i++){  // Optimal Contact Force Computation Loop
-//     if(i>0){ // re-Sense the force-torque sensors from the second loop
-//     std::cout << "n_loop_V = " << i << std::endl ;
-//      // 1) Sensing new Fc   
-//     
-//     if(!robot.senseftSensor("l_leg_ft", ft_l_ankle)) std::cout << "ERROR READING SENSOR l_ankle" << std::endl; 
-//     if(!robot.senseftSensor("r_leg_ft", ft_r_ankle)) std::cout << "ERROR READING SENSOR r_ankle" << std::endl;     
-//     if(!robot.senseftSensor("l_arm_ft", ft_l_wrist)) std::cout << "ERROR READING SENSOR l_wrist" << std::endl; 
-//     if(!robot.senseftSensor("r_arm_ft", ft_r_wrist)) std::cout << "ERROR READING SENSOR r_wrist" << std::endl;        
-//     //---------------------------------------------------------------------------------------------------------
-//     // 2) Low_Pass Filter to Fc
-//     Sensor_Collection.setSubvector( 0, ft_l_ankle )  ;
-//     Sensor_Collection.setSubvector( 6, ft_r_ankle )  ;
-//     Sensor_Collection.setSubvector(12, ft_l_wrist )  ;
-//     Sensor_Collection.setSubvector(18, ft_r_wrist )  ;
-//     
-//     count_sensor = count_sensor% WINDOW_size ;
-//     SENSORS_WINDOW.setCol( count_sensor , Sensor_Collection ) ;
-//     SENSORS_SUM = SENSORS_SUM + Sensor_Collection -1.0 * SENSORS_WINDOW.getCol((count_sensor+ 1)%WINDOW_size) ; 
-//     SENSORS_FILTERED = SENSORS_SUM / (WINDOW_size-1.0) ;
-//     //SENSORS_FILTERED -= Sensor_Collection_Offset ;  
-//     count_sensor += 1 ;
-//     // 2.1 converting to contact force componenets  
-//     fc_l_c_to_world = map_l_fcToSens_PINV * SENSORS_FILTERED.subVector(  0,5  ) ; //ft_l_ankle  ;  // yarp::math::pinv( map_l_fcToSens, 1E-6)  *  ft_l_ankle     ;
-//     fc_r_c_to_world = map_r_fcToSens_PINV * SENSORS_FILTERED.subVector(  6,11 ) ; //ft_r_ankle  ;    
-// 
-//     if(  !(flag_robot ==1  && robot.idynutils.getRobotName() == "bigman")  ){  // Changing the sign again if we are not on the walkman real robot
-//     fc_l_c_to_world  = -1.0*fc_l_c_to_world ;      // in the walkman (real) robot the feet sensors provide to_wolrd measures
-//     fc_r_c_to_world  = -1.0*fc_r_c_to_world ; 
-//     }
-//   
-//     fc_sense_left  = fc_l_c_to_world ;
-//     fc_sense_right = fc_r_c_to_world ;
-//     
-//     fc_current_left  = fc_sense_left  - fc_offset_left   ; 
-//     fc_current_right = fc_sense_right - fc_offset_right  ; 
-//     
-//     fc_feet_to_world.setSubvector(0, fc_current_left ) ;
-//     fc_feet_to_world.setSubvector(fc_current_right.length(), fc_r_c_to_world ) ; 
-//     } // closing -if(i>0)- part
- 
-    // 3) Computing Gradient and Hessian of V
+
+    //  Computing Gradient and Hessian of V
     Grad_V_k = locoman::utils::D_V_tot(fc_feet_k, normals_feet, mu_feet_vect, f_min_feet_vect, f_max_feet_vect, E ) ;
     H_V_k    = locoman::utils::H_V_tot(fc_feet_k, normals_feet, mu_feet_vect, f_min_feet_vect, f_max_feet_vect, E ) ;
     
-    // 4) Computing Newton step
+    // Computing Newton step
     y_k_1 = y_k - 1.0* locoman::utils::Pinv_trunc_SVD(H_V_k,1E-7)* Grad_V_k   ;// yarp::math::luinv(H_V_k)* Grad_V_k ;
     fc_feet_k_1 = fc_feet_k + E*y_k_1 ;
-    
-    
-   /*std::cout << "fc_feet_to_world = " << fc_feet_to_world.toString() << std::endl ;
-   std::cout << "n_loop_V = " << i << std::endl ;      
-   std::cout << "fc_feet_k_1 = " << fc_feet_k_1.toString() << std::endl ; */
-    
-//   char vai_k ;
-//   std::cout << " press a key !!! " << std::endl ;
-//   std::cin >> vai_k ;
-//     
+     
     y_k = y_k_1 ;
     fc_feet_k = fc_feet_k_1 ;
-          
     
-  } // closing the -for- loop optimizing the V
+    } // closing the -for- loop optimizing the V
   
-  fc_feet_opt   = FC_DES ; // fc_feet_k_1 ;
-  d_fc_feet_opt = fc_feet_opt -1.0*fc_feet_to_world;
+    fc_feet_opt   = FC_DES ; // fc_feet_k_1 ;
+    d_fc_feet_opt = fc_feet_opt -1.0*fc_feet_to_world;
   
-  if(cout_print){  // fc_feet_opt = fc_feet_to_world + d_fc_feet_opt ; 
-      std::cout << "fc_feet_opt = " << fc_feet_opt.toString() << std::endl ;      
-      std::cout << "d_fc_feet_opt = " << d_fc_feet_opt.toString() << std::endl ;
-      }
-
-   // 5) Computing d_q //   
+    //  Computing d_q 
+  
     regu_filter = 1E7 ; 
     d_q_opt = -1.0* locoman::utils::Pinv_Regularized( Rf_feet , regu_filter)* d_fc_feet_opt ;
    
@@ -1386,70 +1333,69 @@ void locoman_control_thread::run()
   } // closing the -if(optimize_V)- part
   
   
-  
-  
-  
-  
   q_ref_ToMove = q_current +  (1.0/1.0)* alpha_V * d_q_opt  ; 
   d_q_move =  d_q_opt ;
  
-  
-   toc = locoman::utils::Toc(tic) ;
-  if(1){std::cout << "tic-toc = " << toc << " seconds" << std::endl ;}
-  char file_name[] = "tic_toc.txt";   // writing
-  std::ofstream tictoc_cl ( file_name, std::ios::app );
-  if( tictoc_cl.is_open() )
-  tictoc_cl <<  toc << std::endl; 
 
-  loop_counter++ ;   
   
  if(cout_print){std::cout << "---------------------------------------------------------------------------" <<  std::endl ; }
    // END of the NEW code
 //-----------------------------------------------------------------------------------------
 
 
-   // prototype for the input-guided state machine
-
+   // Input-Guided State Machine 
    
-     std::string command  ; //
-  if(bool ifCommand = command_interface.getCommand(command) ){
-   //   std::cout << " last_command  =  "<< std::endl << last_command << std::endl  ; 
-   //   std::cout << " command  =  "<< std::endl << command << std::endl  ; 
-
-    // do something... e.g record a configuration
+   std::string command  ; //
+   if(bool ifCommand = command_interface.getCommand(command) ){
+    // {do something... }  // e.g record a configuration...
  
-    if(command!=last_command){
-    //std::cout << " ifCommand  =  "<< std::endl << ifCommand << std::endl  ; 
-    last_command = command ;
-    //   std::cout << " last_command  =  "<< std::endl << last_command << std::endl  ; 
-    }
-  }
+      if(command!=last_command){
+	    last_command = command ;
+      }
+  } 
   
  std::cout << " last_command  =  "<< std::endl << last_command << std::endl  ;  
+
  if (last_command=="pause")
-  {  }
-  else //if (last_command =="start" || last_command =="resume" ||
-       //    last_command =="to_rg" || last_command =="to_lf" || last_command =="to_cr" || last_command =="center"  )
-  {    // Double Stance Phase  
-    if (last_command =="to_rg")
+  { d_q_move = 0.0*d_q_move ; } 
+  else {    
+    // -------------------------------------------------------------------------
+    if (last_command =="to_rg" || last_command =="right" )
      {
       locoman::utils::FC_DES_right(FC_DES, mg) ;  // all the weight on the right foot
-      std::cout << " last_command =='to_rg' "<< std::endl; 
-      std::cout << " FC_DES[2]   =  "<< std::endl << FC_DES[2]  << std::endl  ;       
+      d_fc_feet_des = FC_DES -1.0*fc_feet_to_world;
+      // Computing d_q //   
+      regu_filter = 1E7 ; 
+      d_q_move = -1.0* locoman::utils::Pinv_Regularized( Rf_feet , regu_filter)* d_fc_feet_opt ;
+     // Limiting for safety
+     if(norm(d_q_move) > 0.005 ) {d_q_move =  0.005 *d_q_move/ norm(d_q_move) ; } 
     }
-     else if (last_command =="to_lf")
+    // -------------------------------------------------------------------------
+     else if (last_command =="to_lf" || last_command =="left" )
      { 
        locoman::utils::FC_DES_left(FC_DES, mg) ; // all the weight on the left foot
-       //std::cout << " last_command =='to_lf' "<< std::endl; 
-       //std::cout << " FC_DES[2]   =  "<< std::endl << FC_DES[2]  << std::endl  ;        
-       //std::cout << " CoM_w_0  =  "<< std::endl << CoM_w_0.toString() << std::endl  ; 
-
-     }
-    else if (last_command =="to_cr"|| last_command =="center" )  
+	d_fc_feet_des = FC_DES -1.0*fc_feet_to_world;
+	regu_filter = 1E7 ; 
+	d_q_move = -1.0* locoman::utils::Pinv_Regularized( Rf_feet , regu_filter)* d_fc_feet_opt ;
+     // Limiting for safety
+     if(norm(d_q_move) > 0.005 ) {d_q_move =  0.005 *d_q_move/ norm(d_q_move) ; } 
+    
+    }
+    
+   // -------------------------------------------------------------------------    
+   else if (last_command =="to_cr"|| last_command =="center" )  
      { 
        locoman::utils::FC_DES_center(FC_DES, mg) ;  // half weight on the right, half on the left foot
-     }
-   else if (last_command =="go_home_joint" ) 
+       d_fc_feet_des = FC_DES -1.0*fc_feet_to_world;
+       // Computing d_q //   
+       regu_filter = 1E7 ; 
+       d_q_move = -1.0* locoman::utils::Pinv_Regularized( Rf_feet , regu_filter)* d_fc_feet_opt ;
+     // Limiting for safety
+     if(norm(d_q_move) > 0.005 ) {d_q_move =  0.005 *d_q_move/ norm(d_q_move) ; } 
+       }
+
+   // -------------------------------------------------------------------------    
+   else if (last_command =="go_home_joint" || last_command =="home"  ) 
      { 
       double steps = 380.0 ;
       robot.fromRobotToIdyn(  right_arm_config_0 ,
@@ -1460,8 +1406,10 @@ void locoman_control_thread::run()
 			      q_des              );   
       locoman::utils::Joint_Trajectory(robot, flag_robot, q_current, q_des, steps  ) ;
       q_current = q_des ;
+      d_q_move = 0.0*d_q_move ;
      }
-       else if (last_command =="go_home_safe" )
+   // -------------------------------------------------------------------------         
+   else if (last_command =="go_home_safe" || last_command =="home_safe"  )
      { 
       robot.fromRobotToIdyn(  right_arm_config_0 ,
 			      left_arm_config_0  ,
@@ -1471,27 +1419,18 @@ void locoman_control_thread::run()
 			      q_des              ); 
      model.iDyn3_model.getCOMJacobian(J_com_w) ; //  
      J_com_w_redu = J_com_w.submatrix(0,2 , 0 , J_com_w.cols()-1 ) ;  
-     yarp::sig::Vector q_home_aux(size_q+6,0.0) ;
-     q_home_aux.setSubvector(5, q_des) ;
-     yarp::sig::Vector q_move_long = nullspaceProjection(J_com_w_redu,1E-6)*q_des  ; // 1E-3
-     yarp::sig::Vector q_move_short =   q_move_long.subVector(6, q_move_long.length()-1) ;
-     double norm_q_move_short= norm(q_move_short);
-     if(norm_q_move_short<0.00001){norm_q_move_short=0.00001 ; }
-     if(norm(q_move_short)>0.005 ){q_move_short =  0.005 *q_move_short/ norm_q_move_short ; } 
-     if(norm(q_move_short)<0.0002){q_move_short =  0.0002 *q_move_short/ norm_q_move_short ; }  
-          q_ref_ToMove = q_current +  (1.0/1.0)* q_move_short  ; 
-      d_q_move  = q_move_short;
+    
+     yarp::sig::Vector d_q_home_aux(size_q+6,0.0) ;
+     d_q_home_aux.setSubvector(5, q_des-q_current) ;
+     
+     yarp::sig::Vector d_q_move_long = nullspaceProjection(J_com_w_redu,1E-6)*d_q_home_aux  ; // 
+     d_q_move = d_q_move_long.subVector(6, d_q_move_long.length()-1) ;
+     // Limiting for safety
+     if(norm(d_q_move) > 0.005 ) {d_q_move = 0.005 *d_q_move/ norm(d_q_move) ; } 
     }
      
-     else if (last_command =="rg_up")
+   else if (last_command =="rg_up" || last_command =="right_up" )
      {
-       
-//   Big_J_new.setSubmatrix(J_l_hand_body_0, 0,0 ) ;
-//   Big_J_new.setSubmatrix(J_r_hand_body_0, 6,0 ) ;
-//   Big_J_new.setSubmatrix(J_l_c1_body_0,  12,0 ) ;    
-//   Big_J_new.setSubmatrix(J_r_c1_body_0,  18,0 ) ;
-//   Big_J_new.setSubmatrix(J_com_waist,    24,0 ) ;
-       
        yarp::sig::Matrix T_rg_up = Eye_4 ;
        T_rg_up[2][3] = 0.1 ;
        d_q_move = locoman::utils::WB_Cartesian_Tasks( 
@@ -1506,48 +1445,56 @@ void locoman_control_thread::run()
                             Big_J_new.submatrix(18,13,0,Big_J_new.cols()-1) ,
                             Big_J_new.submatrix(24,Big_J_new.rows()-1,0,Big_J_new.cols()-1) 
                                         ) ;  
+	// Limiting for safety
+	if(norm(d_q_move) > 0.005 ) { d_q_move =  0.005 *d_q_move/ norm(d_q_move) ; } 
+       
     }
      
-    else if (last_command =="prepare_rg_up")
+   else if (last_command =="prepare_rg_up" || last_command =="prepare_right_up" )
      {
      // Touching the world with the feet and the hands
      // this command will remove the weight from the right foot
 
-//     FC_DES_prepare_rg_up_feet(24,0.0) ;
-//     FC_DES_prepare_rg_up_hands(24,0.0) ;
     double mg_foot = (2.0/3.0)*mg ;
     double mg_hands = (1.0/3.0)*mg ;
     locoman::utils::FC_DES_left(  FC_DES_prepare_rg_up_feet, mg_foot    ) ;
     locoman::utils::FC_DES_center(FC_DES_prepare_rg_up_hands , mg_hands ) ;
-    //
-    // std::cout << " FC_DES_prepare_rg_up_feet  = "<< std::endl <<FC_DES_prepare_rg_up_feet.toString() << std::endl ; 
-    // std::cout << " FC_DES_prepare_rg_up_hands = "<< std::endl <<FC_DES_prepare_rg_up_hands.toString() << std::endl ; 
 
     d_fc_f_h = FC_DES_prepare_rg_up_feet -1.0*fc_feet_to_world;
-  
-    if(cout_print){  // fc_feet_opt = fc_feet_to_world + d_fc_feet_opt ; 
-      std::cout << "FC_DES_prepare_rg_up_feet = " << FC_DES_prepare_rg_up_feet.toString() << std::endl ;      
-      std::cout << "d_fc_f_h = " << d_fc_f_h.toString() << std::endl ;
-      }
-   
+    
     regu_filter = 1E7 ; 
     d_q_move = -1.0* locoman::utils::Pinv_Regularized( Big_Rf_new , regu_filter)* d_fc_f_h ;
-
+    // Limiting for safety
+    if(norm(d_q_move) > 0.005 ) { d_q_move =  0.005 *d_q_move/ norm(d_q_move) ; } 
     }  
      
      
      
-     
-    // MOVING THE ROBOT TO  --- REF_TO_MOVE --- CONFIGURATION
   
-  double norm_d_q_move = norm(d_q_move);
+  
+
+  //----------------------------------------------------------------------------  
+  // MOVING THE ROBOT TO  --- REF_TO_MOVE --- CONFIGURATION
+  
+  norm_d_q_move = norm(d_q_move);
   if(norm_d_q_move<0.00001){norm_d_q_move=0.00001 ; }
   if(norm(d_q_move)>0.005){d_q_move =  0.005 *d_q_opt/ norm_d_q_move ; } 
   if(norm(d_q_move)<0.0002){d_q_move =  0.0002 *d_q_opt/ norm_d_q_move ; } 
   q_ref_ToMove = q_current +  (1.0/1.0) * d_q_move  ;  // +  (1.0/1.0)* alpha_V * d_q_move  ;  
-
+  // 
   //robot.moveNoHead(q_ref_ToMove) ; 
   //q_current = q_ref_ToMove ; //q_current +  (1.0/1.0)* alpha_V * d_q_opt ;
+  
+  //----------------------------------------------------------------------------
+  // Closing the loop with the toc and lopp counter
+  toc = locoman::utils::Toc(tic) ;
+  std::cout << "tic-toc = " << toc << " seconds" << std::endl ;
+  char file_name[] = "tic_toc.txt";   // writing
+  std::ofstream tictoc_cl ( file_name, std::ios::app );
+  if( tictoc_cl.is_open() )
+  tictoc_cl <<  toc << std::endl; 
+
+  loop_counter++ ;   
   
   
   }

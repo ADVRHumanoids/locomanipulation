@@ -97,7 +97,7 @@ public:
     
     bool flag_robot = 1 ;
     bool flag_simulator = 1-flag_robot ;
-        
+    double norm_d_q_move = 1.0 ;
     
     double mu_l_foot = 1.0 ;
     double mu_r_foot = 1.0 ;
@@ -139,6 +139,7 @@ public:
     yarp::sig::Vector f_min_feet_vect ;  
     yarp::sig::Vector f_max_feet_vect ;  
     yarp::sig::Vector fc_feet_opt ;
+    yarp::sig::Vector d_fc_feet_des ;
     yarp::sig::Vector d_fc_feet_opt ;
     yarp::sig::Vector fc_feet_k ;
     yarp::sig::Vector fc_feet_k_1 ;
