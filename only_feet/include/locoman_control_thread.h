@@ -218,8 +218,11 @@ public:
     yarp::sig::Vector FC_HANDS_FILTERED ;
     yarp::sig::Matrix FC_HANDS_WINDOW ;  //    yarp::sig::Matrix FC_WINDOW(FC_size, WINDOW_filter ) ;
     
-    yarp::sig::Vector FC_DES_prepare_rg_up_feet ;
-    yarp::sig::Vector FC_DES_prepare_rg_up_hands ;
+//     yarp::sig::Vector FC_DES_prepare_rg_up_feet ;
+//     yarp::sig::Vector FC_DES_prepare_rg_up_hands ;
+    yarp::sig::Vector FC_DES_feet ;
+    yarp::sig::Vector FC_DES_hands ;
+    yarp::sig::Vector FC_DES_f_h ;
     
     yarp::sig::Vector ones_vect_4 ;
     yarp::sig::Vector ones_vect_8 ;
