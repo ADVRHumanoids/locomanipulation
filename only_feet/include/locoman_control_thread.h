@@ -7,6 +7,8 @@
 #include <idynutils/yarp_single_chain_interface.h>
 #include <GYM/yarp_command_interface.hpp>
 #include <GYM/control_thread.hpp>
+#include <wholebody_ik/wholebody_ik.h>
+
 
 /**
  * @brief The locoman_control_thread class inherit from a control_thread
@@ -88,6 +90,7 @@ private:
     double max_vel;
 public:
     
+    wholebody_ik IK ;
     unsigned int size_q ;
     int mg =  290 ; // [N]  295 // mg_coman = 290; mg_bigman = 1000 ;
     int loop_counter ;

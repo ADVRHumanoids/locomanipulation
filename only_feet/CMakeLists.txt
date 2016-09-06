@@ -32,6 +32,7 @@ find_package(YARP REQUIRED)
 FIND_PACKAGE(GYM REQUIRED)
 find_package(iDynTree REQUIRED)
 FIND_PACKAGE(locoman_utils REQUIRED)
+FIND_PACKAGE(wholebody_ik REQUIRED)
 
 ###########
 ## Build ##
@@ -46,7 +47,8 @@ include_directories( include
 		    ${paramHelp_INCLUDE_DIRS} 
 		    ${YARP_INCLUDE_DIRS} 
 		    ${GYM_INCLUDE_DIRS}
-		    ${locoman_utils_INCLUDE_DIRS})
+		    ${locoman_utils_INCLUDE_DIRS}
+		    ${wholebody_ik_INCLUDE_DIRS})
 
 # create the generic locoman executable
 add_executable( ${PROJECT_NAME} src/locoman_main.cpp 
@@ -68,14 +70,13 @@ add_dependencies( ${PROJECT_NAME} GYM )
 target_link_libraries( ${PROJECT_NAME} ${idynutils_LIBRARIES} ${YARP_LIBRARIES} 
 				      ${iDynTree_LIBRARIES}
                                       ${GYM_LIBRARIES}
-				      ${iDynTree_LIBRARIES}
+				      ${wholebody_ik_LIBRARIES}
 				      boost_system)
 				      
 
 target_link_libraries( "${PROJECT_NAME}_simple" ${idynutils_LIBRARIES} ${YARP_LIBRARIES} 
                       ${iDynTree_LIBRARIES}
-                                      ${GYM_LIBRARIES}
-                      ${iDynTree_LIBRARIES}
+                      ${GYM_LIBRARIES}
                       boost_system)
 #############
 ## Install ##

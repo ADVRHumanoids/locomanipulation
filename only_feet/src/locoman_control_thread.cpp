@@ -24,6 +24,8 @@ locoman_control_thread::locoman_control_thread( std::string module_prefix,
                              			yarp::os::ResourceFinder rf, 
                              			std::shared_ptr< paramHelp::ParamHelperServer > ph ) :
     control_thread( module_prefix, rf, ph ),  
+    IK(get_robot_name(),get_urdf_path(),get_srdf_path(), get_thread_period()),
+    
     size_q(locoman::utils::getNumberOfKinematicJoints(robot)),
    
    // q_senseRefFeedback(size_q, 0.0) ,  // this should be removed
@@ -1035,7 +1037,7 @@ bool locoman_control_thread::custom_init()
   std::cout << " final error offset =  " <<  norm(q_current - q_des) << std::endl;     
 
   //-------------------------------------------
-  
+  IK.initialize("right_arm",KDL::Frame::Identity(),right_arm_config_0 ) ;
   //------------------------------------------------------------------------------------------
   char vai_2 ;
   std::cout << " waiting for a keyboard input before starting the Control Loop !!! " << std::endl ;
@@ -1530,7 +1532,7 @@ void locoman_control_thread::run()
 	if(norm(d_q_move) > 0.005 ) { d_q_move =  0.005 *d_q_move/ norm(d_q_move) ; } 
         alpha_V = 1.0 ; 
     }
-       else if (last_command =="rg_hand_up" || last_command =="right_hand_up" )
+    else if (last_command =="rg_hand_up" || last_command =="right_hand_up" )
      {
        yarp::sig::Matrix T_rg_up = Eye_4 ;
        T_rg_up[0][3] = 0.5 ;
@@ -1552,6 +1554,51 @@ void locoman_control_thread::run()
         alpha_V = 1.0 ; 
     }
     
+   else if (last_command =="rg_hand_fw" || last_command =="right_hand_fw" )
+     {
+       //TODO
+/*       yarp::sig::Matrix T_rg_up = Eye_4 ;
+       T_rg_up[0][3] = 0.5 ;
+
+       d_q_move = locoman::utils::WB_Cartesian_Tasks( 
+                            Eye_4,             // T_l_hand_des,
+                            T_rg_up,             // T_r_hand_des,
+                            Eye_4,             // T_l1_foot_des ,
+                            Eye_4,             // T_r1_foot_des ,
+                            zero_3,            //CoM_err ,
+                            Big_J_new.submatrix(0,5,0,Big_J_new.cols()-1) ,
+                            Big_J_new.submatrix(6,11,0,Big_J_new.cols()-1) ,
+                            Big_J_new.submatrix(12,17,0,Big_J_new.cols()-1) ,
+                            Big_J_new.submatrix(18,23,0,Big_J_new.cols()-1) ,
+                            Big_J_new.submatrix(24,Big_J_new.rows()-1,0,Big_J_new.cols()-1) 
+                                        ) ;  
+	// Limiting for safety
+	if(norm(d_q_move) > 0.1 ) { d_q_move =  0.1 *d_q_move/ norm(d_q_move) ; } 
+        alpha_V = 1.0 ;*/ 
+    } 
+    
+   else if (last_command =="close_rg_hand"  )
+    {
+      // TODO
+//     yarp::sig::Vector q_final = locoman::utils::moving_right_arm(  0.1, robot, flag_robot, q_current );
+//     d_q_move =  q_final-q_current;
+//     alpha_V = 1.0 ;
+    }    
+    
+   else if (last_command =="2_hands_dw"  )
+    {
+      // TODO
+    }    
+    
+       else if (last_command =="2_hands_close"  )
+    {
+      // TODO , fino a tocco
+      
+    }    
+   
+   //TODO esperimento di balancing con bacinella dove vengono buttati pesi...
+   //TODO esperimento di balancing con peso in mano e braccio che si muove...
+   //TODO esperimento di balancing con mano che si muove e pi graspa peso
    
    else if (last_command =="prepare_rg_up" || last_command =="prepare_right_up" )
      {
@@ -1610,6 +1657,129 @@ void locoman_control_thread::run()
     alpha_V = 1.0 ;
     }  
      
+   else if (last_command =="test_right_arm_IK_1"  )
+    {
+//       KDL::Frame Des_Config_1 = KDL::Frame(KDL::Rotation::RPY(-0.83, -1.194, 0.831 ), KDL::Vector(0.41,-0.45, -0.14) );
+//     
+//       IK.set_desired_ee_pose("right_arm",Des_Config_1); // Pose is respect to the waist (for now)
+// 
+//       double error_arsm_IK_1 =  IK.get_error("right_arm")  ;
+//       std::cout << "error_arsm_IK_1  = " <<  std::endl << error_arsm_IK_1 << std::endl ;    
+// 
+       double tol_arms_IK = 0.05 ;
+//       if (error_arsm_IK_1<tol_arms_IK){
+//           d_q_move = 0.0*d_q_move ;// q_new-q_current; //
+//           alpha_V = 1.0 ;
+// 	 // last_command = "pause";
+//       }
+//       else {
+
+     KDL::Frame Des_Config = KDL::Frame(KDL::Rotation::RPY(-0.83, -1.194, 0.831 ), KDL::Vector(0.41,-0.45, -0.14) );
+      IK.set_desired_ee_pose("right_arm",Des_Config); // Pose is respect to the waist (for now)
+      double error_arms_IK_1 =  IK.get_error("right_arm")  ;
+      std::cout << "error_arms_IK_1  = " <<  std::endl << error_arms_IK_1 << std::endl ;    
+
+      yarp::sig::Vector q_current_right_arm_in(7,0.0) ;
+      yarp::sig::Vector q_current_left_arm_in(7,0.0) ;
+      yarp::sig::Vector q_current_torso_in(3,0.0) ;
+      yarp::sig::Vector q_current_right_leg_in(6,0.0) ;
+      yarp::sig::Vector q_current_left_leg_in(6,0.0) ;
+				  
+      robot.fromIdynToRobot(q_current,
+			q_current_right_arm_in,
+			q_current_left_arm_in,
+			q_current_torso_in,
+			q_current_right_leg_in,
+			q_current_left_leg_in
+		      );
+      
+    //  yarp::sig::Vector q_current_right_arm_out(7,0.0) ;
+   //  double cart_error = IK.cartToJnt("right_arm", q_current_right_arm_in, q_current_right_arm_out ) ;
+    
+    yarp::sig::Vector dot_q_right_arm_out=  IK.next_step("right_arm", q_current_right_arm_in, tol_arms_IK) ;
+    yarp::sig::Vector d_q_right_arm_out = dot_q_right_arm_out*get_thread_period() ;
+    yarp::sig::Vector q_right_arm_out = q_current_right_arm_in + d_q_right_arm_out ;    
+    
+    yarp::sig::Vector q_new = 0.0*d_q_move ;
+	
+    robot.fromRobotToIdyn(  q_right_arm_out ,
+		q_current_left_arm_in,
+		q_current_torso_in,
+		q_current_right_leg_in,
+		q_current_left_leg_in,
+			q_new     );   
+    
+    d_q_move = q_new-q_current; //0.0*d_q_move ;// 
+    alpha_V = 1.0/4.0 ; 
+      	if (norm(d_q_move)<0.00001){last_command ="pause";
+	      d_q_move = 0.0*d_q_move ;// 
+	      alpha_V = 1.0 ;
+	}
+	//}
+    }  
+    
+    else if (last_command =="test_right_arm_IK_2"  )
+    {
+//       KDL::Frame Des_Config_2 = KDL::Frame(KDL::Rotation::RPY(-0.83, -1.194, 0.831 ), KDL::Vector(0.41,-0.45, -0.04) );
+//     
+//       IK.set_desired_ee_pose("right_arm",Des_Config_2); // Pose is respect to the waist (for now)
+// 
+// 
+       double tol_arms_IK = 0.05 ;
+//       if (error_arsm_IK_2<tol_arms_IK){
+//           d_q_move = 0.0*d_q_move ;// q_new-q_current; //
+//           alpha_V = 1.0 ;
+// 	 // last_command = "pause";
+//       }
+//       else {
+
+      KDL::Frame Des_Config = KDL::Frame(KDL::Rotation::RPY(-0.83, -1.194, 0.831 ), KDL::Vector(0.41,-0.45, -0.04) );
+      IK.set_desired_ee_pose("right_arm",Des_Config); // Pose is respect to the waist (for now)
+      double error_arms_IK_2 =  IK.get_error("right_arm")  ;
+      std::cout << "error_arms_IK_2  = " <<  std::endl << error_arms_IK_2 << std::endl ;    
+
+      
+      yarp::sig::Vector q_current_right_arm_in(7,0.0) ;
+      yarp::sig::Vector q_current_left_arm_in(7,0.0) ;
+      yarp::sig::Vector q_current_torso_in(3,0.0) ;
+      yarp::sig::Vector q_current_right_leg_in(6,0.0) ;
+      yarp::sig::Vector q_current_left_leg_in(6,0.0) ;
+				  
+      robot.fromIdynToRobot(q_current,
+			q_current_right_arm_in,
+			q_current_left_arm_in,
+			q_current_torso_in,
+			q_current_right_leg_in,
+			q_current_left_leg_in
+		      );
+      
+    //  yarp::sig::Vector q_current_right_arm_out(7,0.0) ;
+   //  double cart_error = IK.cartToJnt("right_arm", q_current_right_arm_in, q_current_right_arm_out ) ;
+    
+    yarp::sig::Vector dot_q_right_arm_out=  IK.next_step("right_arm", q_current_right_arm_in, tol_arms_IK) ;
+    yarp::sig::Vector d_q_right_arm_out = dot_q_right_arm_out*get_thread_period() ;
+    yarp::sig::Vector q_right_arm_out = q_current_right_arm_in + d_q_right_arm_out ;    
+    
+    yarp::sig::Vector q_new = 0.0*d_q_move ;
+	
+    robot.fromRobotToIdyn(  q_right_arm_out ,
+		q_current_left_arm_in,
+		q_current_torso_in,
+		q_current_right_leg_in,
+		q_current_left_leg_in,
+			q_new     );   
+    
+    d_q_move = q_new-q_current; //0.0*d_q_move ;// 
+    alpha_V = 1.0/4.0 ;
+	if (norm(d_q_move)<0.00001){last_command ="pause";
+	      d_q_move = 0.0*d_q_move ;// 
+	      alpha_V = 1.0 ;
+	}
+    
+      //}
+    }    
+  
+    
   //----------------------------------------------------------------------------  
   // MOVING THE ROBOT TO  --- REF_TO_MOVE --- CONFIGURATION
   
