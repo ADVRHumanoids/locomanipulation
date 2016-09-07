@@ -1325,7 +1325,7 @@ void locoman_control_thread::run()
   //-----------------------------------------------------------
   // Optimal Contact Force Computation
   
-  n_loop_V = 1 ; //10
+  n_loop_V = 10 ; //10
   
   y_k = y_ ;
   fc_feet_k = fc_feet_to_world ;
@@ -1335,6 +1335,7 @@ void locoman_control_thread::run()
     //  Computing Gradient and Hessian of V
     Grad_V_k = locoman::utils::D_V_tot(fc_feet_k, normals_feet, mu_feet_vect, f_min_feet_vect, f_max_feet_vect, E ) ;
     H_V_k    = locoman::utils::H_V_tot(fc_feet_k, normals_feet, mu_feet_vect, f_min_feet_vect, f_max_feet_vect, E ) ;
+
     
     // Computing Newton step
     y_k_1 = y_k - 1.0* locoman::utils::Pinv_trunc_SVD(H_V_k,1E-7)* Grad_V_k   ;// yarp::math::luinv(H_V_k)* Grad_V_k ;
@@ -1342,6 +1343,13 @@ void locoman_control_thread::run()
      
     y_k = y_k_1 ;
     fc_feet_k = fc_feet_k_1 ;
+    
+    
+  
+    if(cout_print){std::cout << " i  =  "<< std::endl << i << std::endl  ;  }   
+    if(cout_print){std::cout << " fc_feet_k.toString()  =  "<< std::endl << fc_feet_k.toString() << std::endl  ;  }  
+    if(cout_print){std::cout << " norm(Grad_V_k)  =  "<< std::endl <<  norm(Grad_V_k) << std::endl  ;  }  
+
     
     } // closing the -for- loop optimizing the V
   
@@ -1354,8 +1362,10 @@ void locoman_control_thread::run()
     d_q_opt = -1.0* locoman::utils::Pinv_Regularized( Rf_feet , regu_filter)* d_fc_feet_opt ;
    
   
-  if(cout_print){std::cout << " d_q_opt.toString()  =  "<< std::endl << d_q_opt.toString() << std::endl  ;  }  
+ // if(cout_print){std::cout << " d_q_opt.toString()  =  "<< std::endl << d_q_opt.toString() << std::endl  ;  }  
 
+  
+  
    //------------------------------------------------------------------------
    err_min = 30.0 ; //10.0 ;
    err_max = 150.0 ;  //40.0 ; 
@@ -1823,6 +1833,80 @@ void locoman_control_thread::run()
 	//}
     }  
     
+    
+    
+     else if (last_command =="test_right_arm_IK_1_limit"  ) // TODO: rivedere
+    {
+//       KDL::Frame Des_Config_1 = KDL::Frame(KDL::Rotation::RPY(-0.83, -1.194, 0.831 ), KDL::Vector(0.41,-0.45, -0.14) );
+//     
+//       IK.set_desired_ee_pose("right_arm",Des_Config_1); // Pose is respect to the waist (for now)
+// 
+//       double error_arsm_IK_1 =  IK.get_error("right_arm")  ;
+//       std::cout << "error_arsm_IK_1  = " <<  std::endl << error_arsm_IK_1 << std::endl ;    
+// 
+       double tol_arms_IK = 0.05 ;
+//       if (error_arsm_IK_1<tol_arms_IK){
+//           d_q_move = 0.0*d_q_move ;// q_new-q_current; //
+//           alpha_V = 1.0 ;
+// 	 // last_command = "pause";
+//       }
+//       else {
+
+     KDL::Frame Des_Config = KDL::Frame(KDL::Rotation::RPY(-0.83, -1.194, 0.831 ), KDL::Vector(0.41,-0.45, -0.14) );
+      IK.set_desired_ee_pose("right_arm",Des_Config); // Pose is respect to the waist (for now)
+      double error_arms_IK_1 =  IK.get_error("right_arm")  ;
+      std::cout << "error_arms_IK_1  = " <<  std::endl << error_arms_IK_1 << std::endl ;    
+
+      yarp::sig::Vector q_current_right_arm_in(7,0.0) ;
+      yarp::sig::Vector q_current_left_arm_in(7,0.0) ;
+      yarp::sig::Vector q_current_torso_in(3,0.0) ;
+      yarp::sig::Vector q_current_right_leg_in(6,0.0) ;
+      yarp::sig::Vector q_current_left_leg_in(6,0.0) ;
+				  
+      robot.fromIdynToRobot(q_current,
+			q_current_right_arm_in,
+			q_current_left_arm_in,
+			q_current_torso_in,
+			q_current_right_leg_in,
+			q_current_left_leg_in
+		      );
+      
+     yarp::sig::Vector q_current_right_arm_out(7,0.0) ;
+    
+     double cart_error = IK.cartToJnt("right_arm", q_current_right_arm_in, q_current_right_arm_out ) ;
+    
+//     yarp::sig::Vector dot_q_right_arm_out=  IK.next_step("right_arm", q_current_right_arm_in, tol_arms_IK) ;
+//     yarp::sig::Vector d_q_right_arm_out = dot_q_right_arm_out*get_thread_period() ;
+//      q_current_right_arm_out = q_current_right_arm_in + d_q_right_arm_out ;    
+//     
+     
+     
+    yarp::sig::Vector q_new = 0.0*d_q_move ;
+	
+    robot.fromRobotToIdyn(  q_current_right_arm_out ,
+		q_current_left_arm_in,
+		q_current_torso_in,
+		q_current_right_leg_in,
+		q_current_left_leg_in,
+			q_new     );   
+    
+    d_q_move = q_new-q_current; //0.0*d_q_move ;// 
+      norm_d_q_move = norm(d_q_move);
+      if(norm(d_q_move)>0.1){d_q_move =  0.1 *d_q_move/ norm_d_q_move ; } 
+    alpha_V = 1.0/4.0 ; 
+    
+    if (norm(d_q_move)<0.00001){last_command ="pause";
+	      d_q_move = 0.0*d_q_move ;// 
+	      alpha_V = 1.0 ;
+	}
+	//}
+    }  
+    
+    
+    
+    
+    
+    
     else if (last_command =="test_right_arm_IK_2"  )
     {
 //       KDL::Frame Des_Config_2 = KDL::Frame(KDL::Rotation::RPY(-0.83, -1.194, 0.831 ), KDL::Vector(0.41,-0.45, -0.04) );
@@ -1882,9 +1966,152 @@ void locoman_control_thread::run()
 	}
     
       //}
+    //----------------------------------------------------------------------------
+ 
     }    
   
+  
+  
+     else if (last_command =="right_hand_pretouch_1"  )
+    {
+//       KDL::Frame Des_Config_2 = KDL::Frame(KDL::Rotation::RPY(-0.83, -1.194, 0.831 ), KDL::Vector(0.41,-0.45, -0.04) );
+//     
+//       IK.set_desired_ee_pose("right_arm",Des_Config_2); // Pose is respect to the waist (for now)
+// 
+// 
+       double tol_arms_IK = 0.05 ;
+//       if (error_arsm_IK_2<tol_arms_IK){
+//           d_q_move = 0.0*d_q_move ;// q_new-q_current; //
+//           alpha_V = 1.0 ;
+// 	 // last_command = "pause";
+//       }
+//       else {
+
+      KDL::Frame Des_Config = KDL::Frame(KDL::Rotation::RPY(-0.83, -1.194, 0.831 ), KDL::Vector(0.41,-0.45, -0.04) );
+      IK.set_desired_ee_pose("right_arm",Des_Config); // Pose is respect to the waist (for now)
+      double error_arms_IK_2 =  IK.get_error("right_arm")  ;
+      std::cout << "error_arms_IK_2  = " <<  std::endl << error_arms_IK_2 << std::endl ;    
+
+      
+      yarp::sig::Vector q_current_right_arm_in(7,0.0) ;
+      yarp::sig::Vector q_current_left_arm_in(7,0.0) ;
+      yarp::sig::Vector q_current_torso_in(3,0.0) ;
+      yarp::sig::Vector q_current_right_leg_in(6,0.0) ;
+      yarp::sig::Vector q_current_left_leg_in(6,0.0) ;
+				  
+      robot.fromIdynToRobot(q_current,
+			q_current_right_arm_in,
+			q_current_left_arm_in,
+			q_current_torso_in,
+			q_current_right_leg_in,
+			q_current_left_leg_in
+		      );
+      
+    //  yarp::sig::Vector q_current_right_arm_out(7,0.0) ;
+   //  double cart_error = IK.cartToJnt("right_arm", q_current_right_arm_in, q_current_right_arm_out ) ;
     
+    yarp::sig::Vector dot_q_right_arm_out=  IK.next_step("right_arm", q_current_right_arm_in, tol_arms_IK) ;
+    yarp::sig::Vector d_q_right_arm_out = dot_q_right_arm_out*get_thread_period() ;
+    yarp::sig::Vector q_right_arm_out = q_current_right_arm_in + d_q_right_arm_out ;    
+    
+    yarp::sig::Vector q_new = 0.0*d_q_move ;
+	
+    robot.fromRobotToIdyn(  q_right_arm_out ,
+		q_current_left_arm_in,
+		q_current_torso_in,
+		q_current_right_leg_in,
+		q_current_left_leg_in,
+			q_new     );   
+    
+    d_q_move = q_new-q_current; //0.0*d_q_move ;// 
+    alpha_V = 1.0/4.0 ;
+	if (norm(d_q_move)<0.00001){last_command ="pause";
+	      d_q_move = 0.0*d_q_move ;// 
+	      alpha_V = 1.0 ;
+	}
+    
+      //}
+    //----------------------------------------------------------------------------
+ 
+    }    
+  
+  
+    else if (last_command =="right_hand_pretouch_2"  )
+    {
+//       KDL::Frame Des_Config_2 = KDL::Frame(KDL::Rotation::RPY(-0.83, -1.194, 0.831 ), KDL::Vector(0.41,-0.45, -0.04) );
+//     
+//       IK.set_desired_ee_pose("right_arm",Des_Config_2); // Pose is respect to the waist (for now)
+// 
+// 
+       double tol_arms_IK = 0.05 ;
+//       if (error_arsm_IK_2<tol_arms_IK){
+//           d_q_move = 0.0*d_q_move ;// q_new-q_current; //
+//           alpha_V = 1.0 ;
+// 	 // last_command = "pause";
+//       }
+//       else {
+
+      KDL::Frame Des_Config = KDL::Frame(KDL::Rotation::RPY(0.0, -1.57, 0.0 ), KDL::Vector(0.41,-0.45, -0.04) );
+      IK.set_desired_ee_pose("right_arm",Des_Config); // Pose is respect to the waist (for now)
+      double error_arms_IK_2 =  IK.get_error("right_arm")  ;
+      std::cout << "error_arms_IK_2  = " <<  std::endl << error_arms_IK_2 << std::endl ;    
+
+      
+      yarp::sig::Vector q_current_right_arm_in(7,0.0) ;
+      yarp::sig::Vector q_current_left_arm_in(7,0.0) ;
+      yarp::sig::Vector q_current_torso_in(3,0.0) ;
+      yarp::sig::Vector q_current_right_leg_in(6,0.0) ;
+      yarp::sig::Vector q_current_left_leg_in(6,0.0) ;
+				  
+      robot.fromIdynToRobot(q_current,
+			q_current_right_arm_in,
+			q_current_left_arm_in,
+			q_current_torso_in,
+			q_current_right_leg_in,
+			q_current_left_leg_in
+		      );
+      
+    //  yarp::sig::Vector q_current_right_arm_out(7,0.0) ;
+   //  double cart_error = IK.cartToJnt("right_arm", q_current_right_arm_in, q_current_right_arm_out ) ;
+    
+    yarp::sig::Vector dot_q_right_arm_out=  IK.next_step("right_arm", q_current_right_arm_in, tol_arms_IK) ;
+    yarp::sig::Vector d_q_right_arm_out = dot_q_right_arm_out*get_thread_period() ;
+    yarp::sig::Vector q_right_arm_out = q_current_right_arm_in + d_q_right_arm_out ;    
+    
+    yarp::sig::Vector q_new = 0.0*d_q_move ;
+	
+    robot.fromRobotToIdyn(  q_right_arm_out ,
+		q_current_left_arm_in,
+		q_current_torso_in,
+		q_current_right_leg_in,
+		q_current_left_leg_in,
+			q_new     );   
+    
+    d_q_move = q_new-q_current; //0.0*d_q_move ;// 
+    alpha_V = 1.0/4.0 ;
+	if (norm(d_q_move)<0.00001){last_command ="pause";
+	      d_q_move = 0.0*d_q_move ;// 
+	      alpha_V = 1.0 ;
+	}
+    
+      //}
+    //----------------------------------------------------------------------------
+ 
+    }    
+  
+   else 
+    {
+
+    d_q_move = 0.0*d_q_move ;// 
+    alpha_V = 1.0/1.0 ;
+
+    
+      //}
+    //----------------------------------------------------------------------------
+ 
+    }    
+  
+  
   //----------------------------------------------------------------------------  
   // MOVING THE ROBOT TO  --- REF_TO_MOVE --- CONFIGURATION
   
