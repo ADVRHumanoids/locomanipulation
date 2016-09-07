@@ -116,6 +116,8 @@ locoman_control_thread::locoman_control_thread( std::string module_prefix,
     Big_J_new(27, size_q+6) ,
     Big_Rf_new(48, size_q+6) ,
     
+    Rf_feet_old(24, size_q ) , 
+    
     //Rf_data(24, size_q ) ,
     mu_l_foot_vect(4, mu_l_foot) , // one for each contact point
     mu_r_foot_vect(4, mu_r_foot) , // one for each contact point
@@ -606,6 +608,17 @@ bool locoman_control_thread::custom_init()
   }   
    receiving_Big_Rf_initted = false ;
     // yarp::sig::Matrix Big_J_data;   
+  
+  if(!receiving_Rf_old.open(std::string("/" + get_module_prefix() + "/receiving_Rf_old"))) {
+  std::cout << "ERROR: cannot open YARP port " << std::string(get_module_prefix() + "/receiving_Rf_old") << std::endl;
+  return false;  }
+  if(!yarp::os::Network::connect(  "/locoman_service_2/sending_Rf_old", std::string("/" + get_module_prefix() + "/receiving_Rf_old"))){
+  std::cout << "ERROR connecting YARP ports " << std::endl ;
+  return false ;
+  }   
+   receiving_Rf_old_initted = false ;
+    // yarp::sig::Matrix Big_J_data;   
+
    
    // end of the ...  YARP Port Section
    //----------------------------------------------------------------------------------------------------------------
@@ -699,6 +712,7 @@ bool locoman_control_thread::custom_init()
   //
   SENSORS_WINDOW.zero() ;
   Rf_feet.zero() ; 
+  Rf_feet_old.zero();
   Big_J_new.zero();
   Big_Rf_new.zero();
   //Rf_data.zero();
@@ -1257,6 +1271,23 @@ void locoman_control_thread::run()
    //std::cout << "Big_Rf_new.toString() = " << Big_Rf_new.toString() << std::endl ;    
    } 
   
+  //-----------------------------------------------------------------------------------------------------------------------
+  if(!receiving_Rf_old_initted){ Rf_old_received = receiving_Rf_old.read();  // if we are in the first loop... 
+      if(Rf_old_received){ Rf_old_data = *Rf_old_received;
+	receiving_Rf_old_initted = true ; }
+  }
+  else {  Rf_old_received = receiving_Rf_old.read(false) ; //porta non bloccante
+      if(Rf_old_received){Rf_old_data = *Rf_old_received; }
+  };  
+  
+  Rf_feet_old = Rf_old_data ;
+  if(cout_print){
+    std::cout << "Rf_feet_old.rows() = " << Rf_feet_old.rows() << std::endl ;
+    std::cout << "Rf_feet_old.cols() = " << Rf_feet_old.cols() << std::endl ;
+   //std::cout << "Big_Rf_new.toString() = " << Big_Rf_new.toString() << std::endl ;    
+   } 
+  
+  
   
   // End of the YARP Port Section
   //---------------------------------------------------------------------
@@ -1594,7 +1625,81 @@ void locoman_control_thread::run()
     {
       // TODO , fino a tocco
       
-    }    
+    }
+    
+    //-----------------------------------------------------------------------------------------------------
+    if (last_command =="to_rg_old" || last_command =="right_old" )
+     {
+      locoman::utils::FC_DES_right(FC_DES, mg) ;  // all the weight on the right foot
+      d_fc_feet_des = FC_DES -1.0*fc_feet_to_world;
+      
+      // Computing d_q //   
+      regu_filter = 1E7 ; 
+      d_q_move = -1.0* locoman::utils::Pinv_Regularized( Rf_feet_old , regu_filter)* d_fc_feet_des ;
+     // Limiting for safety
+     if(norm(d_q_move) > 0.005 ) {d_q_move =  0.005 *d_q_move/ norm(d_q_move) ; } 
+    err_min = 30.0 ; //10.0 ;
+    err_max = 150.0 ;  //40.0 ; 
+    err_fc_feet  = norm( d_fc_feet_opt )  ; 
+    alpha_V = locoman::utils::alpha_filter(err_fc_feet, err_min, err_max) ;  
+    
+     std::cout << "d_q_move @ to_rg_old = "  << d_q_move.toString() << std::endl ;  
+    std::cout << "err_fc_feet @ to_rg_old = "  << err_fc_feet << std::endl ;  
+    std::cout << "alpha_V @ to_rg_old = "  << alpha_V << std::endl ;     
+    
+    }
+    // -------------------------------------------------------------------------
+     else if (last_command =="to_lf_old" || last_command =="left_old"  )
+     { 
+     locoman::utils::FC_DES_left(FC_DES, mg) ; // all the weight on the left foot
+     //locoman::utils::FC_DES_right(FC_DES, mg) ;  
+     d_fc_feet_des = FC_DES -1.0*fc_feet_to_world;
+     
+     regu_filter = 1E7 ;   
+     d_q_move = -1.0* locoman::utils::Pinv_Regularized( Rf_feet_old , regu_filter)* d_fc_feet_des ;
+     // Limiting for safety
+     
+     double max_norm = 0.001 ;
+    if(norm(d_q_move) > max_norm ) {d_q_move =  max_norm *d_q_move/ norm(d_q_move) ; } 
+    err_min = 30.0 ; //10.0 ;
+    err_max = 150.0 ;  //40.0 ; 
+    err_fc_feet = norm( d_fc_feet_opt )  ; 
+    alpha_V = locoman::utils::alpha_filter(err_fc_feet, err_min, err_max) ;  
+    
+    std::cout << "d_q_move @ to_lf_old = "  << d_q_move.toString() << std::endl ;  
+    std::cout << "err_fc_feet @ to_lf_old = "  << err_fc_feet << std::endl ;  
+    std::cout << "alpha_V @ to_lf_old = "  << alpha_V << std::endl ;  
+
+    }
+    
+   // -------------------------------------------------------------------------    
+   else if (last_command =="to_cr_old"|| last_command =="center_old" )  
+     { 
+       locoman::utils::FC_DES_center(FC_DES, mg) ;  // half weight on the right, half on the left foot
+       d_fc_feet_des = FC_DES -1.0*fc_feet_to_world;
+       // Computing d_q //   
+       regu_filter = 1E7 ; 
+       
+       d_q_move = -1.0*locoman::utils::Pinv_Regularized( Rf_feet_old , regu_filter)* d_fc_feet_des ; // 
+     
+     // Limiting for safety
+     double max_norm = 0.001 ;
+    if(norm(d_q_move) > max_norm ) {d_q_move =  max_norm *d_q_move/ norm(d_q_move) ; } 
+      err_min = 30.0 ; //10.0 ;
+      err_max = 1500.0 ;  //40.0 ; 
+      err_fc_feet = norm( d_fc_feet_opt )  ; 
+      alpha_V = locoman::utils::alpha_filter(err_fc_feet, err_min, err_max) ;     
+      
+    std::cout << "FC_DES @ center_old = "  << FC_DES.toString() << std::endl ;  
+    std::cout << "fc_feet_to_world @ center_old = "  << fc_feet_to_world.toString() << std::endl ;  
+
+    std::cout << "d_q_move @ center_old = "  << d_q_move.toString() << std::endl ;  
+    std::cout << "err_fc_feet @ center_old = "  << err_fc_feet << std::endl ;  
+    std::cout << "alpha_V @ center_old = "  << alpha_V << std::endl ;  
+      
+    }
+    
+    
    
    //TODO esperimento di balancing con bacinella dove vengono buttati pesi...
    //TODO esperimento di balancing con peso in mano e braccio che si muove...

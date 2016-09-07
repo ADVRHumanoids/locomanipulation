@@ -50,6 +50,11 @@ private:
     bool receiving_Big_Rf_initted ;
     yarp::sig::Matrix Big_Rf_data;
     
+    yarp::os::BufferedPort<yarp::sig::Matrix> receiving_Rf_old ;
+    yarp::sig::Matrix *Rf_old_received ;
+    bool receiving_Rf_old_initted ;
+    yarp::sig::Matrix Rf_old_data;
+    
     //---------------------------------------------------------------------------------------------
     
     
@@ -132,9 +137,9 @@ public:
     yarp::sig::Vector y_k_1 ;
  
     yarp::sig::Matrix Rf_feet ; // 
+    yarp::sig::Matrix Rf_feet_old ;
     yarp::sig::Matrix Big_J_new ; // 
     yarp::sig::Matrix Big_Rf_new ; // 
-
     
     yarp::sig::Vector mu_l_foot_vect ; // one for each contact point
     yarp::sig::Vector mu_r_foot_vect ; // one for each contact point
