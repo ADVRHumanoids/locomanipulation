@@ -1571,10 +1571,12 @@ void locoman_control_thread::run()
        
     }
      
+ 
    else if (last_command =="rg_foot_up" || last_command =="right_foot_up" )
      {
        yarp::sig::Matrix T_rg_up = Eye_4 ;
        T_rg_up[2][3] = 0.1 ;
+
        d_q_move = locoman::utils::WB_Cartesian_Tasks( 
                             Eye_4,             // T_l_hand_des,
                             Eye_4,             // T_r_hand_des,
@@ -1584,34 +1586,44 @@ void locoman_control_thread::run()
                             Big_J_new.submatrix(0,5,0,Big_J_new.cols()-1) ,
                             Big_J_new.submatrix(6,11,0,Big_J_new.cols()-1) ,
                             Big_J_new.submatrix(12,17,0,Big_J_new.cols()-1) ,
-                            Big_J_new.submatrix(18,13,0,Big_J_new.cols()-1) ,
+                            Big_J_new.submatrix(18,23,0,Big_J_new.cols()-1) ,
                             Big_J_new.submatrix(24,Big_J_new.rows()-1,0,Big_J_new.cols()-1) 
                                         ) ;  
 	// Limiting for safety
-	if(norm(d_q_move) > 0.005 ) { d_q_move =  0.005 *d_q_move/ norm(d_q_move) ; } 
+	if(norm(d_q_move) > 0.1 ) { d_q_move =  0.1 *d_q_move/ norm(d_q_move) ; } 
         alpha_V = 1.0 ; 
+	
+    std::cout << "d_q_move @ rg_foot_up = "  << d_q_move.toString() << std::endl ;  
+    std::cout << "alpha_V @ rg_foot_up = "  << alpha_V << std::endl ;  
     }
-      else if (last_command =="lf_foot_up" || last_command =="left_foot_up" )
+     
+   else if (last_command =="lf_foot_up" || last_command =="left_foot_up" )
      {
        yarp::sig::Matrix T_lf_up = Eye_4 ;
        T_lf_up[2][3] = 0.1 ;
+
        d_q_move = locoman::utils::WB_Cartesian_Tasks( 
                             Eye_4,             // T_l_hand_des,
                             Eye_4,             // T_r_hand_des,
-                            T_lf_up,             // T_l1_foot_des ,
+                            T_lf_up,           // T_l1_foot_des ,
                             Eye_4,             // T_r1_foot_des ,
                             zero_3,            //CoM_err ,
                             Big_J_new.submatrix(0,5,0,Big_J_new.cols()-1) ,
                             Big_J_new.submatrix(6,11,0,Big_J_new.cols()-1) ,
                             Big_J_new.submatrix(12,17,0,Big_J_new.cols()-1) ,
-                            Big_J_new.submatrix(18,13,0,Big_J_new.cols()-1) ,
+                            Big_J_new.submatrix(18,23,0,Big_J_new.cols()-1) ,
                             Big_J_new.submatrix(24,Big_J_new.rows()-1,0,Big_J_new.cols()-1) 
                                         ) ;  
 	// Limiting for safety
-	if(norm(d_q_move) > 0.005 ) { d_q_move =  0.005 *d_q_move/ norm(d_q_move) ; } 
+	if(norm(d_q_move) > 0.1 ) { d_q_move =  0.1 *d_q_move/ norm(d_q_move) ; } 
         alpha_V = 1.0 ; 
+	
+    std::cout << "d_q_move @ lf_foot_up = "  << d_q_move.toString() << std::endl ;  
+    std::cout << "alpha_V @ lf_foot_up = "  << alpha_V << std::endl ;  
     }
-    else if (last_command =="rg_hand_up" || last_command =="right_hand_up" )
+ 
+ 
+ else if (last_command =="rg_hand_up" || last_command =="right_hand_up" )
      {
        yarp::sig::Matrix T_rg_up = Eye_4 ;
        T_rg_up[0][3] = 0.5 ;
