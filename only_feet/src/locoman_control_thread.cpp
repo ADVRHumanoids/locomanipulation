@@ -1398,7 +1398,7 @@ void locoman_control_thread::run()
    alpha_V = locoman::utils::alpha_filter(err_fc_feet, err_min, err_max) ;  
 
    if(cout_print){std::cout << " err_fc_feet  =  "<< std::endl << err_fc_feet << std::endl  ; 
-       std::cout << " alpha_V  =  "<< std::endl << alpha_V << std::endl  ; 
+       std::cout << " alpha_V  =  " << std::endl << alpha_V << std::endl  ; 
      }
 
 //   char file_name[] = "err.m";   // writing
@@ -1406,7 +1406,7 @@ void locoman_control_thread::run()
 //   if( err_cl.is_open() )
 //   err_cl <<  err_fc_feet << std::endl;  
     
-           std::cout << " FC_DES[2]  =  "<< std::endl << FC_DES[2]  << std::endl  ; 
+           std::cout << " FC_DES  = " << std::endl << FC_DES.toString()  << std::endl  ; 
   } // closing the -if(optimize_V)- part
   
   
@@ -1642,7 +1642,7 @@ void locoman_control_thread::run()
  else if (last_command =="rg_hand_up" || last_command =="right_hand_up" )
      {
        yarp::sig::Matrix T_rg_up = Eye_4 ;
-       T_rg_up[0][3] = 0.5 ;
+       T_rg_up[0][3] = 0.1 ;
 
        d_q_move = locoman::utils::WB_Cartesian_Tasks( 
                             Eye_4,             // T_l_hand_des,
