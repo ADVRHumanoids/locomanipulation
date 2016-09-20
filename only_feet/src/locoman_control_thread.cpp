@@ -1051,7 +1051,7 @@ bool locoman_control_thread::custom_init()
   std::cout << " final error offset =  " <<  norm(q_current - q_des) << std::endl;     
 
   //-------------------------------------------
-  IK.initialize("right_arm",KDL::Frame::Identity(),right_arm_config_0 ) ;
+  IK.initialize("right_arm",right_arm_config_0 ) ; // ,KDL::Frame::Identity(),right_arm_config_0 
   //------------------------------------------------------------------------------------------
   char vai_2 ;
   std::cout << " waiting for a keyboard input before starting the Control Loop !!! " << std::endl ;
@@ -1261,9 +1261,25 @@ void locoman_control_thread::run()
   if(cout_print){
     std::cout << "Big_J_new.rows() = " << Big_J_new.rows() << std::endl ;
     std::cout << "Big_J_new.cols() = " << Big_J_new.cols() << std::endl ;
-    //std::cout << "Big_J_new.toString() = " << Big_J_new.toString() << std::endl ;    
-   } 
+    std::cout << "Big_J_new.toString() = " <<std::endl << Big_J_new.toString() << std::endl ;    
+    yarp::sig::Matrix Big_J_short = Big_J_new.submatrix(0,Big_J_new.rows() -1 , 6, Big_J_new.cols()-1 ) ;
+   
+      std::cout << "Big_J_short.toString() = " <<std::endl << Big_J_short.toString() << std::endl ;    
+
+   yarp::sig::Matrix Big_J_short_1 = Big_J_new.submatrix(0, 5 , 6, Big_J_new.cols()-1 ) ;
+   yarp::sig::Matrix Big_J_short_2 = Big_J_new.submatrix(6,11, 6, Big_J_new.cols()-1 ) ;
+    yarp::sig::Matrix Big_J_short_3 = Big_J_new.submatrix(12,17 , 6, Big_J_new.cols()-1 ) ;
+    yarp::sig::Matrix Big_J_short_4 = Big_J_new.submatrix(18,23 , 6, Big_J_new.cols()-1 ) ;
+
+      std::cout << "Big_J_short_1.toString() = " <<std::endl << Big_J_short_1.toString() << std::endl ;    
+      std::cout << "Big_J_short_2.toString() = " <<std::endl << Big_J_short_2.toString() << std::endl ;    
+      std::cout << "Big_J_short_3.toString() = " <<std::endl << Big_J_short_3.toString() << std::endl ;    
+      std::cout << "Big_J_short_4.toString() = " <<std::endl << Big_J_short_4.toString() << std::endl ;    
+   
+   
+  } 
   
+  abort() ;
    //-----------------------------------------------------------------------------------------------------------------------
   if(!receiving_Big_Rf_initted){ Big_Rf_received = receiving_Big_Rf.read();  // if we are in the first loop... 
       if(Big_Rf_received){ Big_Rf_data = *Big_Rf_received;

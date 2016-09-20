@@ -22,7 +22,7 @@ private:
     
     yarp::os::BufferedPort<yarp::sig::Vector> to_service_2 ;
     yarp::os::BufferedPort<yarp::sig::Vector> sending_q    ;
-    yarp::os::BufferedPort<yarp::sig::Vector> sending_fc    ;
+    yarp::os::BufferedPort<yarp::sig::Vector> sending_fc   ;
    
     //prototype
 //     yarp::os::BufferedPort<yarp::sig::Vector> receiving_Rf;
